@@ -24,6 +24,7 @@ import {
   cardLevelValue,
   clampTier,
   maxDeckForTier,
+  tierBaseLife,
   levelUpCost,
   masteryUpCost,
   shardReward,
@@ -385,7 +386,10 @@ export class GameApp {
       humanDeck: this.playerDeck,
       aiDeck: boss.cards,
       seed: `${this.seed}-t${this.tier}-b${bossIndex}-${this.matchCount}`, // salt so demo re-fights vary
-      bonusLife: { AI: hc.bonusLife, HUMAN: -tierPlayerLifePenalty(this.tier) },
+      bonusLife: {
+        AI: tierBaseLife(this.tier) + hc.bonusLife,
+        HUMAN: tierBaseLife(this.tier) - tierPlayerLifePenalty(this.tier),
+      },
       bonusStartMana: { AI: hc.bonusStartMana },
       // `save` is the Autoplay slot during a demo, the active player slot otherwise. Bosses level by tier.
       cardLevels: { HUMAN: this.save.collection, AI: this.aiCardLevels() },

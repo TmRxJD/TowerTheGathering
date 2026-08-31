@@ -25,6 +25,7 @@ import {
   clampTier,
   createRng,
   maxDeckForTier,
+  tierBaseLife,
   shardReward,
   spendShards,
   takeRewardAndTrim,
@@ -66,7 +67,7 @@ function run(): void {
 
   console.log(`Progression speedrun — player=${PLAYER_AI} boss=${BOSS_AI} retryCap=${RETRY_CAP} tiers=1..${MAXTIER}`)
   console.log(`One card: levels 546 + masteries 8550 = ${cardMaxCost()} shards · whole ${ALL_CARD_IDS.length}-card collection = ${cardMaxCost() * ALL_CARD_IDS.length}\n`)
-  console.log('tier  clr  matches  earned    cumEarned  bank    ups  deckLvl  deckMst  deckMaxed  size')
+  console.log('tier  clr  matches  earned    cumEarned  bank    ups  deckLvl  deckMst  deckMaxed  size  wTurns')
   const milestones: string[] = []
   let deckLevelsDoneTier = 0
   let firstMasteryTier = 0
@@ -77,6 +78,8 @@ function run(): void {
     let matches = 0
     let ups = 0
     let stuck: number | null = null
+    let winTurns = 0
+    let wonCount = 0
 
     for (const boss of BOSS_DECKS) {
       let win = false
@@ -89,9 +92,9 @@ function run(): void {
           seed: `${SEED}-t${tier}-b${boss.index}-a${attempts}`,
           humanArchetype: 'balanced',
           aiArchetype: boss.archetype,
-          aiBonusLife: hc.bonusLife,
+          aiBonusLife: tierBaseLife(tier) + hc.bonusLife,
           aiBonusStartMana: hc.bonusStartMana,
-          humanBonusLife: -tierPlayerLifePenalty(tier),
+          humanBonusLife: tierBaseLife(tier) - tierPlayerLifePenalty(tier),
           aiDepth: tierAiDepth(tier),
           humanAi: PLAYER_AI,
           aiAi: BOSS_AI,
@@ -102,6 +105,10 @@ function run(): void {
         matches++
         totalMatches++
         win = out.result?.winner === 'HUMAN'
+        if (win) {
+          winTurns += out.turns
+          wonCount++
+        }
       }
       if (!win) {
         stuck = boss.index
@@ -138,7 +145,7 @@ function run(): void {
       milestones.push(`Deck FULLY maxed at Tier ${tier} (cum ${totalEarned})`)
     }
     console.log(
-      `${pad(tier, 4)}  ${stuck ? ' ✗ ' : ' ✓ '}  ${pad(matches, 7)}  ${pad(earned, 6)}  ${pad(totalEarned, 9)}  ${pad(bank, 6)}  ${pad(ups, 5)}  ${pad(avg(deckLvls).toFixed(1), 7)}  ${pad(avg(deckMst).toFixed(1), 7)}  ${pad(maxed + '/' + ids.length, 9)}  ${pad(deck.length, 4)}`,
+      `${pad(tier, 4)}  ${stuck ? ' ✗ ' : ' ✓ '}  ${pad(matches, 7)}  ${pad(earned, 6)}  ${pad(totalEarned, 9)}  ${pad(bank, 6)}  ${pad(ups, 5)}  ${pad(avg(deckLvls).toFixed(1), 7)}  ${pad(avg(deckMst).toFixed(1), 7)}  ${pad(maxed + '/' + ids.length, 9)}  ${pad(deck.length, 4)}  ${pad(wonCount ? (winTurns / wonCount).toFixed(0) : '-', 6)}`,
     )
     if (stuck) {
       console.log(`\nSTUCK at Tier ${tier}, boss ${stuck} — lost ${RETRY_CAP} straight even after upgrading.`)

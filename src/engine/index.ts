@@ -42,6 +42,7 @@ export {
   BATTLE_CONDITION_TIER,
   clampTier,
   maxDeckForTier,
+  tierBaseLife,
   tierName,
   tierAiDepth,
   tierBossHandicap,

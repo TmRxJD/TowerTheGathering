@@ -43,6 +43,15 @@ export function tierName(level: number): string {
   return `Tier ${clampTier(level)}`
 }
 
+/** Extra Nexus life BOTH sides receive at a tier, so battles last longer and lengthen as you climb —
+ *  the fun is in developing your board, and a 20-HP sprint ends before the build gets going. By the
+ *  top tiers this is a long slog where your climbed-up deck size (fatigue resistance) and card levels
+ *  decide it. The boss stacks its difficulty edge (tierBossHandicap) ON TOP of this shared pool. */
+export function tierBaseLife(level: number): number {
+  const t = clampTier(level)
+  return 12 + t * 6 // T1 +18 (≈38 HP), T10 +72, T24 +156 — roughly linear growth in battle length
+}
+
 /** Search depth by tier: a beatable 1-ply intro, 2-ply anti-cheese through the mid tiers, and a
  *  3-ply searcher from Tier 14 (battle conditions) up — it reads two of your turns ahead, so it holds
  *  removal, avoids overcommitting, and sets up lethal far better. (3-ply ≈ 31ms/turn, imperceptible.) */
@@ -66,12 +75,12 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   // Within-tier ramp: boss 1 is the softest of the tier and boss 10 the hardest, and that gap widens
   // with the tier — so climbing the ladder always FEELS like it's getting harder, regardless of which
   // archetype sits at each rung.
-  const bossRamp = Math.round((i - 1) * (0.6 + t * 0.16)) // T1: 0..~5, T24: 0..~40
-  const tierFloor = Math.round(Math.max(0, t - 2) * 1.1) // a rising floor across tiers (all bosses)
-  const hard = Math.round(Math.max(0, t - 13) * 1.4) // the mid-late squeeze, from Tier 14
-  const brutal = Math.max(0, t - 20) * 4 // Tiers 21-24 spike hard
-  const nightmare = t >= MAX_TIER ? 40 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
-  const capstone = i === 10 ? Math.round(Math.max(0, t - 2) * 1.4) : 0 // the tier boss grows fastest
+  const bossRamp = Math.round((i - 1) * (0.8 + t * 0.28)) // widening within-tier ramp
+  const tierFloor = Math.round(Math.max(0, t - 2) * 1.8) // a rising floor across tiers (all bosses)
+  const hard = Math.round(Math.max(0, t - 13) * 2.6) // the mid-late squeeze, from Tier 14
+  const brutal = Math.max(0, t - 20) * 8 // Tiers 21-24 spike hard
+  const nightmare = t >= MAX_TIER ? 90 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
+  const capstone = i === 10 ? Math.round(Math.max(0, t - 2) * 2.6) : 0 // the tier boss grows fastest
   const bonusStartMana = t >= 23 ? 1 : 0 // a small tempo edge only at the very top
   return { bonusLife: tierFloor + bossRamp + hard + brutal + nightmare + capstone, bonusStartMana }
 }
@@ -80,5 +89,7 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
  *  but tempered so the very top isn't a one-hit coin-flip (the boss's huge HP carries the wall). */
 export function tierPlayerLifePenalty(level: number): number {
   const t = clampTier(level)
-  return Math.max(0, t - (BATTLE_CONDITION_TIER - 1)) // T14 -1 … T24 -11
+  // Scaled against the larger tier HP pool so "battle conditions" stay a real bite at the top: the
+  // boss is a long tanky slog, but you fight it on a shorter life bar the higher you climb.
+  return Math.max(0, t - (BATTLE_CONDITION_TIER - 1)) * 5 // T14 -5 … T24 -55
 }
