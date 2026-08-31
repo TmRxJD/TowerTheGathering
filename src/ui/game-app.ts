@@ -50,7 +50,7 @@ import {
 import { SearchAI } from '../ai'
 import { cardArtUrl, portraitUrl } from './card-art'
 import { FxLayer } from './fx-layer'
-import { loadSave, writeSave, type SaveState } from './save'
+import { loadSaves, writeSaves, freshSave, PLAYER_SLOTS, type SaveState, type SavesFile } from './save'
 
 const LANES: readonly Lane[] = ['LEFT', 'CENTER', 'RIGHT']
 
@@ -116,14 +116,15 @@ export class GameApp {
   private watchTimer: ReturnType<typeof setTimeout> | null = null
   /** The player's deck for the current ladder run; grows/trims via the reward step between bosses. */
   private playerDeck: string[] = [...STARTER_DECK]
-  private save: SaveState = { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
+  /** All four saves (3 player slots + the Autoplay slot). `save` points at whichever is in force:
+   *  the active player slot during real play, the Autoplay slot while a demo is running. */
+  private saves: SavesFile = { activeSlot: 0, slots: [freshSave(), freshSave(), freshSave()], ai: freshSave() }
+  private save: SaveState = this.saves.slots[0]!
   private collSort: 'cost' | 'rarity' | 'type' = 'cost'
-  /** Autoplay self-progression: its own collection/shard bank that it levels between rounds as it
-   *  climbs the tiers (never touches the real save). */
-  private demoCollection: CardLevels = {}
-  private demoShards = 0
   private demoStuck = 0
   private matchCount = 0
+  private matchStartMs = 0
+  private tierStartMs = 0
   private toastEl!: HTMLElement
   /** True during a menu "Watch Demo" run — a throwaway ladder that never touches the saved run. */
   private demo = false
@@ -163,7 +164,8 @@ export class GameApp {
     this.onResult = opts.onResult
     this.seed = opts.seed ?? 'ttg'
     this.bossIndex = Math.min(Math.max(1, opts.boss ?? 1), BOSS_DECKS.length)
-    this.save = loadSave()
+    this.saves = loadSaves()
+    this.save = this.saves.slots[this.saves.activeSlot]!
     if (this.save.run) {
       this.playerDeck = [...this.save.run.deck]
       this.bossIndex = this.save.run.bossIndex
@@ -176,11 +178,54 @@ export class GameApp {
     this.showMenu()
   }
 
-  /** Persist the current run + best progress. A demo run never persists. */
+  private persistSaves(): void {
+    writeSaves(this.saves)
+  }
+
+  /** Point `save` at the Autoplay slot (demo) or the active player slot. */
+  private setContext(demo: boolean): void {
+    this.demo = demo
+    this.save = demo ? this.saves.ai : this.saves.slots[this.saves.activeSlot]!
+  }
+
+  /** Leave a running demo and hand control back to the player's own save + menu. */
+  private exitDemoToMenu(): void {
+    if (this.watchTimer) clearTimeout(this.watchTimer)
+    this.watchTimer = null
+    this.watching = false
+    this.setContext(false)
+    this.showMenu()
+  }
+
+  private now(): number {
+    return Date.now()
+  }
+  /** Fold this battle's elapsed time into the active save's lifetime stats. */
+  private recordMatchTime(): void {
+    this.save.meta.timeMs += Math.max(0, this.now() - this.matchStartMs)
+  }
+  private recordWin(turns: number): void {
+    this.save.meta.wins++
+    const f = this.save.meta.fastestWinTurns
+    if (f === null || turns < f) this.save.meta.fastestWinTurns = turns
+  }
+  private recordTierClear(): void {
+    const dt = Math.max(1, this.now() - this.tierStartMs)
+    const f = this.save.meta.fastestTierMs
+    if (f === null || dt < f) this.save.meta.fastestTierMs = dt
+  }
+  /** Count of cards fully maxed (level 7 + mastery 9) in the active collection. */
+  private cardsMaxed(): number {
+    let n = 0
+    for (const e of Object.values(this.save.collection)) if (e.level >= CARD_MAX_LEVEL && e.mastery >= MASTERY_MAX_LEVEL) n++
+    return n
+  }
+
+  /** Persist the active player run. (The Autoplay slot persists via its own demo flow.) */
   private persist(): void {
     if (this.demo || !this.started) return
     this.save.run = { tier: this.tier, bossIndex: this.bossIndex, deck: [...this.playerDeck] }
-    writeSave(this.save)
+    this.persistSaves()
   }
 
   // -------------------------------------------------------------------------
@@ -333,8 +378,8 @@ export class GameApp {
       seed: `${this.seed}-t${this.tier}-b${bossIndex}-${this.matchCount}`, // salt so demo re-fights vary
       bonusLife: { AI: hc.bonusLife, HUMAN: -tierPlayerLifePenalty(this.tier) },
       bonusStartMana: { AI: hc.bonusStartMana },
-      // Autoplay runs its own upgraded collection; a real run uses your saved one. Bosses level by tier.
-      cardLevels: { HUMAN: this.demo ? this.demoCollection : this.save.collection, AI: this.aiCardLevels() },
+      // `save` is the Autoplay slot during a demo, the active player slot otherwise. Bosses level by tier.
+      cardLevels: { HUMAN: this.save.collection, AI: this.aiCardLevels() },
     })
     this.engine = engine
     this.ai = new SearchAI(engine, 'AI', boss.archetype, depth)
@@ -357,6 +402,14 @@ export class GameApp {
       this.nexus.AI.portrait.textContent = '🏰'
     }
     this.bossSelect.value = String(this.bossIndex)
+    this.matchStartMs = this.now()
+    if (bossIndex === 1) this.tierStartMs = this.matchStartMs
+    if (this.started || this.demo) this.save.meta.matches++ // not the menu-backdrop match on load
+    if (this.demo) {
+      // The Autoplay slot persists its own resume point.
+      this.save.run = { tier: this.tier, bossIndex, deck: [...this.playerDeck] }
+      this.persistSaves()
+    }
     this.persist()
     this.render()
     if (this.watching) this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 700)
@@ -379,20 +432,19 @@ export class GameApp {
   private finishMatch(): void {
     const res = this.engine.result()
     if (!res) return
-    if (this.demo) {
-      this.demo = false
-      this.showMenu()
-      return
-    }
+    if (this.demo) return // demos resolve through onWatchGameOver
+    this.recordMatchTime()
     // Winning a boss earns shards. Income scales with tier² so higher tiers are the real source and
     // maxing the whole collection is a long, climb-the-ladder grind — not something tier 1 can do.
     if (res.winner === 'HUMAN') {
+      this.recordWin(res.turns)
       const gained = shardReward(this.tier, this.bossIndex)
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
+        this.recordTierClear()
       }
-      writeSave(this.save)
+      this.persistSaves()
       this.showToast(`+${gained} shards`)
     }
     const boss = BOSS_DECKS[this.bossIndex - 1]!
@@ -436,6 +488,7 @@ export class GameApp {
   }
 
   private onCardClick(uid: number): void {
+    if (this.demo && !this.watching) return this.exitDemoToMenu() // took over a paused Autoplay → your save
     if (this.watching || this.busy || this.engine.snapshot().activeSide !== 'HUMAN' || this.engine.isOver())
       return
     if (this.selection?.uid === uid) {
@@ -497,6 +550,7 @@ export class GameApp {
   }
 
   private doAction(action: Action): void {
+    this.save.meta.moves++
     // Capture the played card's screen box BEFORE it leaves the hand, for the fly animation.
     const originUid = 'uid' in action ? action.uid : undefined
     const fromRect =
@@ -530,6 +584,7 @@ export class GameApp {
     if (this.engine.isOver()) return this.onWatchGameOver()
     const active = this.engine.snapshot().activeSide
     const bot = active === 'AI' ? this.ai : this.humanAi
+    if (this.demo && active === 'HUMAN') this.save.meta.moves++ // the Autoplay player's moves
     const events = bot.takeTurn()
     this.renderAndAnimate(events)
     if (this.engine.isOver()) return this.onWatchGameOver()
@@ -549,23 +604,31 @@ export class GameApp {
       return
     }
     const later = (ms: number, fn: () => void) => (this.watchTimer = globalThis.setTimeout(() => this.watching && fn(), ms))
+    this.recordMatchTime()
 
     if (res && res.winner === 'HUMAN') {
       this.demoStuck = 0
-      this.demoShards += shardReward(this.tier, this.bossIndex)
+      this.recordWin(res.turns)
+      this.save.shards += shardReward(this.tier, this.bossIndex)
       takeRewardAndTrim(this.playerDeck, () => Math.random())
-      this.demoShards = spendShards(this.demoCollection, this.playerDeck, this.demoShards).bank
+      this.save.shards = spendShards(this.save.collection, this.playerDeck, this.save.shards).bank
       if (this.bossIndex < BOSS_DECKS.length) {
+        this.persistSaves()
         later(1200, () => this.advanceBoss())
       } else if (this.tier < MAX_TIER) {
+        this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
+        this.recordTierClear()
         this.tier++
+        this.persistSaves()
         this.showToast(`${tierName(this.tier - 1)} cleared → ${tierName(this.tier)}`)
         later(1700, () => this.startMatch(1))
       } else {
+        this.save.highestTierCleared = MAX_TIER
+        this.recordTierClear()
+        this.save.run = null // finished the whole climb; next demo starts a fresh one
+        this.persistSaves()
         this.showToast(`Autoplay cleared all ${MAX_TIER} tiers! 🏆`)
-        this.watching = false
-        this.demo = false
-        globalThis.setTimeout(() => this.showMenu(), 2400)
+        globalThis.setTimeout(() => this.exitDemoToMenu(), 2600)
       }
       return
     }
@@ -573,18 +636,19 @@ export class GameApp {
     // Lost — re-fight the same boss (the match salt gives a fresh shuffle), up to a budget.
     this.demoStuck++
     if (this.demoStuck > 40) {
+      this.persistSaves()
       this.showToast(`Autoplay stalled at ${tierName(this.tier)}, boss ${this.bossIndex}`)
-      this.watching = false
-      this.demo = false
-      globalThis.setTimeout(() => this.showMenu(), 2400)
+      globalThis.setTimeout(() => this.exitDemoToMenu(), 2400)
       return
     }
     later(1000, () => this.startMatch(this.bossIndex))
   }
 
   private onEndTurn(): void {
+    if (this.demo && !this.watching) return this.exitDemoToMenu()
     if (this.watching || this.busy || this.engine.isOver() || this.engine.snapshot().activeSide !== 'HUMAN')
       return
+    this.save.meta.moves++
     this.hidePreview()
     this.selection = null
     this.busy = true
@@ -807,9 +871,9 @@ export class GameApp {
     }
   }
 
-  /** The card collection in force right now — the autoplay run's, or your saved one. */
+  /** The card collection in force right now — the Autoplay slot's, or your saved one. */
   private activeCollection(): CardLevels {
-    return this.demo ? this.demoCollection : this.save.collection
+    return this.save.collection
   }
 
   private createCardNode(uid: number, cardId: string): HTMLElement {
@@ -1211,7 +1275,7 @@ export class GameApp {
       this.overlay = null
       if (won && last) {
         this.save.run = null // run finished; the menu lets you pick a tier for a fresh run
-        writeSave(this.save)
+        this.persistSaves()
         this.showMenu()
       } else if (won) {
         this.showReward() // pick a card, trim, then advance
@@ -1250,11 +1314,18 @@ export class GameApp {
   // Start menu
   // -------------------------------------------------------------------------
 
+  private fmtTime(ms: number): string {
+    const s = Math.floor(ms / 1000)
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s % 60}s` : `${s}s`
+  }
+
   private showMenu(): void {
     this.root.querySelector('.ttg-menu')?.remove()
     if (this.watchTimer) clearTimeout(this.watchTimer)
     this.watching = false
-    this.demo = false
+    this.setContext(false) // menu always acts on the active player slot
     const run = this.save.run
     const unlockedMax = clampTier(this.save.highestTierCleared + 1) // gate: play up to the next tier
     const best =
@@ -1277,12 +1348,38 @@ export class GameApp {
         `<button class="ttg-mini" data-m="new">↺ New Run (selected tier)</button>`
       : `<button class="ttg-btn ready" data-m="new">▶ Start Run</button>`
 
+    // Save-slot picker (3 player slots). The Autoplay slot is separate, reached via Watch Demo.
+    const slotRow =
+      `<div class="menu-slots">` +
+      this.saves.slots
+        .map((s, i) => {
+          const used = s.highestTierCleared > 0 || s.shards > 0 || Object.keys(s.collection).length > 0 || s.run
+          const sub = used ? `T${s.highestTierCleared} · 💠${this.fmtShards(s.shards)}` : 'empty'
+          return `<button class="slot-btn${i === this.saves.activeSlot ? ' on' : ''}" data-slot="${i}">Save ${i + 1}<small>${sub}</small></button>`
+        })
+        .join('') +
+      `</div>`
+
+    const meta = this.save.meta
+    const stat = (icon: string, val: string, label: string) => `<span title="${label}">${icon} ${val}</span>`
+    const statsRow =
+      `<div class="menu-stats">` +
+      stat('⏱', this.fmtTime(meta.timeMs), 'Time in battle') +
+      stat('🎯', String(meta.moves), 'Total moves') +
+      stat('⚔', `${meta.wins}/${meta.matches}`, 'Battles won / played') +
+      stat('★', String(this.cardsMaxed()), 'Cards fully maxed') +
+      stat('⚡', meta.fastestWinTurns !== null ? `${meta.fastestWinTurns}t` : '—', 'Fastest battle (turns)') +
+      stat('🏁', meta.fastestTierMs !== null ? this.fmtTime(meta.fastestTierMs) : '—', 'Fastest tier clear') +
+      `</div>`
+
     const el = this.div('ttg-menu')
     el.innerHTML =
       `<div class="menu-card">` +
       `<div class="menu-logo">Tower: The Gathering</div>` +
       `<div class="menu-sub">A 1v1 mana lane battler — climb the 10-boss ladder across ${MAX_TIER} tiers.</div>` +
+      slotRow +
       best +
+      statsRow +
       tierRow +
       `<div class="menu-btns">` +
       primary +
@@ -1292,6 +1389,17 @@ export class GameApp {
       `<button class="ttg-mini menu-reset" data-m="reset">♻ Reset Progress</button>` +
       `</div></div>`
     const tierSel = () => Number((el.querySelector('#ttg-tiersel') as HTMLSelectElement | null)?.value) || 1
+    el.querySelectorAll<HTMLElement>('[data-slot]').forEach(b =>
+      b.addEventListener('click', () => {
+        this.saves.activeSlot = Number(b.dataset.slot) || 0
+        this.setContext(false)
+        const r = this.save.run
+        this.tier = r ? r.tier : 1
+        this.playerDeck = r ? [...r.deck] : [...STARTER_DECK]
+        this.persistSaves()
+        this.showMenu()
+      }),
+    )
     el.querySelectorAll<HTMLElement>('[data-m]').forEach(b =>
       b.addEventListener('click', () => {
         const m = b.dataset.m
@@ -1315,14 +1423,13 @@ export class GameApp {
           this.playerDeck = [...this.save.run.deck]
           this.startMatch(this.save.run.bossIndex)
         } else if (m === 'watch') {
-          // A full self-play demo: start fresh at Tier 1 and climb, levelling cards between rounds.
-          this.demo = true
-          this.tier = 1
-          this.playerDeck = [...STARTER_DECK]
-          this.demoCollection = {}
-          this.demoShards = 0
+          // Autoplay runs its own dedicated slot: resume its climb, or start a fresh one at Tier 1.
+          this.setContext(true)
           this.demoStuck = 0
-          this.startMatch(1)
+          const r = this.save.run
+          this.tier = r ? r.tier : 1
+          this.playerDeck = r ? [...r.deck] : [...STARTER_DECK]
+          this.startMatch(r ? r.bossIndex : 1)
           this.toggleWatch()
         } else {
           this.started = true
@@ -1352,27 +1459,40 @@ export class GameApp {
     return String(n)
   }
 
-  /** Wipe all saved progress (tiers, collection, shards, run) after confirmation, then reset to a
-   *  fresh menu. Irreversible — hence the explicit confirm step. */
+  /** Reset menu — wipe any one save (a player slot or the Autoplay slot), or everything at once.
+   *  Irreversible, so each choice is a distinct explicit button. */
   private confirmResetProgress(): void {
     this.root.querySelector('.ttg-confirm')?.remove()
     const el = this.div('ttg-modal ttg-confirm')
+    const rows =
+      this.saves.slots
+        .map((s, i) => `<button class="ttg-mini" data-reset="slot${i}">Reset Save ${i + 1} <small>(T${s.highestTierCleared} · 💠${this.fmtShards(s.shards)})</small></button>`)
+        .join('') +
+      `<button class="ttg-mini" data-reset="ai">Reset Autoplay <small>(T${this.saves.ai.highestTierCleared} · 💠${this.fmtShards(this.saves.ai.shards)})</small></button>`
     el.innerHTML =
       `<div class="modal-card confirm-card">` +
-      `<h3>Reset all progress?</h3>` +
-      `<div class="modal-sub">This permanently clears every cleared tier, all card levels &amp; masteries, and your ${this.fmtShards(this.save.shards)} 💠. This cannot be undone.</div>` +
-      `<div class="confirm-btns"><button class="ttg-mini" data-c="cancel">Cancel</button><button class="ttg-btn danger" data-c="reset">Reset everything</button></div>` +
+      `<h3>Reset progress</h3>` +
+      `<div class="modal-sub">Wipe a single save, or everything. This cannot be undone.</div>` +
+      `<div class="reset-list">${rows}</div>` +
+      `<div class="confirm-btns"><button class="ttg-mini" data-reset="cancel">Cancel</button><button class="ttg-btn danger" data-reset="all">Reset EVERYTHING</button></div>` +
       `</div>`
-    el.querySelectorAll<HTMLElement>('[data-c]').forEach(b =>
+    el.querySelectorAll<HTMLElement>('[data-reset]').forEach(b =>
       b.addEventListener('click', () => {
-        if (b.dataset.c === 'reset') {
-          this.save = { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
-          writeSave(this.save)
-          el.remove()
-          this.showMenu()
-        } else {
-          el.remove()
+        const what = b.dataset.reset
+        if (what === 'cancel') return el.remove()
+        if (what === 'all') {
+          this.saves = { activeSlot: 0, slots: [freshSave(), freshSave(), freshSave()], ai: freshSave() }
+        } else if (what === 'ai') {
+          this.saves.ai = freshSave()
+        } else if (what?.startsWith('slot')) {
+          this.saves.slots[Number(what.slice(4))] = freshSave()
         }
+        this.setContext(false)
+        this.tier = 1
+        this.playerDeck = [...STARTER_DECK]
+        this.persistSaves()
+        el.remove()
+        this.showMenu()
       }),
     )
     el.addEventListener('click', e => {
@@ -1496,7 +1616,7 @@ export class GameApp {
         if (this.save.shards < cost) return
         this.save.shards -= cost
         this.save.collection[cardId] = { level: level + 1, mastery }
-        writeSave(this.save)
+        this.persistSaves()
         this.showCardDetail(cardId)
       })
     } else if (!masteryMaxed) {
@@ -1507,7 +1627,7 @@ export class GameApp {
         if (this.save.shards < cost) return
         this.save.shards -= cost
         this.save.collection[cardId] = { level, mastery: mastery + 1 }
-        writeSave(this.save)
+        this.persistSaves()
         this.showCardDetail(cardId)
       })
     } else {

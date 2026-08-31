@@ -1161,6 +1161,59 @@
 }
 
 /* --- Collection: a compact grid of faces (no inner scrollbar) ----------- */
+.menu-slots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.slot-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 12px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ttg-line);
+  color: var(--ttg-dim);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  transition: background 0.14s, color 0.14s;
+}
+.slot-btn small {
+  font-size: 9px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.slot-btn.on {
+  background: var(--ttg-accent);
+  color: #06101f;
+  border-color: var(--ttg-accent);
+}
+.menu-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ttg-dim);
+  margin-bottom: 12px;
+}
+.menu-stats span {
+  white-space: nowrap;
+}
+.reset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.reset-list .ttg-mini small {
+  opacity: 0.7;
+  font-weight: 600;
+}
 .menu-reset {
   color: var(--ttg-dim);
   opacity: 0.75;
