@@ -16,4 +16,4 @@ export {
   type DeckValidation,
 } from './decks'
 export { createRng, type Rng } from './rng'
-export { createEngine } from './engine'
+export { createEngine, createEngineFromState } from './engine'

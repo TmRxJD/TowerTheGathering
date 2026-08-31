@@ -4,9 +4,18 @@
  * thousands of these to settle balance and to prove games terminate.
  */
 
-import { createEngine, type GameResult, type Side } from '../engine'
+import { createEngine, type Engine, type GameEvent, type GameResult, type Side } from '../engine'
 import type { Archetype } from '../engine'
-import { HeuristicAI } from '../ai'
+import { HeuristicAI, SearchAI } from '../ai'
+
+export type AiKind = 'search' | 'heuristic'
+
+interface Bot {
+  takeTurn(): GameEvent[]
+}
+function makeBot(kind: AiKind, engine: Engine, side: Side, archetype: Archetype): Bot {
+  return kind === 'heuristic' ? new HeuristicAI(engine, side, archetype) : new SearchAI(engine, side, archetype)
+}
 
 export interface MatchOptions {
   readonly humanDeck: readonly string[]
@@ -17,6 +26,10 @@ export interface MatchOptions {
   /** Ladder handicap applied to the AI side (see bossHandicap). */
   readonly aiBonusLife?: number
   readonly aiBonusStartMana?: number
+  /** Which AI drives each side (default 'search' both). Use 'heuristic' for a weaker, more
+   *  human-like player to gauge real difficulty against the smart bosses. */
+  readonly humanAi?: AiKind
+  readonly aiAi?: AiKind
   /** Safety cap; a game that exceeds it is reported as a timeout (never expected). */
   readonly turnCap?: number
 }
@@ -35,9 +48,9 @@ export function playMatch(opts: MatchOptions): MatchOutcome {
     bonusLife: { AI: opts.aiBonusLife ?? 0 },
     bonusStartMana: { AI: opts.aiBonusStartMana ?? 0 },
   })
-  const ai: Record<Side, HeuristicAI> = {
-    HUMAN: new HeuristicAI(engine, 'HUMAN', opts.humanArchetype ?? 'balanced'),
-    AI: new HeuristicAI(engine, 'AI', opts.aiArchetype ?? 'balanced'),
+  const ai: Record<Side, Bot> = {
+    HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced'),
+    AI: makeBot(opts.aiAi ?? 'search', engine, 'AI', opts.aiArchetype ?? 'balanced'),
   }
   const cap = opts.turnCap ?? 300
   let guard = 0

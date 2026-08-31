@@ -19,6 +19,7 @@ import type {
   CardRef,
   Engine,
   EngineOptions,
+  EngineState,
   GameEvent,
   GameResult,
   GameSnapshot,
@@ -28,11 +29,13 @@ import type {
   ModuleView,
   Phase,
   PlayerState,
+  PlayerStateSnapshot,
   PlayerView,
   SecretInstance,
   Side,
   Target,
   UnitInstance,
+  UnitState,
   UnitView,
 } from './types'
 import { LANES, SIDES } from './types'
@@ -84,17 +87,27 @@ class TowerEngine implements Engine {
   private readonly bonusLife: Partial<Record<Side, number>>
   private readonly bonusStartMana: Partial<Record<Side, number>>
 
-  constructor(opts: EngineOptions) {
+  constructor(opts: EngineOptions, restore?: EngineState) {
     this.rng = createRng(opts.seed ?? 'ttg-default')
-    this.activeSide = opts.firstPlayer ?? 'HUMAN'
-    this.shuffleDecks = opts.shuffle !== false
-    this.bonusLife = opts.bonusLife ?? {}
-    this.bonusStartMana = opts.bonusStartMana ?? {}
     this.lanes = {
       LEFT: { HUMAN: [], AI: [] },
       CENTER: { HUMAN: [], AI: [] },
       RIGHT: { HUMAN: [], AI: [] },
     }
+    if (restore) {
+      // Rebuild from a serialized state (clone / save-restore). Deck contents come from `restore`.
+      this.shuffleDecks = restore.shuffleDecks
+      this.bonusLife = restore.bonusLife
+      this.bonusStartMana = restore.bonusStartMana
+      this.activeSide = restore.activeSide
+      this.players = { HUMAN: this.blankPlayer('HUMAN'), AI: this.blankPlayer('AI') }
+      this.loadState(restore)
+      return
+    }
+    this.activeSide = opts.firstPlayer ?? 'HUMAN'
+    this.shuffleDecks = opts.shuffle !== false
+    this.bonusLife = opts.bonusLife ?? {}
+    this.bonusStartMana = opts.bonusStartMana ?? {}
     this.players = {
       HUMAN: this.newPlayer('HUMAN', opts.humanDeck),
       AI: this.newPlayer('AI', opts.aiDeck),
@@ -102,6 +115,129 @@ class TowerEngine implements Engine {
     for (const side of SIDES) {
       for (let i = 0; i < TUNING.OPENING_HAND; i++) this.drawCard(this.players[side], [])
     }
+  }
+
+  private blankPlayer(side: Side): PlayerState {
+    return {
+      side,
+      life: 0,
+      maxLife: 0,
+      manaMax: 0,
+      manaPool: 0,
+      deck: [],
+      hand: [],
+      discard: [],
+      modules: [],
+      secrets: [],
+      turnCount: 0,
+      skipNextCombat: false,
+      fatigue: 0,
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Serialize / clone / restore
+  // -------------------------------------------------------------------------
+
+  serialize(): EngineState {
+    const copyPlayer = (p: PlayerState): PlayerStateSnapshot => ({
+      side: p.side,
+      life: p.life,
+      maxLife: p.maxLife,
+      manaMax: p.manaMax,
+      manaPool: p.manaPool,
+      deck: p.deck.map(c => ({ ...c })),
+      hand: p.hand.map(c => ({ ...c })),
+      discard: p.discard.map(c => ({ ...c })),
+      modules: p.modules.map(m => ({ uid: m.uid, cardId: m.cardId, owner: m.owner, data: { ...m.data } })),
+      secrets: p.secrets.map(s => ({ ...s })),
+      turnCount: p.turnCount,
+      skipNextCombat: p.skipNextCombat,
+      fatigue: p.fatigue,
+    })
+    const copyUnit = (u: UnitInstance): UnitState => ({
+      uid: u.uid,
+      cardId: u.cardId,
+      owner: u.owner,
+      lane: u.lane,
+      atk: u.atk,
+      hp: u.hp,
+      maxHp: u.maxHp,
+      innate: [...u.innate],
+      tappedTurns: u.tappedTurns,
+      frozenTurns: u.frozenTurns,
+      invulnerableThisTurn: u.invulnerableThisTurn,
+      sacrificeAtEndOfTurn: u.sacrificeAtEndOfTurn,
+      chargedCritMultiplier: u.chargedCritMultiplier,
+    })
+    const lanes = {} as Record<Lane, Record<Side, UnitState[]>>
+    for (const lane of LANES) {
+      lanes[lane] = { HUMAN: this.lanes[lane].HUMAN.map(copyUnit), AI: this.lanes[lane].AI.map(copyUnit) }
+    }
+    return {
+      uidSeq: this.uidSeq,
+      turn: this.turn,
+      activeSide: this.activeSide,
+      phase: this.phase,
+      winner: this.winner,
+      players: { HUMAN: copyPlayer(this.players.HUMAN), AI: copyPlayer(this.players.AI) },
+      lanes,
+      pendingMana: { HUMAN: this.pendingMana.HUMAN, AI: this.pendingMana.AI },
+      rngState: this.rng.getState(),
+      shuffleDecks: this.shuffleDecks,
+      bonusLife: { ...this.bonusLife },
+      bonusStartMana: { ...this.bonusStartMana },
+    }
+  }
+
+  private loadState(state: EngineState): void {
+    this.uidSeq = state.uidSeq
+    this.turn = state.turn
+    this.activeSide = state.activeSide
+    this.phase = state.phase
+    this.winner = state.winner
+    this.pendingMana.HUMAN = state.pendingMana.HUMAN
+    this.pendingMana.AI = state.pendingMana.AI
+    for (const side of SIDES) {
+      const src = state.players[side]
+      const p = this.players[side]
+      p.life = src.life
+      p.maxLife = src.maxLife
+      p.manaMax = src.manaMax
+      p.manaPool = src.manaPool
+      p.deck = src.deck.map(c => ({ ...c }))
+      p.hand = src.hand.map(c => ({ ...c }))
+      p.discard = src.discard.map(c => ({ ...c }))
+      p.modules = src.modules.map(m => ({ uid: m.uid, cardId: m.cardId, owner: m.owner, data: { ...m.data } }))
+      p.secrets = src.secrets.map(s => ({ ...s }))
+      p.turnCount = src.turnCount
+      p.skipNextCombat = src.skipNextCombat
+      p.fatigue = src.fatigue
+    }
+    for (const lane of LANES) {
+      for (const side of SIDES) {
+        this.lanes[lane][side] = state.lanes[lane][side].map(u => ({
+          uid: u.uid,
+          cardId: u.cardId,
+          owner: u.owner,
+          lane: u.lane,
+          atk: u.atk,
+          hp: u.hp,
+          maxHp: u.maxHp,
+          innate: new Set<Keyword>(u.innate),
+          tappedTurns: u.tappedTurns,
+          frozenTurns: u.frozenTurns,
+          invulnerableThisTurn: u.invulnerableThisTurn,
+          sacrificeAtEndOfTurn: u.sacrificeAtEndOfTurn,
+          chargedCritMultiplier: u.chargedCritMultiplier,
+        }))
+      }
+    }
+    this.rng.setState(state.rngState)
+  }
+
+  clone(): Engine {
+    return new TowerEngine({ humanDeck: [], aiDeck: [] }, this.serialize())
   }
 
   // -------------------------------------------------------------------------
@@ -1015,4 +1151,9 @@ export function createEngine(opts: EngineOptions): { engine: Engine; opening: Ga
   const engine = new TowerEngine(opts)
   const opening = engine.start()
   return { engine, opening }
+}
+
+/** Rebuild an engine from a serialized state (save-restore / CLI). No opening events are produced. */
+export function createEngineFromState(state: EngineState): Engine {
+  return new TowerEngine({ humanDeck: [], aiDeck: [] }, state)
 }

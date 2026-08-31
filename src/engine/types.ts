@@ -250,6 +250,57 @@ export interface EngineOptions {
   readonly bonusStartMana?: Partial<Record<Side, number>>
 }
 
+// ---------------------------------------------------------------------------
+// Serializable full state (for cloning + save/restore; powers search + the CLI)
+// ---------------------------------------------------------------------------
+
+export interface UnitState {
+  uid: number
+  cardId: string
+  owner: Side
+  lane: Lane
+  atk: number
+  hp: number
+  maxHp: number
+  innate: Keyword[]
+  tappedTurns: number
+  frozenTurns: number
+  invulnerableThisTurn: boolean
+  sacrificeAtEndOfTurn: boolean
+  chargedCritMultiplier: number
+}
+
+export interface PlayerStateSnapshot {
+  side: Side
+  life: number
+  maxLife: number
+  manaMax: number
+  manaPool: number
+  deck: CardRef[]
+  hand: CardRef[]
+  discard: CardRef[]
+  modules: ModuleInstance[]
+  secrets: SecretInstance[]
+  turnCount: number
+  skipNextCombat: boolean
+  fatigue: number
+}
+
+export interface EngineState {
+  uidSeq: number
+  turn: number
+  activeSide: Side
+  phase: Phase
+  winner: Side | null
+  players: Record<Side, PlayerStateSnapshot>
+  lanes: Record<Lane, Record<Side, UnitState[]>>
+  pendingMana: Record<Side, number>
+  rngState: number
+  shuffleDecks: boolean
+  bonusLife: Partial<Record<Side, number>>
+  bonusStartMana: Partial<Record<Side, number>>
+}
+
 export interface Engine {
   /** Read model for `viewer` (defaults to HUMAN). Only the viewer's hand is populated. */
   snapshot(viewer?: Side): GameSnapshot
@@ -259,4 +310,8 @@ export interface Engine {
   apply(action: Action): GameEvent[]
   isOver(): boolean
   result(): GameResult | null
+  /** Deep, JSON-safe snapshot of ALL internal state (incl. RNG position). */
+  serialize(): EngineState
+  /** An independent deep copy — mutating the clone never touches this engine. Powers the search AI. */
+  clone(): Engine
 }

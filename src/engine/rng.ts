@@ -16,6 +16,9 @@ export interface Rng {
   chance(p: number): boolean
   /** In-place Fisher–Yates shuffle; returns the same array. */
   shuffle<T>(arr: T[]): T[]
+  /** Current internal state — capture/restore for engine cloning and serialization. */
+  getState(): number
+  setState(n: number): void
 }
 
 function xmur3(str: string): () => number {
@@ -32,19 +35,16 @@ function xmur3(str: string): () => number {
   }
 }
 
-function mulberry32(a: number): () => number {
-  return () => {
-    a |= 0
+export function createRng(seed: string): Rng {
+  const seedFn = xmur3(seed)
+  let a = seedFn() | 0
+  // mulberry32 stepped from the mutable `a` we own, so state is capturable.
+  const next = (): number => {
     a = (a + 0x6d2b79f5) | 0
     let t = Math.imul(a ^ (a >>> 15), 1 | a)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
-}
-
-export function createRng(seed: string): Rng {
-  const seedFn = xmur3(seed)
-  const next = mulberry32(seedFn())
   const rng: Rng = {
     next,
     int: (n: number) => Math.floor(next() * n),
@@ -57,6 +57,10 @@ export function createRng(seed: string): Rng {
         arr[j] = tmp
       }
       return arr
+    },
+    getState: () => a,
+    setState: (n: number) => {
+      a = n | 0
     },
   }
   return rng

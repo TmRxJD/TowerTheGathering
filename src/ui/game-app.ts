@@ -29,7 +29,7 @@ import {
   type Target,
   type UnitView,
 } from '../engine'
-import { HeuristicAI } from '../ai'
+import { SearchAI } from '../ai'
 import { cardArtUrl, portraitUrl } from './card-art'
 import { FxLayer } from './fx-layer'
 import { loadSave, writeSave, type SaveState } from './save'
@@ -86,8 +86,8 @@ export class GameApp {
   private readonly seed: string
 
   private engine!: Engine
-  private ai!: HeuristicAI
-  private humanAi!: HeuristicAI
+  private ai!: SearchAI
+  private humanAi!: SearchAI
   private bossIndex: number
   private selection: Selection | null = null
   private busy = false
@@ -303,8 +303,8 @@ export class GameApp {
       bonusStartMana: { AI: hc.bonusStartMana },
     })
     this.engine = engine
-    this.ai = new HeuristicAI(engine, 'AI', boss.archetype)
-    this.humanAi = new HeuristicAI(engine, 'HUMAN', 'balanced')
+    this.ai = new SearchAI(engine, 'AI', boss.archetype)
+    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced')
     this.selection = null
     this.busy = false
     this.hint = ''

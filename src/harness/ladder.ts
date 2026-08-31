@@ -23,6 +23,7 @@ import {
 import { playMatch } from './match'
 
 const RUNS = Number(process.env.TTG_RUNS ?? 400)
+const PLAYER_AI = (process.env.TTG_PLAYER === 'heuristic' ? 'heuristic' : 'search') as 'heuristic' | 'search'
 
 /** Rough power value of a card for the modelled player's reward/trim choices. */
 function cardValue(id: string): number {
@@ -93,6 +94,8 @@ function playLadder(seed: string): LadderResult {
       aiArchetype: boss.archetype,
       aiBonusLife: hc.bonusLife,
       aiBonusStartMana: hc.bonusStartMana,
+      humanAi: PLAYER_AI,
+      aiAi: 'search',
     })
     const won = !out.timedOut && out.result!.winner === 'HUMAN'
     if (!won) return { reached: boss.index, cleared }
@@ -121,7 +124,7 @@ function main(): void {
     if (r.cleared === BOSS_DECKS.length) fullClears++
   }
 
-  console.log(`Ladder runs (deck grows each win) — ${RUNS} runs\n`)
+  console.log(`Ladder runs (deck grows each win) — ${RUNS} runs · player=${PLAYER_AI} vs boss=search\n`)
   console.log('Boss                    Arch          Faced   Won@Boss   Clear%(of those who faced)')
   console.log('─'.repeat(84))
   for (const boss of BOSS_DECKS) {

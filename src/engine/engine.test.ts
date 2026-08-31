@@ -74,6 +74,30 @@ describe('rng', () => {
   })
 })
 
+describe('clone / serialize', () => {
+  it('a clone is independent and plays identically to the original', () => {
+    const e = build(['land-mine-stun', 'damage', 'cash'], ['fortress', 'berserker'], 'clone')
+    // advance a few turns so there is real state (units, mana, deck drawn)
+    for (let i = 0; i < 4; i++) pass(e)
+    const snapBefore = JSON.stringify(e.snapshot('HUMAN'))
+    const c = e.clone()
+    // The clone matches at the moment of cloning...
+    expect(JSON.stringify(c.snapshot('HUMAN'))).toEqual(snapBefore)
+    // ...mutating the clone does not touch the original...
+    pass(c)
+    pass(c)
+    expect(JSON.stringify(e.snapshot('HUMAN'))).toEqual(snapBefore)
+    // ...and original + clone, driven by the same actions, stay identical.
+    const e2 = e.clone()
+    const script: Action[] = [{ kind: 'endTurn' }, { kind: 'endTurn' }, { kind: 'endTurn' }]
+    for (const a of script) {
+      e.apply(a)
+      e2.apply(a)
+    }
+    expect(JSON.stringify(e2.snapshot('HUMAN'))).toEqual(JSON.stringify(e.snapshot('HUMAN')))
+  })
+})
+
 describe('engine determinism', () => {
   it('same seed + decks + actions ⇒ identical snapshots', () => {
     const script: Action[] = [{ kind: 'endTurn' }, { kind: 'endTurn' }, { kind: 'endTurn' }]
