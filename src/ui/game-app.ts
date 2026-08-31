@@ -1,11 +1,14 @@
 /**
- * Tower: The Gathering — the DOM game app. Framework-free. It owns the engine + AI, renders the
- * snapshot to the board, routes clicks (select a card → pick a lane / target), steps the AI turn,
- * and animates from the engine's event list via the canvas FX layer.
+ * Tower: The Gathering — the DOM game app. Framework-free.
  *
- * Ladder: a single match vs the current boss (starter deck for now — deck editing between bosses is
- * a later pass, see docs/GAME_DESIGN.md). Win → advance; loss → retry. Each match end fires
- * `onResult`, which the embed host forwards to the parent window.
+ * Rendering is a keyed RECONCILER, not innerHTML teardown: every unit, hand card, and nexus part is
+ * a persistent node keyed by uid, so CSS transitions and enter/exit animations actually run. render()
+ * settles the board to the engine's current state; renderAndAnimate() then plays the flourishes that
+ * belong to the events just produced — attack lunges, hit shakes, damage floats (canvas), card-fly on
+ * play, animated HP bars, turn banners, and screen shake.
+ *
+ * It owns the engine + AI, routes clicks (select a card → pick a lane / target), steps the AI turn,
+ * and fires onResult at each match end (the embed host forwards it to the parent window).
  */
 
 import {
@@ -17,8 +20,10 @@ import {
   type Engine,
   type GameEvent,
   type Lane,
+  type PlayerView,
   type Side,
   type Target,
+  type UnitView,
 } from '../engine'
 import { HeuristicAI } from '../ai'
 import { cardArtUrl } from './card-art'
@@ -37,7 +42,7 @@ export interface MatchResult {
 
 export interface GameAppOptions {
   onResult?: (r: MatchResult) => void
-  boss?: number // 1..10
+  boss?: number
   seed?: string
 }
 
@@ -47,6 +52,16 @@ interface Selection {
   lanes: Set<Lane>
   targets: Set<number>
   needsTarget: boolean
+}
+
+interface NexusRefs {
+  el: HTMLElement
+  hpFill: HTMLElement
+  hpTxt: HTMLElement
+  manaNum: HTMLElement
+  crystals: HTMLElement
+  deck: HTMLElement
+  modules: HTMLElement
 }
 
 export class GameApp {
@@ -61,8 +76,26 @@ export class GameApp {
   private selection: Selection | null = null
   private busy = false
   private hint = ''
+  private prevActive: Side | null = null
 
-  // rebuilt each render from legalActions — the single source of truth for what HUMAN can do now
+  // persistent skeleton refs
+  private banner!: HTMLElement
+  private vignette!: HTMLElement
+  private nexus!: Record<Side, NexusRefs>
+  private laneEls!: Record<Lane, HTMLElement>
+  private halves!: Record<Lane, Record<Side, HTMLElement>>
+  private turnEl!: HTMLElement
+  private hintEl!: HTMLElement
+  private endBtn!: HTMLButtonElement
+  private handEl!: HTMLElement
+  private overlay: HTMLElement | null = null
+
+  // keyed node registries
+  private unitNodes = new Map<number, HTMLElement>()
+  private cardNodes = new Map<number, HTMLElement>()
+  private seenModules = new Set<number>()
+
+  // legality (rebuilt each render)
   private legalUnitLanes = new Map<number, Set<Lane>>()
   private legalModules = new Set<number>()
   private legalUltimates = new Map<number, { needsTarget: boolean; targets: Set<number> }>()
@@ -73,9 +106,92 @@ export class GameApp {
     this.onResult = opts.onResult
     this.seed = opts.seed ?? 'ttg'
     this.bossIndex = Math.min(Math.max(1, opts.boss ?? 1), BOSS_DECKS.length)
+    this.buildSkeleton()
     this.fx = new FxLayer(this.root)
     globalThis.addEventListener?.('resize', () => this.fx.resize())
     this.startMatch(this.bossIndex)
+  }
+
+  // -------------------------------------------------------------------------
+  // Skeleton (built once)
+  // -------------------------------------------------------------------------
+
+  private buildSkeleton(): void {
+    this.root.innerHTML = ''
+    this.banner = this.div('ttg-banner')
+    this.banner.appendChild(document.createElement('span'))
+    this.vignette = this.div('ttg-vignette')
+
+    this.nexus = { AI: this.buildNexus('ai'), HUMAN: this.buildNexus('human') }
+
+    const board = this.div('ttg-board')
+    this.laneEls = {} as Record<Lane, HTMLElement>
+    this.halves = {} as Record<Lane, Record<Side, HTMLElement>>
+    for (const lane of LANES) {
+      const laneEl = this.div('ttg-lane')
+      laneEl.dataset.lane = lane
+      laneEl.addEventListener('click', () => this.onLaneClick(lane))
+      const ai = this.div('half ai')
+      const mid = this.div('mid')
+      const label = document.createElement('span')
+      label.textContent = lane
+      mid.appendChild(label)
+      const human = this.div('half human')
+      laneEl.append(ai, mid, human)
+      board.appendChild(laneEl)
+      this.laneEls[lane] = laneEl
+      this.halves[lane] = { AI: ai, HUMAN: human }
+    }
+
+    const controls = this.div('ttg-controls')
+    this.turnEl = this.div('ttg-turn')
+    this.hintEl = this.div('ttg-hint')
+    this.endBtn = document.createElement('button')
+    this.endBtn.className = 'ttg-btn'
+    this.endBtn.textContent = 'End Turn'
+    this.endBtn.addEventListener('click', () => this.onEndTurn())
+    controls.append(this.turnEl, this.hintEl, this.endBtn)
+
+    this.handEl = this.div('ttg-hand')
+
+    this.root.append(
+      this.banner,
+      this.nexus.AI.el,
+      board,
+      controls,
+      this.nexus.HUMAN.el,
+      this.handEl,
+      this.vignette,
+    )
+  }
+
+  private buildNexus(side: 'ai' | 'human'): NexusRefs {
+    const el = this.div(`ttg-nexus ${side}`)
+    const portrait = this.div('ttg-portrait')
+    portrait.textContent = side === 'ai' ? '🏰' : '🗼'
+    const who = this.div('who')
+    who.innerHTML = side === 'ai' ? 'Enemy Nexus<small></small>' : 'Your Nexus<small>Commander</small>'
+    const hpwrap = this.div('ttg-hpwrap')
+    const hpbar = this.div('ttg-hpbar')
+    const hpFill = this.div('ttg-hpfill')
+    const hpTxt = this.div('ttg-hptxt')
+    hpbar.append(hpFill, hpTxt)
+    hpwrap.appendChild(hpbar)
+    const mana = this.div('ttg-mana')
+    const manaNum = document.createElement('span')
+    manaNum.className = 'num'
+    const crystals = this.div('ttg-crystals')
+    mana.append(manaNum, crystals)
+    const deck = this.div('ttg-deck')
+    const modules = this.div('ttg-modules')
+    el.append(portrait, who, hpwrap, mana, deck, modules)
+    return { el, hpFill, hpTxt, manaNum, crystals, deck, modules }
+  }
+
+  private div(cls: string): HTMLElement {
+    const d = document.createElement('div')
+    d.className = cls
+    return d
   }
 
   // -------------------------------------------------------------------------
@@ -95,7 +211,23 @@ export class GameApp {
     this.selection = null
     this.busy = false
     this.hint = ''
+    this.prevActive = null
+    this.resetBoard()
+    const sub = this.nexus.AI.el.querySelector('.who small')
+    if (sub) sub.textContent = boss.name
     this.render()
+  }
+
+  private resetBoard(): void {
+    this.overlay?.remove()
+    this.overlay = null
+    for (const n of this.unitNodes.values()) n.remove()
+    this.unitNodes.clear()
+    for (const n of this.cardNodes.values()) n.remove()
+    this.cardNodes.clear()
+    this.seenModules.clear()
+    this.nexus.AI.modules.innerHTML = ''
+    this.nexus.HUMAN.modules.innerHTML = ''
   }
 
   private finishMatch(): void {
@@ -110,7 +242,7 @@ export class GameApp {
       humanLifeRemaining: res.humanLifeRemaining,
       aiLifeRemaining: res.aiLifeRemaining,
     })
-    this.render()
+    this.showOverlay()
   }
 
   // -------------------------------------------------------------------------
@@ -142,7 +274,7 @@ export class GameApp {
   }
 
   private onCardClick(uid: number): void {
-    if (this.busy || this.engine.snapshot().activeSide !== 'HUMAN') return
+    if (this.busy || this.engine.snapshot().activeSide !== 'HUMAN' || this.engine.isOver()) return
     if (this.selection?.uid === uid) {
       this.selection = null
       this.hint = ''
@@ -166,11 +298,10 @@ export class GameApp {
         return
       }
       this.selection = { uid, kind: 'UNIT', lanes, targets: new Set(), needsTarget: false }
-      this.hint = 'Pick a lane'
+      this.hint = 'Pick a lane ▾'
       this.render()
       return
     }
-    // ULTIMATE
     const u = this.legalUltimates.get(uid)
     if (!u) {
       this.flashHint('Not enough mana, or no legal target')
@@ -181,7 +312,7 @@ export class GameApp {
       return
     }
     this.selection = { uid, kind: 'ULTIMATE', lanes: new Set(), targets: u.targets, needsTarget: true }
-    this.hint = 'Pick a target'
+    this.hint = 'Pick a target ✷'
     this.render()
   }
 
@@ -194,8 +325,7 @@ export class GameApp {
   private onUnitClick(uid: number): void {
     const sel = this.selection
     if (!sel || !sel.needsTarget || !sel.targets.has(uid)) return
-    const target: Target = { kind: 'unit', uid }
-    this.doAction({ kind: 'playUltimate', uid: sel.uid, target })
+    this.doAction({ kind: 'playUltimate', uid: sel.uid, target: { kind: 'unit', uid } })
   }
 
   private flashHint(msg: string): void {
@@ -204,10 +334,15 @@ export class GameApp {
   }
 
   private doAction(action: Action): void {
+    // Capture the played card's screen box BEFORE it leaves the hand, for the fly animation.
+    const originUid = 'uid' in action ? action.uid : undefined
+    const fromRect =
+      originUid !== undefined ? this.cardNodes.get(originUid)?.getBoundingClientRect() : undefined
     this.selection = null
     this.hint = ''
     const events = this.engine.apply(action)
     this.renderAndAnimate(events)
+    if (fromRect) this.flyForAction(action, fromRect)
     if (this.engine.isOver()) this.finishMatch()
   }
 
@@ -216,7 +351,6 @@ export class GameApp {
     this.selection = null
     this.busy = true
     this.hint = 'Opponent is planning…'
-    // HUMAN combat resolves inside this apply, then the turn passes to the AI.
     const events = this.engine.apply({ kind: 'endTurn' })
     this.renderAndAnimate(events)
     if (this.engine.isOver()) {
@@ -224,7 +358,7 @@ export class GameApp {
       this.finishMatch()
       return
     }
-    globalThis.setTimeout(() => this.runAiTurn(), 650)
+    globalThis.setTimeout(() => this.runAiTurn(), 900)
   }
 
   private runAiTurn(): void {
@@ -239,210 +373,358 @@ export class GameApp {
       this.render()
       return
     }
-    const events = this.ai.takeTurn() // AI plays its whole turn, incl. its combat, then passes back
-    this.renderAndAnimate(events)
+    const events = this.ai.takeTurn()
     this.busy = false
     this.hint = ''
+    this.renderAndAnimate(events)
     if (this.engine.isOver()) this.finishMatch()
-    else this.render()
   }
 
   // -------------------------------------------------------------------------
-  // Rendering
+  // Render (reconcile to current state)
   // -------------------------------------------------------------------------
 
   private render(): void {
     this.computeLegal()
     const snap = this.engine.snapshot('HUMAN')
-    const ai = snap.players.AI
-    const human = snap.players.HUMAN
-    const over = this.engine.isOver()
+    this.updateNexus('AI', snap.players.AI)
+    this.updateNexus('HUMAN', snap.players.HUMAN)
+    this.reconcileUnits(snap)
+    this.reconcileHand(snap.players.HUMAN)
 
-    const el = (html: string): string => html
-    const parts: string[] = []
-    parts.push(this.nexusHtml('ai', 'Enemy Nexus', BOSS_DECKS[this.bossIndex - 1]!.name, ai))
-    parts.push('<div class="ttg-board">')
     for (const lane of LANES) {
-      const droppable = this.selection?.kind === 'UNIT' && this.selection.lanes.has(lane)
-      parts.push(`<div class="ttg-lane${droppable ? ' droppable' : ''}" data-lane="${lane}">`)
-      parts.push('<div class="half ai">')
-      for (const u of snap.lanes[lane].AI) parts.push(this.unitHtml(u))
-      parts.push('</div>')
-      parts.push(`<div class="lane-label">${lane}</div><div class="divider"></div>`)
-      parts.push('<div class="half human">')
-      for (const u of snap.lanes[lane].HUMAN) parts.push(this.unitHtml(u))
-      parts.push('</div>')
-      parts.push('</div>')
+      const drop = this.selection?.kind === 'UNIT' && this.selection.lanes.has(lane)
+      this.laneEls[lane].classList.toggle('droppable', !!drop)
     }
-    parts.push('</div>')
-    parts.push(this.nexusHtml('human', 'Your Nexus', 'Commander', human))
 
-    parts.push('<div class="ttg-controls">')
-    parts.push(`<span class="ttg-turn">Turn <b>${snap.turn}</b></span>`)
-    if (this.hint) parts.push(`<span class="ttg-hint">${this.hint}</span>`)
-    const disabled = this.busy || over || snap.activeSide !== 'HUMAN'
-    parts.push(`<button class="ttg-btn" data-act="end" ${disabled ? 'disabled' : ''}>End Turn</button>`)
-    parts.push('</div>')
+    this.turnEl.innerHTML = `Turn <b>${snap.turn}</b>`
+    this.hintEl.textContent = this.hint
+    const myTurn = !this.busy && !this.engine.isOver() && snap.activeSide === 'HUMAN'
+    this.endBtn.disabled = !myTurn
+    this.endBtn.classList.toggle('ready', myTurn)
 
-    parts.push('<div class="ttg-hand">')
-    for (const ref of human.hand ?? []) parts.push(this.handCardHtml(ref.uid, ref.cardId))
-    parts.push('</div>')
+    // Turn banner on a genuine side change.
+    if (!this.engine.isOver() && snap.activeSide !== this.prevActive && this.prevActive !== null) {
+      this.showBanner(snap.activeSide)
+    }
+    this.prevActive = snap.activeSide
 
-    if (over) parts.push(this.overlayHtml())
-
-    // Replace all board content but keep the FX canvas (z-index keeps it above the flow content,
-    // below the game-over overlay — DOM order is irrelevant here).
-    this.root.querySelectorAll(':scope > :not(.ttg-fx)').forEach(n => n.remove())
-    const wrap = document.createElement('div')
-    wrap.innerHTML = el(parts.join(''))
-    while (wrap.firstChild) this.root.appendChild(wrap.firstChild)
-    this.bindEvents()
     this.fx.resize()
   }
 
-  private nexusHtml(
-    side: 'ai' | 'human',
-    who: string,
-    sub: string,
-    p: { life: number; maxLife: number; manaPool: number; manaMax: number; deckCount: number; modules: readonly { cardId: string; name: string }[] },
-  ): string {
-    const pips = Array.from({ length: 10 }, (_, i) => `<span class="ttg-pip ${i < p.manaPool ? 'on' : ''}"></span>`).join('')
-    const mods = p.modules
-      .map(m => `<div class="ttg-module" title="${m.name}" style="background-image:url('${cardArtUrl(m.cardId) ?? ''}')"></div>`)
-      .join('')
-    return `
-      <div class="ttg-nexus ${side}">
-        <div class="who">${who}<small>${sub}</small></div>
-        <div class="ttg-stat"><span class="ttg-life">${Math.max(0, p.life)}</span><span class="lbl">/${p.maxLife} HP</span></div>
-        <div class="ttg-stat"><span class="ttg-mana">${p.manaPool}</span><span class="lbl">/${p.manaMax}</span><span class="ttg-pips">${pips}</span></div>
-        <div class="spacer"></div>
-        <div class="ttg-stat"><span class="lbl">Deck ${p.deckCount}</span></div>
-        <div class="ttg-modules">${mods}</div>
-      </div>`
+  private updateNexus(side: Side, p: PlayerView): void {
+    const ref = this.nexus[side]
+    const pct = Math.max(0, Math.min(1, p.maxLife > 0 ? p.life / p.maxLife : 0))
+    ref.hpFill.style.width = `${pct * 100}%`
+    ref.hpFill.classList.toggle('low', pct < 0.34)
+    ref.hpTxt.textContent = `${Math.max(0, p.life)} / ${p.maxLife}`
+    ref.manaNum.textContent = `${p.manaPool}/${p.manaMax}`
+    const n = Math.min(10, Math.max(p.manaMax, p.manaPool))
+    let crystals = ''
+    for (let i = 0; i < n; i++) crystals += `<span class="ttg-cry ${i < p.manaPool ? 'on' : ''}"></span>`
+    ref.crystals.innerHTML = crystals
+    ref.deck.textContent = `⛃ ${p.deckCount}`
+
+    ref.modules.innerHTML = ''
+    for (const m of p.modules) {
+      const d = this.div('ttg-module')
+      d.title = `${m.name}`
+      d.style.backgroundImage = `url('${cardArtUrl(m.cardId) ?? ''}')`
+      if (!this.seenModules.has(m.uid)) {
+        d.classList.add('pop')
+        this.seenModules.add(m.uid)
+      }
+      ref.modules.appendChild(d)
+    }
   }
 
-  private unitHtml(u: {
-    uid: number
-    cardId: string
-    name: string
-    atk: number
-    hp: number
-    keywords: readonly string[]
-    tapped: boolean
-    frozen: boolean
-    invulnerable: boolean
-    isFront: boolean
-  }): string {
-    const targetable = this.selection?.needsTarget && this.selection.targets.has(u.uid)
-    const kw = u.keywords
+  private reconcileUnits(snap: ReturnType<Engine['snapshot']>): void {
+    const present = new Set<number>()
+    for (const lane of LANES) {
+      for (const side of ['AI', 'HUMAN'] as const) {
+        snap.lanes[lane][side].forEach((u, i) => {
+          present.add(u.uid)
+          let node = this.unitNodes.get(u.uid)
+          if (!node) {
+            node = this.createUnitNode(u, side)
+            this.unitNodes.set(u.uid, node)
+          }
+          this.updateUnitNode(node, u, i === 0)
+          this.halves[lane][side].appendChild(node) // keeps stack order (front first)
+        })
+      }
+    }
+    for (const [uid, node] of this.unitNodes) {
+      if (present.has(uid) || node.dataset.exiting) continue
+      node.dataset.exiting = '1'
+      node.classList.add('exit')
+      node.addEventListener(
+        'animationend',
+        () => {
+          node.remove()
+          this.unitNodes.delete(uid)
+        },
+        { once: true },
+      )
+    }
+  }
+
+  private createUnitNode(u: UnitView, side: Side): HTMLElement {
+    const node = this.div('ttg-unit enter')
+    node.dataset.uid = String(u.uid)
+    node.dataset.side = side
+    node.dataset.rarity = getCard(u.cardId).rarity
+    node.style.backgroundImage = `url('${cardArtUrl(u.cardId) ?? ''}')`
+    node.innerHTML =
+      '<div class="kw"></div><div class="status"></div>' +
+      '<div class="ttg-badge atk"></div><div class="ttg-badge hp"></div><div class="nm"></div>'
+    node.addEventListener('click', e => {
+      e.stopPropagation()
+      this.onUnitClick(u.uid)
+    })
+    node.addEventListener('animationend', e => {
+      if ((e as AnimationEvent).animationName === 'ttg-unitenter') node.classList.remove('enter')
+    })
+    return node
+  }
+
+  private updateUnitNode(node: HTMLElement, u: UnitView, isFront: boolean): void {
+    node.classList.toggle('front', isFront)
+    node.classList.toggle('reserve', !isFront)
+    node.classList.toggle('frozen', u.frozen)
+    node.classList.toggle('tapped', u.tapped)
+    const targetable = !!(this.selection?.needsTarget && this.selection.targets.has(u.uid))
+    node.classList.toggle('targetable', targetable)
+
+    const atkBadge = node.querySelector('.ttg-badge.atk') as HTMLElement
+    const hpBadge = node.querySelector('.ttg-badge.hp') as HTMLElement
+    const prevAtk = Number(node.dataset.atk ?? u.atk)
+    if (u.atk > prevAtk) {
+      atkBadge.classList.remove('buffed')
+      void atkBadge.offsetWidth
+      atkBadge.classList.add('buffed')
+    }
+    node.dataset.atk = String(u.atk)
+    atkBadge.textContent = String(u.atk)
+    hpBadge.textContent = String(u.hp)
+    hpBadge.style.color = u.hp < u.maxHp ? '#7a1420' : '#0b0e14'
+
+    const kw = node.querySelector('.kw') as HTMLElement
+    kw.innerHTML = u.keywords
       .map(k => `<span>${k === 'firstStrike' ? 'FS' : k[0]!.toUpperCase()}</span>`)
       .join('')
-    const status = [u.frozen ? '❄' : '', u.tapped ? '💤' : '', u.invulnerable ? '🛡' : ''].join('')
-    const cls = ['ttg-unit', u.isFront ? 'front' : 'reserve', targetable ? 'targetable' : ''].join(' ').trim()
-    return `
-      <div class="${cls}" data-uid="${u.uid}" style="background-image:url('${cardArtUrl(u.cardId) ?? ''}')">
-        <div class="kw">${kw}</div><div class="status">${status}</div>
-        <div class="ttg-badge atk">${u.atk}</div>
-        <div class="ttg-badge hp">${u.hp}</div>
-        <div class="nm">${u.name}</div>
-      </div>`
+    const status = node.querySelector('.status') as HTMLElement
+    status.textContent = [u.frozen ? '❄' : '', u.tapped ? '💤' : '', u.invulnerable ? '🛡' : ''].join('')
+    ;(node.querySelector('.nm') as HTMLElement).textContent = u.name
   }
 
-  private handCardHtml(uid: number, cardId: string): string {
+  private reconcileHand(human: PlayerView): void {
+    const hand = human.hand ?? []
+    const present = new Set<number>()
+    for (const ref of hand) {
+      present.add(ref.uid)
+      let node = this.cardNodes.get(ref.uid)
+      if (!node) {
+        node = this.createCardNode(ref.uid, ref.cardId)
+        this.cardNodes.set(ref.uid, node)
+      }
+      const affordable =
+        this.legalUnitLanes.has(ref.uid) ||
+        this.legalModules.has(ref.uid) ||
+        this.legalUltimates.has(ref.uid)
+      node.classList.toggle('unaffordable', !affordable)
+      node.classList.toggle('selected', this.selection?.uid === ref.uid)
+      this.handEl.appendChild(node)
+    }
+    for (const [uid, node] of this.cardNodes) {
+      if (present.has(uid) || node.dataset.exiting) continue
+      node.dataset.exiting = '1'
+      node.classList.add('exit')
+      node.addEventListener(
+        'animationend',
+        () => {
+          node.remove()
+          this.cardNodes.delete(uid)
+        },
+        { once: true },
+      )
+    }
+  }
+
+  private createCardNode(uid: number, cardId: string): HTMLElement {
     const def = getCard(cardId)
-    const affordable =
-      this.legalUnitLanes.has(uid) || this.legalModules.has(uid) || this.legalUltimates.has(uid)
-    const selected = this.selection?.uid === uid
-    const cls = ['ttg-card', selected ? 'selected' : '', affordable ? '' : 'unaffordable'].join(' ').trim()
+    const node = this.div('ttg-card enter')
+    node.dataset.card = String(uid)
+    node.dataset.rarity = def.rarity
+    node.style.backgroundImage = `url('${cardArtUrl(cardId) ?? ''}')`
+    node.title = def.text
     const stats =
       def.type === 'UNIT'
         ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`
         : ''
-    return `
-      <div class="${cls}" data-card="${uid}" title="${def.text}" style="background-image:url('${cardArtUrl(cardId) ?? ''}')">
-        <div class="cost">${def.cost}</div>
-        <div class="cn">${def.name}</div>
-        <div class="ct">${def.type}</div>
-        ${stats}
-      </div>`
-  }
-
-  private overlayHtml(): string {
-    const res = this.engine.result()!
-    const won = res.winner === 'HUMAN'
-    const boss = BOSS_DECKS[this.bossIndex - 1]!
-    const last = this.bossIndex >= BOSS_DECKS.length
-    let title: string
-    let btn: string
-    if (won && last) {
-      title = '<h2 class="win">Ladder Cleared!</h2>'
-      btn = '<button class="ttg-btn" data-act="restart">Play Again</button>'
-    } else if (won) {
-      title = '<h2 class="win">Victory</h2>'
-      btn = '<button class="ttg-btn" data-act="next">Next Boss →</button>'
-    } else {
-      title = '<h2 class="lose">Defeated</h2>'
-      btn = '<button class="ttg-btn" data-act="retry">Retry</button>'
-    }
-    return `<div class="ttg-over">${title}<p>Boss ${this.bossIndex}: ${boss.name} · ${res.turns} turns</p>${btn}</div>`
-  }
-
-  private bindEvents(): void {
-    this.root.querySelectorAll<HTMLElement>('[data-card]').forEach(n =>
-      n.addEventListener('click', () => this.onCardClick(Number(n.dataset.card))),
-    )
-    this.root.querySelectorAll<HTMLElement>('.ttg-lane').forEach(n =>
-      n.addEventListener('click', () => this.onLaneClick(n.dataset.lane as Lane)),
-    )
-    this.root.querySelectorAll<HTMLElement>('.ttg-unit[data-uid]').forEach(n =>
-      n.addEventListener('click', e => {
-        e.stopPropagation()
-        this.onUnitClick(Number(n.dataset.uid))
-      }),
-    )
-    this.root.querySelectorAll<HTMLElement>('[data-act]').forEach(n =>
-      n.addEventListener('click', () => this.onControl(n.dataset.act!)),
-    )
-  }
-
-  private onControl(act: string): void {
-    if (act === 'end') this.onEndTurn()
-    else if (act === 'next') this.startMatch(this.bossIndex + 1)
-    else if (act === 'retry') this.startMatch(this.bossIndex)
-    else if (act === 'restart') this.startMatch(1)
+    node.innerHTML = `<div class="cost">${def.cost}</div><div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
+    node.addEventListener('click', () => this.onCardClick(uid))
+    node.addEventListener('animationend', e => {
+      if ((e as AnimationEvent).animationName === 'ttg-cardenter') node.classList.remove('enter')
+    })
+    return node
   }
 
   // -------------------------------------------------------------------------
-  // Animation from events
+  // Animation
   // -------------------------------------------------------------------------
+
+  private rootRect(): DOMRect {
+    return this.root.getBoundingClientRect()
+  }
+
+  private centerIn(rect: DOMRect | undefined): { x: number; y: number } | null {
+    if (!rect) return null
+    const r = this.rootRect()
+    return { x: rect.left - r.left + rect.width / 2, y: rect.top - r.top + rect.height / 2 }
+  }
 
   private renderAndAnimate(events: GameEvent[]): void {
     this.render()
-    const rootRect = this.root.getBoundingClientRect()
-    const centerOf = (sel: string): { x: number; y: number } | null => {
-      const node = this.root.querySelector(sel)
-      if (!node) return null
-      const r = node.getBoundingClientRect()
-      return { x: r.left - rootRect.left + r.width / 2, y: r.top - rootRect.top + r.height / 2 }
-    }
+    let shook = false
     for (const ev of events) {
       if (ev.type === 'damage' && ev.amount > 0) {
-        const c = centerOf(`.ttg-unit[data-uid="${ev.targetUid}"]`)
-        if (c) this.fx.floatText(c.x, c.y, `-${ev.amount}`, ev.crit ? '#ffd257' : '#ff8f5b', ev.crit ? 26 : 20)
+        const src = this.unitNodes.get(ev.sourceUid ?? -1)
+        if (src) {
+          const up = src.dataset.side === 'HUMAN'
+          src.classList.remove('lunge-up', 'lunge-down')
+          void src.offsetWidth
+          src.classList.add(up ? 'lunge-up' : 'lunge-down')
+        }
+        const tgt = this.unitNodes.get(ev.targetUid)
+        if (tgt) {
+          tgt.classList.remove('hit')
+          void tgt.offsetWidth
+          tgt.classList.add('hit')
+          const c = this.centerIn(tgt.getBoundingClientRect())
+          if (c) this.fx.floatText(c.x, c.y, `-${ev.amount}`, ev.crit ? '#ffd257' : '#ff9550', ev.crit ? 27 : 20)
+        }
       } else if (ev.type === 'nexusDamage' && ev.amount > 0) {
-        const c = centerOf(`.ttg-nexus.${ev.side === 'AI' ? 'ai' : 'human'}`)
-        if (c) this.fx.floatText(c.x, c.y, `-${ev.amount}`, '#ff5b6e', 24)
+        const c = this.centerIn(this.nexus[ev.side].el.getBoundingClientRect())
+        if (c) this.fx.floatText(c.x, c.y, `-${ev.amount}`, '#ff5b6e', 26)
+        this.flashVignette('dmg')
+        if (!shook) {
+          this.shake()
+          shook = true
+        }
       } else if (ev.type === 'heal' && ev.amount > 0) {
-        const c = ev.targetUid
-          ? centerOf(`.ttg-unit[data-uid="${ev.targetUid}"]`)
-          : centerOf(`.ttg-nexus.${ev.side === 'AI' ? 'ai' : 'human'}`)
-        if (c) this.fx.floatText(c.x, c.y, `+${ev.amount}`, '#4ade80', 20)
+        const node = ev.targetUid != null ? this.unitNodes.get(ev.targetUid) : undefined
+        const box = node ? node.getBoundingClientRect() : this.nexus[ev.side].el.getBoundingClientRect()
+        const c = this.centerIn(box)
+        if (c) this.fx.floatText(c.x, c.y, `+${ev.amount}`, '#43e08a', 20)
+        if (ev.targetUid == null) this.flashVignette('heal')
       } else if (ev.type === 'ultimateCast' && ev.target && ev.target.kind === 'unit') {
-        const from = centerOf(`.ttg-nexus.${ev.side === 'AI' ? 'ai' : 'human'}`)
-        const to = centerOf(`.ttg-unit[data-uid="${ev.target.uid}"]`)
+        const from = this.centerIn(this.nexus[ev.side].el.getBoundingClientRect())
+        const to = this.centerIn(this.unitNodes.get(ev.target.uid)?.getBoundingClientRect())
         if (from && to) this.fx.beam(from.x, from.y, to.x, to.y, ev.side === 'AI' ? '#ff5b6e' : '#5b8cff')
       }
     }
+  }
+
+  private flyForAction(action: Action, fromRect: DOMRect): void {
+    let toRect: DOMRect | undefined
+    let art: string | undefined
+    if (action.kind === 'playUnit') {
+      toRect = this.unitNodes.get(action.uid)?.getBoundingClientRect()
+      art = cardArtUrl(this.unitCardId(action.uid) ?? '')
+    } else if (action.kind === 'playModule') {
+      const mod = this.nexus.HUMAN.modules.lastElementChild as HTMLElement | null
+      toRect = mod?.getBoundingClientRect()
+      art = mod?.style.backgroundImage.slice(5, -2)
+    } else if (action.kind === 'playUltimate') {
+      const dest =
+        action.target && action.target.kind === 'unit'
+          ? this.unitNodes.get(action.target.uid)
+          : this.nexus.AI.el
+      toRect = dest?.getBoundingClientRect()
+    }
+    if (!toRect) return
+    this.flyClone(fromRect, toRect, art)
+  }
+
+  private unitCardId(uid: number): string | null {
+    const snap = this.engine.snapshot()
+    for (const lane of LANES) for (const s of ['AI', 'HUMAN'] as const) {
+      const u = snap.lanes[lane][s].find(x => x.uid === uid)
+      if (u) return u.cardId
+    }
+    return null
+  }
+
+  private flyClone(from: DOMRect, to: DOMRect, art: string | undefined): void {
+    const r = this.rootRect()
+    const clone = this.div('ttg-fly')
+    clone.style.left = `${from.left - r.left}px`
+    clone.style.top = `${from.top - r.top}px`
+    clone.style.width = `${from.width}px`
+    clone.style.height = `${from.height}px`
+    if (art) clone.style.backgroundImage = `url('${art}')`
+    this.root.appendChild(clone)
+    const dx = to.left - from.left + (to.width - from.width) / 2
+    const dy = to.top - from.top + (to.height - from.height) / 2
+    requestAnimationFrame(() => {
+      clone.style.transform = `translate(${dx}px, ${dy}px) scale(${Math.max(0.4, to.width / from.width)})`
+      clone.style.opacity = '0.2'
+    })
+    clone.addEventListener('transitionend', () => clone.remove(), { once: true })
+    globalThis.setTimeout(() => clone.remove(), 600)
+  }
+
+  private flashVignette(kind: 'dmg' | 'heal'): void {
+    this.vignette.classList.remove('dmg', 'heal')
+    void this.vignette.offsetWidth
+    this.vignette.classList.add(kind)
+  }
+
+  private shake(): void {
+    this.root.classList.remove('shake')
+    void this.root.offsetWidth
+    this.root.classList.add('shake')
+    this.root.addEventListener('animationend', () => this.root.classList.remove('shake'), { once: true })
+  }
+
+  private showBanner(active: Side): void {
+    const span = this.banner.querySelector('span')!
+    span.textContent = active === 'HUMAN' ? 'Your Turn' : 'Enemy Turn'
+    this.banner.classList.remove('show', 'you', 'foe')
+    this.banner.classList.add(active === 'HUMAN' ? 'you' : 'foe')
+    void this.banner.offsetWidth
+    this.banner.classList.add('show')
+  }
+
+  // -------------------------------------------------------------------------
+  // Game-over overlay
+  // -------------------------------------------------------------------------
+
+  private showOverlay(): void {
+    const res = this.engine.result()
+    if (!res) return
+    this.overlay?.remove()
+    const boss = BOSS_DECKS[this.bossIndex - 1]!
+    const won = res.winner === 'HUMAN'
+    const last = this.bossIndex >= BOSS_DECKS.length
+    const overlay = this.div('ttg-over')
+    const h2 = document.createElement('h2')
+    h2.className = won ? 'win' : 'lose'
+    h2.textContent = won ? (last ? 'Ladder Cleared!' : 'Victory') : 'Defeated'
+    const p = document.createElement('p')
+    p.textContent = `Boss ${this.bossIndex}: ${boss.name} · ${res.turns} turns`
+    const btn = document.createElement('button')
+    btn.className = 'ttg-btn ready'
+    btn.textContent = won ? (last ? 'Play Again' : 'Next Boss →') : 'Retry'
+    btn.addEventListener('click', () => {
+      if (won && last) this.startMatch(1)
+      else if (won) this.startMatch(this.bossIndex + 1)
+      else this.startMatch(this.bossIndex)
+    })
+    overlay.append(h2, p, btn)
+    this.root.appendChild(overlay)
+    this.overlay = overlay
   }
 
   destroy(): void {

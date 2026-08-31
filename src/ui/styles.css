@@ -3,27 +3,35 @@
    index.html), exactly like Inner Land Minesweeper. */
 
 .ttg-root {
-  --ttg-bg: #12151c;
-  --ttg-panel: #1b1f29;
-  --ttg-panel-2: #232836;
-  --ttg-line: #333a4a;
-  --ttg-text: #e7ecf5;
-  --ttg-dim: #97a1b5;
+  --ttg-bg: #0e1017;
+  --ttg-bg-2: #151926;
+  --ttg-panel: #1a1f2e;
+  --ttg-panel-2: #222839;
+  --ttg-line: #2f3750;
+  --ttg-text: #eef2fb;
+  --ttg-dim: #8f9bb5;
   --ttg-accent: #5b8cff;
-  --ttg-hp: #4ade80;
-  --ttg-atk: #ff8f5b;
+  --ttg-hp: #43e08a;
+  --ttg-hp-low: #ff5b6e;
+  --ttg-atk: #ff9550;
   --ttg-mana: #49b6ff;
   --ttg-danger: #ff5b6e;
   --ttg-gold: #ffd257;
-  --ttg-radius: 14px;
+  --r-common: #8695ab;
+  --r-rare: #4aa6ff;
+  --r-epic: #c78bff;
+  --ttg-radius: 16px;
 
   position: relative;
   box-sizing: border-box;
   width: 100%;
-  max-width: 760px;
+  max-width: 780px;
   margin: 0 auto;
-  padding: 14px;
-  background: radial-gradient(120% 90% at 50% 0%, #1d2433 0%, var(--ttg-bg) 70%);
+  padding: 16px;
+  background:
+    radial-gradient(140% 60% at 50% -10%, rgba(91, 140, 255, 0.14), transparent 60%),
+    radial-gradient(120% 90% at 50% 108%, rgba(255, 91, 110, 0.08), transparent 55%),
+    linear-gradient(180deg, #171c2b 0%, var(--ttg-bg) 60%);
   border: 1px solid var(--ttg-line);
   border-radius: var(--ttg-radius);
   color: var(--ttg-text);
@@ -31,118 +39,269 @@
   font-size: 14px;
   user-select: none;
   overflow: hidden;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .ttg-root *,
 .ttg-root *::before,
 .ttg-root *::after {
   box-sizing: border-box;
 }
+.ttg-root.shake {
+  animation: ttg-boardshake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes ttg-boardshake {
+  10%,
+  90% {
+    transform: translate3d(-2px, 0, 0);
+  }
+  30%,
+  70% {
+    transform: translate3d(4px, 0, 0);
+  }
+  50% {
+    transform: translate3d(-6px, 0, 0);
+  }
+}
 
-/* --- Nexus bars ---------------------------------------------------------- */
+/* Red/green full-board flash for nexus damage / heal. */
+.ttg-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  border-radius: var(--ttg-radius);
+}
+.ttg-vignette.dmg {
+  box-shadow: inset 0 0 90px 10px rgba(255, 40, 70, 0.6);
+  animation: ttg-flash 0.55s ease;
+}
+.ttg-vignette.heal {
+  box-shadow: inset 0 0 90px 10px rgba(67, 224, 138, 0.5);
+  animation: ttg-flash 0.55s ease;
+}
+@keyframes ttg-flash {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* --- Turn banner -------------------------------------------------------- */
+.ttg-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 44%;
+  z-index: 20;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+}
+.ttg-banner.show {
+  animation: ttg-banner 1.15s ease forwards;
+}
+.ttg-banner span {
+  display: inline-block;
+  padding: 10px 34px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(20, 24, 38, 0.9), rgba(12, 14, 22, 0.9));
+  border: 1px solid var(--ttg-line);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+.ttg-banner.you span {
+  border-color: var(--ttg-accent);
+  color: #cfe0ff;
+}
+.ttg-banner.foe span {
+  border-color: #6a2b38;
+  color: #ffd3d9;
+}
+@keyframes ttg-banner {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+  18%,
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(1.02);
+  }
+}
+
+/* --- Nexus bars --------------------------------------------------------- */
 .ttg-nexus {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
-  background: var(--ttg-panel);
+  padding: 9px 13px;
+  background: linear-gradient(180deg, var(--ttg-panel), var(--ttg-bg-2));
   border: 1px solid var(--ttg-line);
-  border-radius: 10px;
+  border-radius: 12px;
+  position: relative;
 }
 .ttg-nexus.ai {
-  border-color: #4a2b34;
+  border-color: #5a2c37;
+  box-shadow: inset 0 0 30px -18px rgba(255, 91, 110, 0.7);
 }
 .ttg-nexus.human {
-  border-color: #2b3f4a;
+  border-color: #2b4a63;
+  box-shadow: inset 0 0 30px -18px rgba(73, 182, 255, 0.7);
+}
+.ttg-portrait {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: radial-gradient(circle at 50% 30%, #2a3350, #141a2a);
+  border: 1px solid var(--ttg-line);
+}
+.ttg-nexus.ai .ttg-portrait {
+  border-color: #6a2b38;
+}
+.ttg-nexus.human .ttg-portrait {
+  border-color: #2b4a63;
 }
 .ttg-nexus .who {
   font-weight: 700;
-  letter-spacing: 0.02em;
+  min-width: 92px;
 }
 .ttg-nexus .who small {
   display: block;
   font-weight: 500;
   color: var(--ttg-dim);
   font-size: 11px;
+  white-space: nowrap;
 }
-.ttg-stat {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+.ttg-hpwrap {
+  flex: 1;
+  min-width: 90px;
+}
+.ttg-hpbar {
+  position: relative;
+  height: 18px;
+  border-radius: 9px;
+  background: #0c1018;
+  border: 1px solid var(--ttg-line);
+  overflow: hidden;
+}
+.ttg-hpfill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: linear-gradient(180deg, #5ff0a0, #2bbd72);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1), background 0.4s;
+  box-shadow: 0 0 12px rgba(67, 224, 138, 0.5);
+}
+.ttg-hpfill.low {
+  background: linear-gradient(180deg, #ff8090, #d83043);
+  box-shadow: 0 0 12px rgba(255, 91, 110, 0.6);
+}
+.ttg-hptxt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #06110a;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-.ttg-stat .lbl {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--ttg-dim);
-  text-transform: uppercase;
-}
-.ttg-life {
-  color: var(--ttg-hp);
-  font-size: 20px;
 }
 .ttg-mana {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ttg-mana .num {
+  font-weight: 800;
   color: var(--ttg-mana);
-  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
 }
-.ttg-pips {
+.ttg-crystals {
   display: inline-flex;
-  gap: 2px;
+  gap: 3px;
 }
-.ttg-pip {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #2c3446;
+.ttg-cry {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  background: #232c42;
   border: 1px solid var(--ttg-line);
+  transition: background 0.25s, box-shadow 0.25s;
 }
-.ttg-pip.on {
-  background: var(--ttg-mana);
-  border-color: var(--ttg-mana);
-  box-shadow: 0 0 6px rgba(73, 182, 255, 0.6);
+.ttg-cry.on {
+  background: linear-gradient(135deg, #7fd0ff, #2f9bec);
+  border-color: #7fd0ff;
+  box-shadow: 0 0 8px rgba(73, 182, 255, 0.8);
 }
-.ttg-nexus .spacer {
-  flex: 1;
+.ttg-deck {
+  font-size: 11px;
+  color: var(--ttg-dim);
+  white-space: nowrap;
 }
 .ttg-modules {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  max-width: 220px;
+  max-width: 160px;
   justify-content: flex-end;
 }
 .ttg-module {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   background-size: cover;
   background-position: center;
   border: 1px solid var(--ttg-line);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  animation: ttg-pop 0.3s ease;
 }
 
 /* --- Board -------------------------------------------------------------- */
 .ttg-board {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 8px 0;
+  gap: 10px;
+  margin: 10px 0;
 }
 .ttg-lane {
-  background: var(--ttg-panel);
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 91, 110, 0.05), rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0) 70%, rgba(73, 182, 255, 0.05)),
+    var(--ttg-panel);
   border: 1px solid var(--ttg-line);
-  border-radius: 10px;
-  padding: 6px;
-  min-height: 236px;
+  border-radius: 12px;
+  padding: 7px;
+  min-height: 248px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
 .ttg-lane .half {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   flex: 1;
-  min-height: 96px;
+  min-height: 100px;
 }
 .ttg-lane .half.ai {
   justify-content: flex-start;
@@ -150,52 +309,72 @@
 .ttg-lane .half.human {
   justify-content: flex-end;
 }
-.ttg-lane .divider {
+.ttg-lane .mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ttg-dim);
+}
+.ttg-lane .mid::before,
+.ttg-lane .mid::after {
+  content: '';
+  flex: 1;
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--ttg-line), transparent);
-  margin: 2px 0;
 }
-.ttg-lane .lane-label {
-  text-align: center;
+.ttg-lane .mid span {
   font-size: 9px;
-  letter-spacing: 0.14em;
-  color: var(--ttg-dim);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .ttg-lane.droppable {
-  outline: 2px dashed var(--ttg-accent);
-  outline-offset: -2px;
+  border-color: var(--ttg-accent);
+  box-shadow: 0 0 0 1px var(--ttg-accent), 0 0 22px -4px var(--ttg-accent) inset;
   cursor: pointer;
+  animation: ttg-breathe 1.4s ease-in-out infinite;
+}
+@keyframes ttg-breathe {
+  50% {
+    box-shadow: 0 0 0 1px var(--ttg-accent), 0 0 34px -2px var(--ttg-accent) inset;
+  }
 }
 .ttg-lane.droppable:hover {
-  background: #202a3d;
+  background-color: #1c2740;
 }
 
 /* --- Units -------------------------------------------------------------- */
 .ttg-unit {
   position: relative;
-  height: 44px;
-  border-radius: 8px;
+  height: 48px;
+  border-radius: 9px;
   border: 1px solid var(--ttg-line);
   background-size: cover;
-  background-position: center 22%;
+  background-position: center 20%;
   overflow: hidden;
-  box-shadow: inset 0 -18px 20px -12px rgba(0, 0, 0, 0.85);
+  box-shadow: inset 0 -22px 20px -12px rgba(0, 0, 0, 0.9), 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.14s ease, box-shadow 0.2s ease, border-color 0.2s;
+  transform-origin: center;
+}
+.ttg-unit[data-rarity='rare'] {
+  border-color: var(--r-rare);
+}
+.ttg-unit[data-rarity='epic'] {
+  border-color: var(--r-epic);
 }
 .ttg-unit.front {
-  border-color: var(--ttg-accent);
+  box-shadow: inset 0 -22px 20px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--ttg-accent), 0 3px 10px rgba(0, 0, 0, 0.5);
 }
 .ttg-unit.reserve {
-  opacity: 0.72;
   height: 34px;
+  filter: brightness(0.8) saturate(0.85);
 }
 .ttg-unit .nm {
   position: absolute;
-  left: 4px;
-  right: 4px;
+  left: 5px;
+  right: 5px;
   bottom: 2px;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   text-shadow: 0 1px 2px #000;
   white-space: nowrap;
   overflow: hidden;
@@ -203,150 +382,242 @@
 }
 .ttg-badge {
   position: absolute;
-  bottom: 2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 16px;
+  bottom: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 18px;
   text-align: center;
   color: #0b0e14;
-  text-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 .ttg-badge.atk {
-  left: 2px;
-  background: var(--ttg-atk);
+  left: 3px;
+  background: linear-gradient(180deg, #ffb17a, var(--ttg-atk));
 }
 .ttg-badge.hp {
-  right: 2px;
-  background: var(--ttg-hp);
+  right: 3px;
+  background: linear-gradient(180deg, #6cf0a5, var(--ttg-hp));
+}
+.ttg-badge.buffed {
+  animation: ttg-badgepop 0.4s ease;
+}
+@keyframes ttg-badgepop {
+  40% {
+    transform: scale(1.5);
+    filter: brightness(1.4);
+  }
 }
 .ttg-unit .kw {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: 3px;
+  left: 3px;
   display: flex;
   gap: 2px;
 }
 .ttg-unit .kw span {
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 800;
   padding: 1px 3px;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   color: var(--ttg-gold);
 }
 .ttg-unit .status {
   position: absolute;
   top: 2px;
-  right: 2px;
-  font-size: 10px;
+  right: 3px;
+  font-size: 11px;
+  filter: drop-shadow(0 1px 1px #000);
 }
 .ttg-unit.targetable {
-  cursor: pointer;
-  outline: 2px solid var(--ttg-gold);
-  outline-offset: -2px;
-  animation: ttg-pulse 1s ease-in-out infinite;
+  cursor: crosshair;
+  border-color: var(--ttg-gold);
+  animation: ttg-target 0.9s ease-in-out infinite;
 }
-@keyframes ttg-pulse {
+@keyframes ttg-target {
   50% {
-    box-shadow: 0 0 10px 2px rgba(255, 210, 87, 0.6);
+    box-shadow: 0 0 14px 3px rgba(255, 210, 87, 0.7);
+  }
+}
+.ttg-unit.frozen {
+  filter: brightness(0.85) saturate(0.6) hue-rotate(150deg);
+}
+.ttg-unit.tapped {
+  transform: rotate(4deg);
+  opacity: 0.8;
+}
+.ttg-unit.enter {
+  animation: ttg-unitenter 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ttg-unitenter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.85);
+  }
+}
+.ttg-unit.exit {
+  animation: ttg-unitexit 0.34s ease forwards;
+  pointer-events: none;
+}
+@keyframes ttg-unitexit {
+  to {
+    opacity: 0;
+    transform: scale(0.4) rotate(-12deg);
+    filter: brightness(2) saturate(0);
   }
 }
 .ttg-unit.hit {
-  animation: ttg-shake 0.28s ease;
+  animation: ttg-hit 0.32s ease;
 }
-@keyframes ttg-shake {
-  25% {
-    transform: translateX(-3px);
+@keyframes ttg-hit {
+  20% {
+    filter: brightness(2.2);
+    transform: translateX(-4px);
   }
-  75% {
-    transform: translateX(3px);
+  45% {
+    transform: translateX(4px);
+  }
+  70% {
+    transform: translateX(-2px);
+  }
+}
+.ttg-unit.lunge-up {
+  animation: ttg-lunge-up 0.34s ease;
+  z-index: 3;
+}
+.ttg-unit.lunge-down {
+  animation: ttg-lunge-down 0.34s ease;
+  z-index: 3;
+}
+@keyframes ttg-lunge-up {
+  40% {
+    transform: translateY(-16px) scale(1.06);
+  }
+}
+@keyframes ttg-lunge-down {
+  40% {
+    transform: translateY(16px) scale(1.06);
   }
 }
 
 /* --- Hand --------------------------------------------------------------- */
 .ttg-hand {
   display: flex;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
   overflow-x: auto;
-  padding: 8px 2px 2px;
-  min-height: 122px;
+  overflow-y: hidden;
+  padding: 14px 4px 4px;
+  min-height: 138px;
 }
 .ttg-card {
   position: relative;
   flex: 0 0 auto;
-  width: 84px;
-  height: 112px;
-  border-radius: 8px;
-  border: 1px solid var(--ttg-line);
+  width: 90px;
+  height: 120px;
+  border-radius: 10px;
+  border: 1px solid var(--r-common);
   background: var(--ttg-panel-2);
   background-size: cover;
-  background-position: center 30%;
+  background-position: center 28%;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  box-shadow: inset 0 -40px 34px -22px rgba(0, 0, 0, 0.9);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s;
+  box-shadow: inset 0 -44px 34px -22px rgba(0, 0, 0, 0.92), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+.ttg-card[data-rarity='rare'] {
+  border-color: var(--r-rare);
+}
+.ttg-card[data-rarity='epic'] {
+  border-color: var(--r-epic);
+  box-shadow: inset 0 -44px 34px -22px rgba(0, 0, 0, 0.92), 0 4px 10px rgba(0, 0, 0, 0.5),
+    0 0 14px -2px rgba(199, 139, 255, 0.5);
 }
 .ttg-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  transform: translateY(-12px) scale(1.04);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.6);
+  z-index: 4;
 }
 .ttg-card.selected {
-  transform: translateY(-10px);
-  outline: 2px solid var(--ttg-accent);
+  transform: translateY(-14px) scale(1.05);
+  box-shadow: 0 0 0 2px var(--ttg-accent), 0 14px 30px rgba(0, 0, 0, 0.6);
+  z-index: 5;
 }
 .ttg-card.unaffordable {
-  filter: grayscale(0.6) brightness(0.7);
+  filter: grayscale(0.7) brightness(0.6);
   cursor: not-allowed;
+}
+.ttg-card.unaffordable:hover {
+  transform: none;
+}
+.ttg-card.enter {
+  animation: ttg-cardenter 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ttg-cardenter {
+  from {
+    opacity: 0;
+    transform: translateY(40px) rotate(-6deg) scale(0.7);
+  }
+}
+.ttg-card.exit {
+  animation: ttg-cardexit 0.22s ease forwards;
+  pointer-events: none;
+}
+@keyframes ttg-cardexit {
+  to {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.7);
+  }
 }
 .ttg-card .cost {
   position: absolute;
-  top: -6px;
-  left: -6px;
-  width: 24px;
-  height: 24px;
+  top: -7px;
+  left: -7px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: var(--ttg-mana);
+  background: radial-gradient(circle at 40% 30%, #7fd0ff, #2f7fe0);
   color: #04121f;
-  font-weight: 800;
-  font-size: 13px;
-  line-height: 24px;
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 26px;
   text-align: center;
   border: 2px solid #0b0e14;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 .ttg-card .cn {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 20px;
-  font-size: 9px;
-  font-weight: 700;
-  text-shadow: 0 1px 2px #000;
+  left: 4px;
+  right: 4px;
+  bottom: 22px;
+  font-size: 10px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px #000;
 }
 .ttg-card .ct {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 3px;
+  left: 4px;
+  bottom: 5px;
   font-size: 8px;
+  letter-spacing: 0.08em;
   color: var(--ttg-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-transform: uppercase;
 }
 .ttg-card .stat-row {
   position: absolute;
-  bottom: 3px;
-  right: 3px;
+  bottom: 4px;
+  right: 4px;
   display: flex;
   gap: 3px;
 }
 .ttg-card .stat-row b {
-  font-size: 11px;
-  padding: 0 3px;
-  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 4px;
+  border-radius: 4px;
   color: #0b0e14;
 }
 .ttg-card .stat-row b.a {
@@ -356,12 +627,25 @@
   background: var(--ttg-hp);
 }
 
+/* A card clone that flies from hand to the board when played. */
+.ttg-fly {
+  position: absolute;
+  z-index: 30;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center 28%;
+  border: 1px solid var(--ttg-accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 18px rgba(91, 140, 255, 0.6);
+  pointer-events: none;
+  transition: transform 0.36s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.36s ease, width 0.36s, height 0.36s;
+}
+
 /* --- Controls + banners ------------------------------------------------- */
 .ttg-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 6px;
+  gap: 12px;
+  margin-top: 4px;
 }
 .ttg-turn {
   color: var(--ttg-dim);
@@ -372,57 +656,107 @@
 }
 .ttg-btn {
   margin-left: auto;
-  padding: 8px 18px;
-  border-radius: 8px;
+  padding: 9px 22px;
+  border-radius: 9px;
   border: 1px solid var(--ttg-accent);
-  background: linear-gradient(180deg, #3f6bde, #2f57bf);
+  background: linear-gradient(180deg, #4d78ea, #2f57bf);
   color: #fff;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   cursor: pointer;
+  box-shadow: 0 4px 14px -2px rgba(47, 87, 191, 0.7);
+  transition: filter 0.14s, transform 0.1s;
 }
-.ttg-btn:hover {
-  filter: brightness(1.1);
+.ttg-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.ttg-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .ttg-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
-  filter: none;
+}
+.ttg-btn.ready {
+  animation: ttg-btnready 1.6s ease-in-out infinite;
+}
+@keyframes ttg-btnready {
+  50% {
+    box-shadow: 0 4px 22px 0 rgba(91, 140, 255, 0.8);
+  }
 }
 .ttg-hint {
   color: var(--ttg-gold);
   font-size: 12px;
+  font-weight: 600;
 }
 
 .ttg-fx {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 5;
+  z-index: 8;
+}
+
+@keyframes ttg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
 }
 
 .ttg-over {
   position: absolute;
   inset: 0;
-  z-index: 10;
+  z-index: 25;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  background: rgba(8, 10, 15, 0.82);
-  backdrop-filter: blur(2px);
+  gap: 16px;
+  background: rgba(8, 10, 15, 0.86);
+  backdrop-filter: blur(3px);
+  animation: ttg-fadein 0.4s ease;
+}
+@keyframes ttg-fadein {
+  from {
+    opacity: 0;
+  }
 }
 .ttg-over h2 {
   margin: 0;
-  font-size: 30px;
+  font-size: 34px;
+  letter-spacing: 0.02em;
+  animation: ttg-overpop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ttg-overpop {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(20px);
+  }
 }
 .ttg-over h2.win {
   color: var(--ttg-hp);
+  text-shadow: 0 0 24px rgba(67, 224, 138, 0.6);
 }
 .ttg-over h2.lose {
   color: var(--ttg-danger);
+  text-shadow: 0 0 24px rgba(255, 91, 110, 0.6);
 }
 .ttg-over p {
   margin: 0;
   color: var(--ttg-dim);
+}
+
+@media (max-width: 560px) {
+  .ttg-card {
+    width: 76px;
+    height: 104px;
+  }
+  .ttg-nexus .who {
+    min-width: 0;
+  }
+  .ttg-nexus .who small {
+    display: none;
+  }
 }
