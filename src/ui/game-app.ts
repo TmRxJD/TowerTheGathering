@@ -391,7 +391,9 @@ export class GameApp {
     })
     this.engine = engine
     this.ai = new SearchAI(engine, 'AI', boss.archetype, depth)
-    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced', depth)
+    // Autoplay's player is always a strong searcher (≥2-ply) so it climbs decisively; a real run's
+    // in-game autoplay (rare — the button is hidden) matches the tier depth.
+    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced', this.demo ? Math.max(2, depth) : depth)
     this.selection = null
     this.busy = false
     this.hint = ''
@@ -650,9 +652,10 @@ export class GameApp {
       return
     }
 
-    // Lost — re-fight the same boss (the match salt gives a fresh shuffle), up to a budget.
+    // Lost — re-fight the same boss (the match salt gives a fresh shuffle), up to a budget. The
+    // budget is generous so Autoplay can grind through the nightmare final tier (low win rate).
     this.demoStuck++
-    if (this.demoStuck > 40) {
+    if (this.demoStuck > 200) {
       this.persistSaves()
       this.showToast(`Autoplay stalled at ${tierName(this.tier)}, boss ${this.bossIndex}`)
       globalThis.setTimeout(() => this.exitDemoToMenu(), 2400)
@@ -729,6 +732,9 @@ export class GameApp {
     }
     const cond = this.tier >= BATTLE_CONDITION_TIER ? ' <span class="cond">⚠ conditions</span>' : ''
     this.ladderEl.innerHTML = `<b>${tierName(this.tier)}</b> · Boss ${this.bossIndex}/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>${cond}`
+    // The Autoplay button only exists while a demo is running (pause/resume). Real runs never show it.
+    this.watchBtn.style.display = this.demo ? '' : 'none'
+    this.bossSelect.style.display = this.demo ? 'none' : ''
     this.watchBtn.classList.toggle('active', this.watching)
     this.watchBtn.textContent = this.watching ? '⏸ Autoplay' : '▶ Autoplay'
 

@@ -55,11 +55,12 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   // (a normal player feels it far sooner). Too steep and the optimal Autoplay demo can't reach T24.
   const base = Math.round(Math.max(0, t - 1) * 1.2) // a clear step every tier from Tier 2
   const hard = Math.round(Math.max(0, t - 13) * 1.5) // the mid-late squeeze, from Tier 14
-  const brutal = Math.max(0, t - 20) * 2 // Tiers 21-24 spike
+  const brutal = Math.max(0, t - 20) * 4 // Tiers 21-24 spike hard
+  const nightmare = t >= MAX_TIER ? 48 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
   const backHalf = index >= 8 ? Math.max(0, t - 7) : 0 // bosses 8-10 get extra, from Tier 8
-  const capstone = index === 10 ? Math.round(Math.max(0, t - 2) * 1.1) : 0 // the tier boss grows fastest
+  const capstone = index === 10 ? Math.round(Math.max(0, t - 2) * 2) : 0 // the tier boss grows fastest
   const bonusStartMana = t >= 23 ? 1 : 0 // a small tempo edge only at the very top
-  return { bonusLife: base + hard + brutal + backHalf + capstone, bonusStartMana }
+  return { bonusLife: base + hard + brutal + nightmare + backHalf + capstone, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —
