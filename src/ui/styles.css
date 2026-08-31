@@ -733,8 +733,8 @@
 }
 .ttg-card .cost {
   position: absolute;
-  top: -7px;
-  left: -7px;
+  top: 3px;
+  left: 3px;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -746,7 +746,7 @@
   text-align: center;
   border: 2px solid #0b0e14;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  z-index: 2;
+  z-index: 3;
 }
 /* Name in its own bar below the art — never overlapping the illustration. */
 .ttg-card .cn {
@@ -1456,8 +1456,9 @@
 }
 .ttg-card .owned {
   position: absolute;
-  top: -7px;
-  right: -6px;
+  top: 3px;
+  right: 3px;
+  z-index: 3;
   background: #2a1620;
   border: 1px solid #5a2530;
   color: var(--ttg-gold);
