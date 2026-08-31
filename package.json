@@ -1,0 +1,41 @@
+{
+  "name": "@tmrxjd/tower-the-gathering",
+  "version": "0.0.0",
+  "description": "Tower: The Gathering — a 1v1 mana-based lane battler themed on The Tower. Framework-free engine, consumed as source.",
+  "license": "GPL-3.0-or-later",
+  "private": false,
+  "type": "module",
+  "main": "src/engine/index.ts",
+  "types": "src/engine/index.ts",
+  "exports": {
+    ".": "./src/engine/index.ts",
+    "./engine": "./src/engine/index.ts",
+    "./ai": "./src/ai/index.ts"
+  },
+  "files": [
+    "src",
+    "docs"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build:dev": "vite build",
+    "build:embed": "vite build --config vite.embed.config.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "harness": "tsx src/harness/run.ts",
+    "play": "tsx src/cli/play.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^8.2.2",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
