@@ -1100,6 +1100,62 @@
 .modal-card > .ttg-mini {
   margin-top: 4px;
 }
+.menu-best {
+  color: var(--ttg-gold);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.ttg-card .owned {
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  background: #2a1620;
+  border: 1px solid #5a2530;
+  color: var(--ttg-gold);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+/* --- Enemy action toast ------------------------------------------------- */
+.ttg-toast {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 21;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(20, 8, 12, 0.92);
+  border: 1px solid #6a2b38;
+  color: #ffd3d9;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.ttg-toast.show {
+  animation: ttg-toast 1.8s ease forwards;
+}
+@keyframes ttg-toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  12%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
 
 .ttg-over {
   position: absolute;

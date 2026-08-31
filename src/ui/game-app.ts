@@ -32,6 +32,7 @@ import {
 import { HeuristicAI } from '../ai'
 import { cardArtUrl, portraitUrl } from './card-art'
 import { FxLayer } from './fx-layer'
+import { loadSave, writeSave, type SaveState } from './save'
 
 const LANES: readonly Lane[] = ['LEFT', 'CENTER', 'RIGHT']
 
@@ -96,6 +97,10 @@ export class GameApp {
   private watchTimer: ReturnType<typeof setTimeout> | null = null
   /** The player's deck for the current ladder run; grows/trims via the reward step between bosses. */
   private playerDeck: string[] = [...STARTER_DECK]
+  private save: SaveState = { highestCleared: 0, run: null }
+  private toastEl!: HTMLElement
+  /** True during a menu "Watch Demo" run — a throwaway ladder that never touches the saved run. */
+  private demo = false
 
   // persistent skeleton refs
   private ladderEl!: HTMLElement
@@ -129,11 +134,23 @@ export class GameApp {
     this.onResult = opts.onResult
     this.seed = opts.seed ?? 'ttg'
     this.bossIndex = Math.min(Math.max(1, opts.boss ?? 1), BOSS_DECKS.length)
+    this.save = loadSave()
+    if (this.save.run) {
+      this.playerDeck = [...this.save.run.deck]
+      this.bossIndex = this.save.run.bossIndex
+    }
     this.buildSkeleton()
     this.fx = new FxLayer(this.root)
     globalThis.addEventListener?.('resize', () => this.fx.resize())
     this.startMatch(this.bossIndex)
     this.showMenu()
+  }
+
+  /** Persist the current run + best progress. A demo run never persists. */
+  private persist(): void {
+    if (this.demo) return
+    this.save.run = { bossIndex: this.bossIndex, deck: [...this.playerDeck] }
+    writeSave(this.save)
   }
 
   // -------------------------------------------------------------------------
@@ -212,6 +229,8 @@ export class GameApp {
 
     this.previewEl = this.div('ttg-preview')
     this.previewEl.style.display = 'none'
+    this.toastEl = this.div('ttg-toast')
+    this.toastEl.style.display = 'none'
 
     this.root.append(
       header,
@@ -222,6 +241,7 @@ export class GameApp {
       this.nexus.HUMAN.el,
       this.handEl,
       this.previewEl,
+      this.toastEl,
       this.vignette,
     )
   }
@@ -298,6 +318,7 @@ export class GameApp {
       this.nexus.AI.portrait.textContent = '🏰'
     }
     this.bossSelect.value = String(this.bossIndex)
+    this.persist()
     this.render()
     if (this.watching) this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 700)
   }
@@ -319,6 +340,15 @@ export class GameApp {
   private finishMatch(): void {
     const res = this.engine.result()
     if (!res) return
+    if (this.demo) {
+      this.demo = false
+      this.showMenu()
+      return
+    }
+    if (res.winner === 'HUMAN') {
+      this.save.highestCleared = Math.max(this.save.highestCleared, this.bossIndex)
+      writeSave(this.save)
+    }
     const boss = BOSS_DECKS[this.bossIndex - 1]!
     this.onResult?.({
       winner: res.winner,
@@ -465,7 +495,8 @@ export class GameApp {
    *  result. */
   private onWatchGameOver(): void {
     const res = this.engine.result()
-    if (res && res.winner === 'HUMAN' && this.bossIndex < BOSS_DECKS.length && this.watching) {
+    // A DEMO plays the whole ladder; autoplaying a real run stops after the match for the reward flow.
+    if (this.demo && res && res.winner === 'HUMAN' && this.bossIndex < BOSS_DECKS.length && this.watching) {
       this.watchTimer = globalThis.setTimeout(() => {
         if (this.watching) this.advanceBoss() // startMatch re-arms autoStep while watching
       }, 1500)
@@ -776,6 +807,7 @@ export class GameApp {
         if (c) this.fx.burst(c.x, c.y, ev.side === 'AI' ? '#ff6b7e' : '#7fb0ff', 18, 0.5)
       } else if (ev.type === 'ultimateCast') {
         this.castFx(ev.cardId, ev.side, ev.target)
+        if (ev.side === 'AI') this.showToast(`Enemy casts ${getCard(ev.cardId).name}`)
       }
     }
   }
@@ -920,6 +952,20 @@ export class GameApp {
     this.root.addEventListener('animationend', () => this.root.classList.remove('shake'), { once: true })
   }
 
+  private toastTimer: ReturnType<typeof setTimeout> | null = null
+  private showToast(text: string): void {
+    this.toastEl.textContent = text
+    this.toastEl.style.display = 'block'
+    this.toastEl.classList.remove('show')
+    void this.toastEl.offsetWidth
+    this.toastEl.classList.add('show')
+    if (this.toastTimer) clearTimeout(this.toastTimer)
+    this.toastTimer = globalThis.setTimeout(() => {
+      this.toastEl.classList.remove('show')
+      this.toastEl.style.display = 'none'
+    }, 1800)
+  }
+
   private showBanner(active: Side): void {
     const span = this.banner.querySelector('span')!
     span.textContent = active === 'HUMAN' ? 'Your Turn' : 'Enemy Turn'
@@ -1029,6 +1075,7 @@ export class GameApp {
   }
 
   private resetLadder(): void {
+    this.demo = false
     this.playerDeck = [...STARTER_DECK]
     this.bossIndex = 1
   }
@@ -1045,13 +1092,24 @@ export class GameApp {
     this.root.querySelector('.ttg-menu')?.remove()
     if (this.watchTimer) clearTimeout(this.watchTimer)
     this.watching = false
+    this.demo = false
+    const run = this.save.run
+    const best =
+      this.save.highestCleared > 0
+        ? `<div class="menu-best">Best: cleared Boss ${this.save.highestCleared} / ${BOSS_DECKS.length}</div>`
+        : ''
+    const primary = run
+      ? `<button class="ttg-btn ready" data-m="continue">▶ Continue — Boss ${run.bossIndex}</button>` +
+        `<button class="ttg-mini" data-m="new">↺ New Run</button>`
+      : `<button class="ttg-btn ready" data-m="new">▶ Start Ladder</button>`
     const el = this.div('ttg-menu')
     el.innerHTML =
       `<div class="menu-card">` +
       `<div class="menu-logo">Tower: The Gathering</div>` +
       `<div class="menu-sub">A lane battler of towers &amp; horrors — climb the 10-boss ladder.</div>` +
+      best +
       `<div class="menu-btns">` +
-      `<button class="ttg-btn ready" data-m="play">▶ Start Ladder</button>` +
+      primary +
       `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
       `<button class="ttg-mini" data-m="help">? How to Play</button>` +
       `</div></div>`
@@ -1063,9 +1121,19 @@ export class GameApp {
           return
         }
         el.remove()
-        this.resetLadder()
-        this.startMatch(1)
-        if (m === 'watch') this.toggleWatch()
+        if (m === 'continue' && this.save.run) {
+          this.demo = false
+          this.playerDeck = [...this.save.run.deck]
+          this.startMatch(this.save.run.bossIndex)
+        } else if (m === 'watch') {
+          this.demo = true
+          this.playerDeck = [...STARTER_DECK]
+          this.startMatch(1)
+          this.toggleWatch()
+        } else {
+          this.resetLadder()
+          this.startMatch(1)
+        }
       }),
     )
     this.root.appendChild(el)
@@ -1105,12 +1173,19 @@ export class GameApp {
     const el = this.div('ttg-modal')
     const card = this.div('modal-card')
     card.innerHTML = `<h3>Victory — choose a card</h3><div class="modal-sub">Add one to your deck for this run.</div>`
+    const counts = this.deckCounts()
     const row = this.div('modal-cards')
-    for (const id of cands) row.appendChild(this.cardFace(id, '', () => {
-      this.playerDeck.push(id)
-      el.remove()
-      this.showTrim()
-    }))
+    for (const id of cands) {
+      const have = counts[id] ?? 0
+      const badge = have > 0 ? `×${have} in deck` : 'new'
+      row.appendChild(
+        this.cardFace(id, '', () => {
+          this.playerDeck.push(id)
+          el.remove()
+          this.showTrim()
+        }, badge),
+      )
+    }
     const skip = document.createElement('button')
     skip.className = 'ttg-mini'
     skip.textContent = 'Skip'
@@ -1144,8 +1219,15 @@ export class GameApp {
     this.root.appendChild(el)
   }
 
-  /** A non-interactive card face (for reward/trim screens), with hover preview and an optional click. */
-  private cardFace(cardId: string, extraCls: string, onClick: () => void): HTMLElement {
+  private deckCounts(): Record<string, number> {
+    const counts: Record<string, number> = {}
+    for (const id of this.playerDeck) counts[id] = (counts[id] ?? 0) + 1
+    return counts
+  }
+
+  /** A non-interactive card face (for reward/trim screens), with hover preview, an optional click,
+   *  and an optional corner badge (e.g. how many copies you already run). */
+  private cardFace(cardId: string, extraCls: string, onClick: () => void, badge?: string): HTMLElement {
     const def = getCard(cardId)
     const node = this.div(`ttg-card ${extraCls}`.trim())
     node.dataset.rarity = def.rarity
@@ -1154,7 +1236,10 @@ export class GameApp {
       def.type === 'UNIT'
         ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`
         : ''
-    node.innerHTML = `<div class="cost">${def.cost}</div><div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
+    node.innerHTML =
+      `<div class="cost">${def.cost}</div>` +
+      (badge ? `<div class="owned">${badge}</div>` : '') +
+      `<div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
     node.addEventListener('click', onClick)
     node.addEventListener('mouseenter', () => this.showPreview(cardId, node.getBoundingClientRect()))
     node.addEventListener('mouseleave', () => this.hidePreview())
