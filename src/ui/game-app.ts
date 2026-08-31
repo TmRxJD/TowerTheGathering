@@ -26,6 +26,8 @@ import {
   levelUpCost,
   masteryUpCost,
   shardReward,
+  spendShards,
+  takeRewardAndTrim,
   formatCardValue,
   createEngine,
   getCard,
@@ -116,6 +118,12 @@ export class GameApp {
   private playerDeck: string[] = [...STARTER_DECK]
   private save: SaveState = { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
   private collSort: 'cost' | 'rarity' | 'type' = 'cost'
+  /** Autoplay self-progression: its own collection/shard bank that it levels between rounds as it
+   *  climbs the tiers (never touches the real save). */
+  private demoCollection: CardLevels = {}
+  private demoShards = 0
+  private demoStuck = 0
+  private matchCount = 0
   private toastEl!: HTMLElement
   /** True during a menu "Watch Demo" run — a throwaway ladder that never touches the saved run. */
   private demo = false
@@ -318,14 +326,15 @@ export class GameApp {
     const boss = BOSS_DECKS[bossIndex - 1]!
     const hc = tierBossHandicap(this.tier, bossIndex)
     const depth = tierAiDepth(this.tier)
+    this.matchCount++
     const { engine } = createEngine({
       humanDeck: this.playerDeck,
       aiDeck: boss.cards,
-      seed: `${this.seed}-t${this.tier}-b${bossIndex}`,
+      seed: `${this.seed}-t${this.tier}-b${bossIndex}-${this.matchCount}`, // salt so demo re-fights vary
       bonusLife: { AI: hc.bonusLife, HUMAN: -tierPlayerLifePenalty(this.tier) },
       bonusStartMana: { AI: hc.bonusStartMana },
-      // Your leveled collection vs bosses whose cards level up with the tier.
-      cardLevels: { HUMAN: this.demo ? {} : this.save.collection, AI: this.aiCardLevels() },
+      // Autoplay runs its own upgraded collection; a real run uses your saved one. Bosses level by tier.
+      cardLevels: { HUMAN: this.demo ? this.demoCollection : this.save.collection, AI: this.aiCardLevels() },
     })
     this.engine = engine
     this.ai = new SearchAI(engine, 'AI', boss.archetype, depth)
@@ -524,23 +533,53 @@ export class GameApp {
     const events = bot.takeTurn()
     this.renderAndAnimate(events)
     if (this.engine.isOver()) return this.onWatchGameOver()
-    this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 1000)
+    // A full-climb demo moves briskly; watching your own paused run keeps the slower beat.
+    this.watchTimer = globalThis.setTimeout(() => this.autoStep(), this.demo ? 500 : 1000)
   }
 
-  /** When a demo match ends: if the AI won a non-final boss, roll on to the next one (rewards are
-   *  auto-skipped during a demo) so Watch Demo plays the whole ladder. Otherwise stop and show the
-   *  result. */
+  /** Autoplay is a full self-play run: on a win it earns shards, takes a reward card and LEVELS its
+   *  cards (the same strategic buyer the simulator uses), advances boss→boss and tier→tier, and keeps
+   *  climbing all the way to Tier 24. On a loss it re-fights the boss (a fresh shuffle each time); if
+   *  it can't get past one within a budget it stops. A real run just stops for the reward flow. */
   private onWatchGameOver(): void {
     const res = this.engine.result()
-    // A DEMO plays the whole ladder; autoplaying a real run stops after the match for the reward flow.
-    if (this.demo && res && res.winner === 'HUMAN' && this.bossIndex < BOSS_DECKS.length && this.watching) {
-      this.watchTimer = globalThis.setTimeout(() => {
-        if (this.watching) this.advanceBoss() // startMatch re-arms autoStep while watching
-      }, 1500)
+    if (!this.demo || !this.watching) {
+      this.watching = false
+      this.finishMatch()
       return
     }
-    this.watching = false
-    this.finishMatch()
+    const later = (ms: number, fn: () => void) => (this.watchTimer = globalThis.setTimeout(() => this.watching && fn(), ms))
+
+    if (res && res.winner === 'HUMAN') {
+      this.demoStuck = 0
+      this.demoShards += shardReward(this.tier, this.bossIndex)
+      takeRewardAndTrim(this.playerDeck, () => Math.random())
+      this.demoShards = spendShards(this.demoCollection, this.playerDeck, this.demoShards).bank
+      if (this.bossIndex < BOSS_DECKS.length) {
+        later(1200, () => this.advanceBoss())
+      } else if (this.tier < MAX_TIER) {
+        this.tier++
+        this.showToast(`${tierName(this.tier - 1)} cleared → ${tierName(this.tier)}`)
+        later(1700, () => this.startMatch(1))
+      } else {
+        this.showToast(`Autoplay cleared all ${MAX_TIER} tiers! 🏆`)
+        this.watching = false
+        this.demo = false
+        globalThis.setTimeout(() => this.showMenu(), 2400)
+      }
+      return
+    }
+
+    // Lost — re-fight the same boss (the match salt gives a fresh shuffle), up to a budget.
+    this.demoStuck++
+    if (this.demoStuck > 40) {
+      this.showToast(`Autoplay stalled at ${tierName(this.tier)}, boss ${this.bossIndex}`)
+      this.watching = false
+      this.demo = false
+      globalThis.setTimeout(() => this.showMenu(), 2400)
+      return
+    }
+    later(1000, () => this.startMatch(this.bossIndex))
   }
 
   private onEndTurn(): void {
@@ -1265,9 +1304,13 @@ export class GameApp {
           this.playerDeck = [...this.save.run.deck]
           this.startMatch(this.save.run.bossIndex)
         } else if (m === 'watch') {
+          // A full self-play demo: start fresh at Tier 1 and climb, levelling cards between rounds.
           this.demo = true
-          this.tier = tierSel()
+          this.tier = 1
           this.playerDeck = [...STARTER_DECK]
+          this.demoCollection = {}
+          this.demoShards = 0
+          this.demoStuck = 0
           this.startMatch(1)
           this.toggleWatch()
         } else {

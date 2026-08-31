@@ -21,20 +21,16 @@ import {
   MASTERY_MAX_LEVEL,
   MAX_TIER,
   STARTER_DECK,
-  cardLevelValue,
   cardMaxCost,
-  cardValue,
   clampTier,
   createRng,
-  levelUpCost,
-  masteryUpCost,
-  rewardCandidates,
   shardReward,
+  spendShards,
+  takeRewardAndTrim,
   tierAiDepth,
   tierBossHandicap,
   tierClearReward,
   tierPlayerLifePenalty,
-  weakestIndex,
   type CardLevels,
 } from '../engine'
 import { playMatch, type AiKind } from './match'
@@ -56,67 +52,6 @@ function bossLevels(tier: number): CardLevels {
 }
 
 const uniq = (deck: string[]): string[] => [...new Set(deck)]
-
-/**
- * Score a card's next upgrade by the impact it buys per shard — a strategic buyer, not a cheapest-
- * first one. Impact = how much this card matters to THIS deck (copies × its power) × the fractional
- * power the upgrade adds; divided by cost. So the player pours shards into the cards it actually
- * leans on, favours upgrades that meaningfully move a card, and only chases the pricey masteries on
- * its best cards once their levels are done.
- */
-function scoreUpgrade(
-  coll: CardLevels,
-  deck: string[],
-  id: string,
-): { kind: 'level' | 'mastery'; cost: number; score: number } | null {
-  const e = coll[id] ?? { level: 1, mastery: 0 }
-  const copies = deck.filter(c => c === id).length
-  const importance = copies * Math.max(1, cardValue(id))
-  let kind: 'level' | 'mastery'
-  let cost: number
-  let before: number
-  let after: number
-  if (e.level < CARD_MAX_LEVEL) {
-    kind = 'level'
-    cost = levelUpCost(e.level)
-    before = cardLevelValue(id, e.level, e.mastery)
-    after = cardLevelValue(id, e.level + 1, e.mastery)
-  } else if (e.mastery < MASTERY_MAX_LEVEL) {
-    kind = 'mastery'
-    cost = masteryUpCost(e.mastery)
-    before = cardLevelValue(id, CARD_MAX_LEVEL, e.mastery)
-    after = cardLevelValue(id, CARD_MAX_LEVEL, e.mastery + 1)
-  } else {
-    return null
-  }
-  const gain = Math.max(0.02, (after - before) / Math.max(1, Math.abs(before))) // fractional improvement
-  return { kind, cost, score: (importance * gain) / cost }
-}
-
-/** Spend the bank on the best value-per-shard deck upgrade available, repeatedly. */
-function spend(coll: CardLevels, deck: string[], bank: number): { bank: number; bought: number } {
-  let bought = 0
-  for (;;) {
-    let best: { id: string; kind: 'level' | 'mastery'; cost: number; score: number } | null = null
-    for (const id of uniq(deck)) {
-      const up = scoreUpgrade(coll, deck, id)
-      if (up && up.cost <= bank && (best === null || up.score > best.score)) best = { id, ...up }
-    }
-    if (!best) break
-    bank -= best.cost
-    const e = coll[best.id] ?? { level: 1, mastery: 0 }
-    coll[best.id] = best.kind === 'level' ? { level: e.level + 1, mastery: e.mastery } : { level: e.level, mastery: e.mastery + 1 }
-    bought++
-  }
-  return { bank, bought }
-}
-
-function pickReward(deck: string[], rng: { next(): number }): string | null {
-  const offered = rewardCandidates(deck, () => rng.next())
-  if (offered.length === 0) return null
-  return offered.sort((a, b) => cardValue(b) - cardValue(a))[0]!
-}
-
 const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 const pad = (s: string | number, n: number): string => String(s).padStart(n)
 
@@ -173,12 +108,8 @@ function run(): void {
       bank += r
       earned += r
       totalEarned += r
-      const rew = pickReward(deck, rng)
-      if (rew) {
-        deck.push(rew)
-        deck.splice(weakestIndex(deck), 1)
-      }
-      const s = spend(coll, deck, bank)
+      takeRewardAndTrim(deck, () => rng.next())
+      const s = spendShards(coll, deck, bank)
       bank = s.bank
       ups += s.bought
       totalUpgrades += s.bought

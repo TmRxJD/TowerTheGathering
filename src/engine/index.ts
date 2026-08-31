@@ -19,6 +19,7 @@ export { createRng, type Rng } from './rng'
 export { createEngine, createEngineFromState } from './engine'
 export { cardValue, rewardCandidates, weakestIndex } from './deckbuild'
 export { levelUpCost, masteryUpCost, shardReward, tierShardBonus, cardMaxCost, tierClearReward } from './economy'
+export { spendShards, takeRewardAndTrim } from './upgrade-ai'
 export {
   CARD_PROG,
   CARD_DISPLAY,

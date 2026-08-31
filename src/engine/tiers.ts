@@ -40,17 +40,25 @@ export function tierAiDepth(level: number): number {
   return clampTier(level) <= 1 ? 1 : 2
 }
 
-/** Boss life/mana edge for (tier, boss index). Tier 1 is a fair fight; it climbs gradually. */
+/**
+ * Boss life/mana edge for (tier, boss index). The curve is deliberately shaped: Tier 1 is a fair
+ * fight and the early tiers stay easy; a steady ramp climbs through the mid tiers; from Tier 14 the
+ * "battle conditions" bite; Tiers 21+ turn vicious and Tier 24 is a near-impossible wall that only an
+ * optimally-played, fully-levelled deck can crack.
+ */
 export function tierBossHandicap(level: number, index: number): { bonusLife: number; bonusStartMana: number } {
   const t = clampTier(level)
-  const flat = Math.round(Math.max(0, t - 2) * 1.5) // all bosses, from Tier 3 up
-  const backHalf = index >= 8 ? Math.max(0, t - 2) : 0 // bosses 8-10 get extra
-  const capstone = index === 10 ? Math.max(0, t - 1) * 2 : 0 // final boss grows fastest
-  const bonusStartMana = t >= 20 ? 2 : t >= 14 ? 1 : 0 // a tempo edge only at the very top
-  return { bonusLife: flat + backHalf + capstone, bonusStartMana }
+  const base = Math.round(Math.max(0, t - 2) * 1.4) // gentle ramp from Tier 3
+  const hard = Math.max(0, t - 13) * 3 // the mid-late squeeze, from Tier 14
+  const brutal = Math.max(0, t - 20) * 6 // Tiers 21-24 spike hard
+  const backHalf = index >= 8 ? Math.max(0, t - 4) : 0 // bosses 8-10 get extra, from Tier 5
+  const capstone = index === 10 ? Math.round(Math.max(0, t - 3) * 1.8) : 0 // the tier boss grows fastest
+  const bonusStartMana = t >= 22 ? 2 : t >= 16 ? 1 : 0 // a tempo edge only near the top
+  return { bonusLife: base + hard + brutal + backHalf + capstone, bonusStartMana }
 }
 
-/** Battle-condition player nerf: starting life lost, from Tier 14 up (0 below it). */
+/** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20. */
 export function tierPlayerLifePenalty(level: number): number {
-  return Math.max(0, clampTier(level) - (BATTLE_CONDITION_TIER - 1)) // T14 -1 … T24 -11
+  const t = clampTier(level)
+  return Math.max(0, t - (BATTLE_CONDITION_TIER - 1)) + Math.max(0, t - 20) * 2 // T14 -1 … T20 -7 … T24 -19
 }
