@@ -26,20 +26,22 @@ function deck(entries: ReadonlyArray<readonly [string, number]>): string[] {
   return out
 }
 
-/** The player's default 20-card deck: a rounded, teachable balanced list. */
+/** The player's default 20-card deck: a rounded, teachable list that leans slightly aggressive so
+ *  the opening isn't a grind (Damage ×3 + Attack Speed sharpen the few attackers) while keeping
+ *  walls, removal, and a Nuke finisher. */
 export const STARTER_DECK: readonly string[] = deck([
-  ['fortress', 3],
+  ['fortress', 2],
   ['extra-orbs', 2],
   ['berserker', 1],
   ['land-mine-stun', 2],
-  ['damage', 2],
-  ['health-regen', 1],
+  ['damage', 3],
+  ['attack-speed', 1],
   ['range', 1],
+  ['health-regen', 1],
   ['coins', 1],
   ['plasma-cannon', 2],
   ['death-ray', 1],
   ['cash', 2],
-  ['recovery-package', 1],
   ['nuke', 1],
 ])
 
