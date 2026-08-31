@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tower: The Gathering</title>
+    <style>
+      /* Transparent ground: the game paints its own dark panel (.ttg-root), so leaving the body
+         transparent lets the HOST site's background show through around it. The host must keep its
+         iframe transparent too (see the tracker's games page). */
+      html, body { margin: 0; min-height: 100%; background: transparent; }
+      #app { width: 100%; max-width: 760px; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
