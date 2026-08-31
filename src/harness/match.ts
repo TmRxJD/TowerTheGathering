@@ -14,7 +14,8 @@ interface Bot {
   takeTurn(): GameEvent[]
 }
 function makeBot(kind: AiKind, engine: Engine, side: Side, archetype: Archetype): Bot {
-  return kind === 'heuristic' ? new HeuristicAI(engine, side, archetype) : new SearchAI(engine, side, archetype)
+  // Search bosses look two plies ahead (their turn + your best reply) — the anti-cheese default.
+  return kind === 'heuristic' ? new HeuristicAI(engine, side, archetype) : new SearchAI(engine, side, archetype, 2)
 }
 
 export interface MatchOptions {

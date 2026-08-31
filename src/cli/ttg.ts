@@ -274,7 +274,7 @@ function main(): void {
     }
     summarize(ctx.engine.apply(action))
     if (action.kind === 'endTurn' && !ctx.engine.isOver()) {
-      const ai = new SearchAI(ctx.engine, 'AI', BOSS_DECKS[ctx.boss - 1]!.archetype)
+      const ai = new SearchAI(ctx.engine, 'AI', BOSS_DECKS[ctx.boss - 1]!.archetype, 2)
       let guard = 0
       while (!ctx.engine.isOver() && ctx.engine.snapshot().activeSide === 'AI' && guard++ < 4) {
         summarize(ai.takeTurn())

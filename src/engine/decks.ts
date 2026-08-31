@@ -236,12 +236,12 @@ export const BOSS_DECKS: readonly BossDeck[] = [
  * tempo lead. Tuned via the harness (pnpm harness) to a rising win curve.
  */
 export function bossHandicap(index: number): { bonusLife: number; bonusStartMana: number } {
-  // Gentle early (a forgiving intro), steeper late (a real finale) — a power curve reads better than
-  // a flat slope, which made the mid-ladder a wall and crushed full-clear rates. Tuned via
-  // `pnpm harness:ladder`.
+  // The depth-2 search bosses provide the difficulty by out-playing you, so no early padding at all
+  // (bosses 1–5 are a fair fight). The back half gets a light, escalating life edge purely to make
+  // the finale feel like a capstone. Tuned via `pnpm harness:ladder`.
   return {
-    bonusLife: Math.round(Math.pow(index - 1, 1.45)),
-    bonusStartMana: index >= 7 ? 1 : 0,
+    bonusLife: index === 10 ? 4 : 0, // a light capstone edge on the final boss only
+    bonusStartMana: 0,
   }
 }
 

@@ -302,8 +302,8 @@ export class GameApp {
       bonusStartMana: { AI: hc.bonusStartMana },
     })
     this.engine = engine
-    this.ai = new SearchAI(engine, 'AI', boss.archetype)
-    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced')
+    this.ai = new SearchAI(engine, 'AI', boss.archetype, 2)
+    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced', 2)
     this.selection = null
     this.busy = false
     this.hint = ''
