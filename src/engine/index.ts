@@ -17,3 +17,4 @@ export {
 } from './decks'
 export { createRng, type Rng } from './rng'
 export { createEngine, createEngineFromState } from './engine'
+export { cardValue, rewardCandidates, weakestIndex } from './deckbuild'

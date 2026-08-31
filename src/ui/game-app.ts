@@ -12,13 +12,12 @@
  */
 
 import {
-  ALL_CARD_IDS,
   BOSS_DECKS,
-  COPY_LIMITS,
   STARTER_DECK,
   bossHandicap,
   createEngine,
   getCard,
+  rewardCandidates,
   TUNING,
   type Action,
   type Engine,
@@ -1198,33 +1197,8 @@ export class GameApp {
   // Deckbuilding between bosses
   // -------------------------------------------------------------------------
 
-  /** 3 distinct reward candidates the current deck still has room for (respects copy limits),
-   *  weighted toward commons. Meta-random (Math.random) — not part of match determinism. */
-  private rewardCandidates(): string[] {
-    const counts: Record<string, number> = {}
-    for (const id of this.playerDeck) counts[id] = (counts[id] ?? 0) + 1
-    const pool = ALL_CARD_IDS.filter(id => (counts[id] ?? 0) < COPY_LIMITS[getCard(id).rarity])
-    const weight = (id: string): number => {
-      const r = getCard(id).rarity
-      return r === 'common' ? 3 : r === 'rare' ? 2 : 1
-    }
-    const bag = [...pool]
-    const picks: string[] = []
-    while (picks.length < 3 && bag.length > 0) {
-      const total = bag.reduce((s, id) => s + weight(id), 0)
-      let roll = Math.random() * total
-      let idx = 0
-      for (; idx < bag.length; idx++) {
-        roll -= weight(bag[idx]!)
-        if (roll <= 0) break
-      }
-      picks.push(bag.splice(Math.min(idx, bag.length - 1), 1)[0]!)
-    }
-    return picks
-  }
-
   private showReward(): void {
-    const cands = this.rewardCandidates()
+    const cands = rewardCandidates(this.playerDeck, Math.random)
     const el = this.div('ttg-modal')
     const card = this.div('modal-card')
     card.innerHTML = `<h3>Victory — choose a card</h3><div class="modal-sub">Add one to your deck for this run.</div>`

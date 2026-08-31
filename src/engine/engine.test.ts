@@ -75,6 +75,17 @@ describe('rng', () => {
 })
 
 describe('clone / serialize', () => {
+  it('preserves temporary mana (Cash) through serialize + clone', () => {
+    const e = build(['cash'], [], 'temp')
+    // Turn 1, mana 1. Cash costs 1 and grants +2 temp mana → pool should be 2.
+    e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'cash') })
+    expect(e.snapshot('HUMAN').players.HUMAN.manaPool).toBe(2)
+    const c = e.clone()
+    expect(c.snapshot('HUMAN').players.HUMAN.manaPool).toBe(2)
+    // round-trip through serialize as the CLI does
+    expect(JSON.parse(JSON.stringify(e.serialize())).players.HUMAN.manaPool).toBe(2)
+  })
+
   it('a clone is independent and plays identically to the original', () => {
     const e = build(['land-mine-stun', 'damage', 'cash'], ['fortress', 'berserker'], 'clone')
     // advance a few turns so there is real state (units, mana, deck drawn)
