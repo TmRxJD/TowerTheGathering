@@ -260,16 +260,39 @@
   border-color: #2b4a63;
   box-shadow: inset 0 0 30px -18px rgba(73, 182, 255, 0.7);
 }
+.ttg-nexus.active.human {
+  border-color: var(--ttg-accent);
+  box-shadow: inset 0 0 30px -16px rgba(73, 182, 255, 0.9), 0 0 16px -2px rgba(91, 140, 255, 0.55);
+}
+.ttg-nexus.active.ai {
+  border-color: var(--ttg-danger);
+  box-shadow: inset 0 0 30px -16px rgba(255, 91, 110, 0.9), 0 0 16px -2px rgba(255, 91, 110, 0.5);
+}
 .ttg-portrait {
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   flex: 0 0 auto;
   border-radius: 10px;
   display: grid;
   place-items: center;
   font-size: 22px;
-  background: radial-gradient(circle at 50% 30%, #2a3350, #141a2a);
+  background: radial-gradient(circle at 50% 30%, #3a1420, #140a0e);
   border: 1px solid var(--ttg-line);
+  overflow: hidden;
+}
+.ttg-portrait.img {
+  background-size: cover;
+  background-position: center 28%;
+  background-repeat: no-repeat;
+  font-size: 0;
+}
+/* Tall art (the player Tower) shown whole inside the box instead of cropped. */
+.ttg-portrait.contain {
+  background-size: contain;
+  background-position: center;
+}
+.ttg-nexus.ai .ttg-portrait {
+  box-shadow: inset 0 0 12px -4px rgba(255, 60, 90, 0.9);
 }
 .ttg-nexus.ai .ttg-portrait {
   border-color: #6a2b38;
@@ -361,7 +384,7 @@
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  max-width: 160px;
+  max-width: 190px;
   justify-content: flex-end;
 }
 .ttg-module {
@@ -619,8 +642,7 @@
   display: flex;
   justify-content: center;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden; /* never scroll — 7 cards fit the panel width */
   padding: 14px 4px 4px;
   min-height: 138px;
 }
@@ -813,6 +835,157 @@
     opacity: 0;
     transform: scale(0.5);
   }
+}
+
+/* --- Hover card preview ------------------------------------------------- */
+.ttg-preview {
+  position: absolute;
+  z-index: 22;
+  width: 236px;
+  padding: 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(32, 19, 25, 0.98), rgba(14, 9, 12, 0.99));
+  border: 1px solid var(--r-common);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+  color: var(--ttg-text);
+}
+.ttg-preview[data-rarity='rare'] {
+  border-color: var(--r-rare);
+}
+.ttg-preview[data-rarity='epic'] {
+  border-color: var(--r-epic);
+}
+.pv-art {
+  height: 116px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center 22%;
+  margin-bottom: 8px;
+  border: 1px solid var(--ttg-line);
+}
+.pv-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.pv-cost {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #7fd0ff, #2f7fe0);
+  color: #04121f;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 24px;
+  text-align: center;
+  border: 2px solid #0b0e14;
+}
+.pv-name {
+  font-weight: 800;
+  font-size: 15px;
+}
+.pv-meta {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ttg-dim);
+  margin-bottom: 6px;
+}
+.pv-stats {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.pv-stat {
+  font-weight: 800;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #0b0e14;
+}
+.pv-stat.atk {
+  background: var(--ttg-atk);
+}
+.pv-stat.hp {
+  background: var(--ttg-hp);
+}
+.pv-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #e2e8f4;
+}
+.pv-kw {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ttg-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pv-kwline {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ttg-gold);
+}
+
+/* --- Help panel --------------------------------------------------------- */
+.ttg-help {
+  position: absolute;
+  inset: 0;
+  z-index: 26;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 3, 5, 0.86);
+  backdrop-filter: blur(3px);
+  animation: ttg-fadein 0.3s ease;
+  cursor: pointer;
+}
+.help-card {
+  max-width: 520px;
+  max-height: 100%;
+  overflow: auto;
+  cursor: default;
+  background: linear-gradient(180deg, #23131c, #0e080c);
+  border: 1px solid #5a2530;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.help-card h3 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  color: #ff9db0;
+}
+.help-card p {
+  margin: 0 0 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e2e8f4;
+}
+.help-card b {
+  color: #fff;
+}
+.help-card ul {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.help-card li {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ttg-gold);
+  margin-bottom: 3px;
+}
+.help-tip {
+  color: var(--ttg-dim) !important;
+  font-style: italic;
+}
+.help-card .ttg-btn {
+  margin-top: 8px;
 }
 
 .ttg-over {

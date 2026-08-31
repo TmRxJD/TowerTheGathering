@@ -17,6 +17,7 @@ import {
   bossHandicap,
   createEngine,
   getCard,
+  TUNING,
   type Action,
   type Engine,
   type GameEvent,
@@ -27,10 +28,19 @@ import {
   type UnitView,
 } from '../engine'
 import { HeuristicAI } from '../ai'
-import { cardArtUrl } from './card-art'
+import { cardArtUrl, portraitUrl } from './card-art'
 import { FxLayer } from './fx-layer'
 
 const LANES: readonly Lane[] = ['LEFT', 'CENTER', 'RIGHT']
+
+/** Plain-language keyword meanings shown in the hover preview and help panel. */
+const KEYWORD_INFO: Record<string, string> = {
+  defender: 'Defender — enemies must destroy it before hitting units behind it.',
+  firstStrike: 'First Strike — deals its damage before the enemy strikes back.',
+  reach: 'Reach — can strike an adjacent lane when its own lane is clear.',
+  spillover: 'Spillover — leftover (overkill) damage carries to the enemy Nexus.',
+  trap: 'Trap — triggers and is destroyed when an enemy enters its lane.',
+}
 
 export interface MatchResult {
   readonly winner: Side
@@ -57,6 +67,7 @@ interface Selection {
 
 interface NexusRefs {
   el: HTMLElement
+  portrait: HTMLElement
   hpFill: HTMLElement
   hpTxt: HTMLElement
   manaNum: HTMLElement
@@ -86,6 +97,7 @@ export class GameApp {
   private ladderEl!: HTMLElement
   private bossSelect!: HTMLSelectElement
   private watchBtn!: HTMLButtonElement
+  private previewEl!: HTMLElement
   private banner!: HTMLElement
   private vignette!: HTMLElement
   private nexus!: Record<Side, NexusRefs>
@@ -150,7 +162,12 @@ export class GameApp {
     restartBtn.textContent = '↻'
     restartBtn.title = 'Restart this match'
     restartBtn.addEventListener('click', () => this.startMatch(this.bossIndex))
-    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, restartBtn)
+    const helpBtn = document.createElement('button')
+    helpBtn.className = 'ttg-mini'
+    helpBtn.textContent = '?'
+    helpBtn.title = 'How to play'
+    helpBtn.addEventListener('click', () => this.showHelp())
+    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, restartBtn, helpBtn)
 
     this.banner = this.div('ttg-banner')
     this.banner.appendChild(document.createElement('span'))
@@ -188,6 +205,9 @@ export class GameApp {
 
     this.handEl = this.div('ttg-hand')
 
+    this.previewEl = this.div('ttg-preview')
+    this.previewEl.style.display = 'none'
+
     this.root.append(
       header,
       this.banner,
@@ -196,6 +216,7 @@ export class GameApp {
       controls,
       this.nexus.HUMAN.el,
       this.handEl,
+      this.previewEl,
       this.vignette,
     )
   }
@@ -203,7 +224,14 @@ export class GameApp {
   private buildNexus(side: 'ai' | 'human'): NexusRefs {
     const el = this.div(`ttg-nexus ${side}`)
     const portrait = this.div('ttg-portrait')
-    portrait.textContent = side === 'ai' ? '🏰' : '🗼'
+    if (side === 'human') {
+      const url = portraitUrl('player')
+      if (url) {
+        portrait.style.backgroundImage = `url('${url}')`
+        portrait.classList.add('img', 'contain')
+      } else portrait.textContent = '🗼'
+    }
+    // The AI portrait is set per match from the boss name (see startMatch).
     const who = this.div('who')
     who.innerHTML = side === 'ai' ? 'Enemy Nexus<small></small>' : 'Your Nexus<small>Commander</small>'
     const hpwrap = this.div('ttg-hpwrap')
@@ -220,7 +248,7 @@ export class GameApp {
     const deck = this.div('ttg-deck')
     const modules = this.div('ttg-modules')
     el.append(portrait, who, hpwrap, mana, deck, modules)
-    return { el, hpFill, hpTxt, manaNum, crystals, deck, modules }
+    return { el, portrait, hpFill, hpTxt, manaNum, crystals, deck, modules }
   }
 
   private div(cls: string): HTMLElement {
@@ -255,6 +283,15 @@ export class GameApp {
     this.resetBoard()
     const sub = this.nexus.AI.el.querySelector('.who small')
     if (sub) sub.textContent = boss.name
+    const portrait = portraitUrl(boss.name)
+    if (portrait) {
+      this.nexus.AI.portrait.style.backgroundImage = `url('${portrait}')`
+      this.nexus.AI.portrait.classList.add('img')
+      this.nexus.AI.portrait.textContent = ''
+    } else {
+      this.nexus.AI.portrait.classList.remove('img')
+      this.nexus.AI.portrait.textContent = '🏰'
+    }
     this.bossSelect.value = String(this.bossIndex)
     this.render()
     if (this.watching) this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 700)
@@ -381,6 +418,7 @@ export class GameApp {
     const originUid = 'uid' in action ? action.uid : undefined
     const fromRect =
       originUid !== undefined ? this.cardNodes.get(originUid)?.getBoundingClientRect() : undefined
+    this.hidePreview()
     this.selection = null
     this.hint = ''
     const events = this.engine.apply(action)
@@ -426,6 +464,7 @@ export class GameApp {
   private onEndTurn(): void {
     if (this.watching || this.busy || this.engine.isOver() || this.engine.snapshot().activeSide !== 'HUMAN')
       return
+    this.hidePreview()
     this.selection = null
     this.busy = true
     this.hint = 'Opponent is planning…'
@@ -467,6 +506,9 @@ export class GameApp {
     const snap = this.engine.snapshot('HUMAN')
     this.updateNexus('AI', snap.players.AI)
     this.updateNexus('HUMAN', snap.players.HUMAN)
+    const live = !this.engine.isOver()
+    this.nexus.HUMAN.el.classList.toggle('active', live && snap.activeSide === 'HUMAN')
+    this.nexus.AI.el.classList.toggle('active', live && snap.activeSide === 'AI')
     this.reconcileUnits(snap)
     this.reconcileHand(snap.players.HUMAN)
 
@@ -571,6 +613,8 @@ export class GameApp {
       e.stopPropagation()
       this.onUnitClick(u.uid)
     })
+    node.addEventListener('mouseenter', () => this.showPreview(u.cardId, node.getBoundingClientRect()))
+    node.addEventListener('mouseleave', () => this.hidePreview())
     node.addEventListener('animationend', e => {
       if ((e as AnimationEvent).animationName === 'ttg-unitenter') node.classList.remove('enter')
     })
@@ -653,6 +697,8 @@ export class GameApp {
         : ''
     node.innerHTML = `<div class="cost">${def.cost}</div><div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
     node.addEventListener('click', () => this.onCardClick(uid))
+    node.addEventListener('mouseenter', () => this.showPreview(cardId, node.getBoundingClientRect()))
+    node.addEventListener('mouseleave', () => this.hidePreview())
     node.addEventListener('animationend', e => {
       if ((e as AnimationEvent).animationName === 'ttg-cardenter') node.classList.remove('enter')
     })
@@ -791,6 +837,67 @@ export class GameApp {
     this.banner.classList.add(active === 'HUMAN' ? 'you' : 'foe')
     void this.banner.offsetWidth
     this.banner.classList.add('show')
+  }
+
+  // -------------------------------------------------------------------------
+  // Card hover preview + help
+  // -------------------------------------------------------------------------
+
+  private showPreview(cardId: string, rect: DOMRect): void {
+    const def = getCard(cardId)
+    const stats =
+      def.type === 'UNIT'
+        ? `<span class="pv-stat atk">${def.atk ?? 0} ATK</span><span class="pv-stat hp">${def.hp ?? 0} HP</span>`
+        : ''
+    const kw = (def.keywords ?? [])
+      .map(k => `<div class="pv-kwline">${KEYWORD_INFO[k] ?? k}</div>`)
+      .join('')
+    this.previewEl.dataset.rarity = def.rarity
+    this.previewEl.innerHTML =
+      `<div class="pv-art" style="background-image:url('${cardArtUrl(cardId) ?? ''}')"></div>` +
+      `<div class="pv-head"><span class="pv-cost">${def.cost}</span><span class="pv-name">${def.name}</span></div>` +
+      `<div class="pv-meta">${def.type} · ${def.rarity}</div>` +
+      (stats ? `<div class="pv-stats">${stats}</div>` : '') +
+      `<div class="pv-text">${def.text}</div>` +
+      (kw ? `<div class="pv-kw">${kw}</div>` : '')
+    this.previewEl.style.display = 'block'
+    const r = this.rootRect()
+    const pw = this.previewEl.offsetWidth
+    const ph = this.previewEl.offsetHeight
+    let left = rect.left - r.left + rect.width / 2 - pw / 2
+    left = Math.max(8, Math.min(left, r.width - pw - 8))
+    let top = rect.top - r.top - ph - 10
+    if (top < 6) top = rect.bottom - r.top + 10 // flip below if it would clip the top
+    this.previewEl.style.left = `${left}px`
+    this.previewEl.style.top = `${top}px`
+  }
+
+  private hidePreview(): void {
+    this.previewEl.style.display = 'none'
+  }
+
+  private showHelp(): void {
+    this.root.querySelector('.ttg-help')?.remove()
+    const kw = Object.values(KEYWORD_INFO)
+      .map(v => `<li>${v}</li>`)
+      .join('')
+    const el = this.div('ttg-help')
+    el.innerHTML =
+      `<div class="help-card">` +
+      `<h3>How to play</h3>` +
+      `<p><b>Goal:</b> drop the enemy Nexus to 0 HP. You start at 20; the ladder bosses start tougher.</p>` +
+      `<p><b>Each turn:</b> you gain +1 mana (max 10) and draw a card. Spend mana to play cards, then press <b>End Turn</b> to fight.</p>` +
+      `<p><b>Lanes:</b> units stack in the Left / Center / Right lanes. Only the <b>front</b> unit fights each turn; it trades damage with the enemy's front unit. A lane with no enemy unit sends your front unit's damage straight to the Nexus.</p>` +
+      `<p><b>Card types:</b> <b>Units</b> fight in a lane · <b>Modules</b> give lasting effects from your backline (max ${TUNING.BACKLINE_SLOTS}) · <b>Ultimates</b> are one-time spells.</p>` +
+      `<p><b>Deck-out:</b> once your deck is empty, drawing hurts you a little more each time — so games always end.</p>` +
+      `<p><b>Keywords:</b></p><ul>${kw}</ul>` +
+      `<p class="help-tip">Tip: hover any card to see it full-size. Use <b>Autoplay</b> to watch the AI play both sides.</p>` +
+      `<button class="ttg-btn ready">Got it</button>` +
+      `</div>`
+    el.addEventListener('click', e => {
+      if (e.target === el || (e.target as HTMLElement).tagName === 'BUTTON') el.remove()
+    })
+    this.root.appendChild(el)
   }
 
   // -------------------------------------------------------------------------

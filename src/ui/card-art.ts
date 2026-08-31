@@ -19,6 +19,12 @@ const frameUrls = import.meta.glob('./assets/frames/*.{webp,png,jpg}', {
   import: 'default',
 }) as Record<string, string>
 
+const portraitUrls = import.meta.glob('./assets/portraits/*.{webp,png,jpg}', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
 function byBasename(map: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [path, url] of Object.entries(map)) {
@@ -30,6 +36,13 @@ function byBasename(map: Record<string, string>): Record<string, string> {
 
 const CARDS = byBasename(cardUrls)
 const FRAMES = byBasename(frameUrls)
+const PORTRAITS = byBasename(portraitUrls)
+
+/** Portrait for a nexus. Enemy portraits are keyed by boss name (a canonical Tower enemy); the
+ *  player uses the Tower art. Falls back to undefined so the caller can drop in a glyph. */
+export function portraitUrl(key: string): string | undefined {
+  return PORTRAITS[`${key.toLowerCase()}.webp`]
+}
 
 const RARITY_FRAME: Record<Rarity, string> = {
   common: 'card-green.webp',
