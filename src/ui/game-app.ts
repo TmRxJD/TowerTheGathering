@@ -1549,8 +1549,11 @@ export class GameApp {
    *  .jpg tiles. The art box shares the art's ~4:3 aspect, so cover neither crops sides nor gaps. */
   private applyArt(node: HTMLElement, cardId: string): void {
     const url = cardArtUrl(cardId) ?? ''
-    node.style.backgroundImage = `url('${url}'), radial-gradient(circle at 50% 42%, #24467a 0%, #0c1830 100%)`
-    node.style.backgroundSize = 'cover, cover'
+    // `contain` shows the WHOLE illustration whatever its aspect (base cards are ~4:3 landscape,
+    // UW/module art is square-to-portrait) — nothing is ever cropped. The tile gradient fills the
+    // remaining margin so every card reads as a framed illustration, regardless of asset type.
+    node.style.backgroundImage = `url('${url}'), radial-gradient(circle at 50% 40%, #24467a 0%, #0c1830 100%)`
+    node.style.backgroundSize = 'contain, cover'
     node.style.backgroundRepeat = 'no-repeat, no-repeat'
     node.style.backgroundPosition = 'center, center'
   }
