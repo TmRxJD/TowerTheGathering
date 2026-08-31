@@ -5,7 +5,7 @@
  * blocked site data) and must never crash the game — we fall back to a fresh save.
  */
 
-import { ALL_CARD_IDS, TUNING, clampTier, getCard } from '../engine'
+import { ALL_CARD_IDS, CARD_MAX_LEVEL, TUNING, clampLevel, clampTier, getCard, type CardLevels } from '../engine'
 
 const KEY = 'ttg.save.v2'
 
@@ -14,12 +14,30 @@ export interface SaveState {
   highestTierCleared: number
   /** The in-progress run to resume, or null. */
   run: { tier: number; bossIndex: number; deck: string[] } | null
+  /** Card collection: level (1-7) + mastery per card. Missing = level 1, no mastery. */
+  collection: CardLevels
+  /** Currency earned from wins, spent to level cards + unlock masteries. */
+  shards: number
 }
 
 const VALID_IDS = new Set(ALL_CARD_IDS)
 
 function fresh(): SaveState {
-  return { highestTierCleared: 0, run: null }
+  return { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
+}
+
+function cleanCollection(raw: unknown): CardLevels {
+  const out: CardLevels = {}
+  if (raw && typeof raw === 'object') {
+    for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (!VALID_IDS.has(id) || !v || typeof v !== 'object') continue
+      const e = v as { level?: unknown; mastery?: unknown }
+      const level = clampLevel(Number(e.level) || 1)
+      const mastery = level >= CARD_MAX_LEVEL && e.mastery === true
+      if (level > 1 || mastery) out[id] = { level, mastery }
+    }
+  }
+  return out
 }
 
 export function loadSave(): SaveState {
@@ -35,7 +53,7 @@ export function loadSave(): SaveState {
         run = { tier: clampTier(parsed.run.tier ?? 1), bossIndex: clampInt(parsed.run.bossIndex, 1, 10, 1), deck }
       }
     }
-    return { highestTierCleared, run }
+    return { highestTierCleared, run, collection: cleanCollection(parsed.collection), shards: clampInt(parsed.shards, 0, 1e9, 0) }
   } catch {
     return fresh()
   }

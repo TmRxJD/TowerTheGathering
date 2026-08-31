@@ -12,10 +12,14 @@
  */
 
 import {
+  ALL_CARD_IDS,
   BATTLE_CONDITION_TIER,
   BOSS_DECKS,
+  CARD_MAX_LEVEL,
+  CARD_PROG,
   MAX_TIER,
   STARTER_DECK,
+  cardLevelValue,
   clampTier,
   createEngine,
   getCard,
@@ -26,6 +30,7 @@ import {
   tierPlayerLifePenalty,
   TUNING,
   type Action,
+  type CardLevels,
   type Engine,
   type GameEvent,
   type Lane,
@@ -103,7 +108,7 @@ export class GameApp {
   private watchTimer: ReturnType<typeof setTimeout> | null = null
   /** The player's deck for the current ladder run; grows/trims via the reward step between bosses. */
   private playerDeck: string[] = [...STARTER_DECK]
-  private save: SaveState = { highestTierCleared: 0, run: null }
+  private save: SaveState = { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
   private toastEl!: HTMLElement
   /** True during a menu "Watch Demo" run — a throwaway ladder that never touches the saved run. */
   private demo = false
@@ -312,6 +317,8 @@ export class GameApp {
       seed: `${this.seed}-t${this.tier}-b${bossIndex}`,
       bonusLife: { AI: hc.bonusLife, HUMAN: -tierPlayerLifePenalty(this.tier) },
       bonusStartMana: { AI: hc.bonusStartMana },
+      // Your leveled collection vs bosses whose cards level up with the tier.
+      cardLevels: { HUMAN: this.demo ? {} : this.save.collection, AI: this.aiCardLevels() },
     })
     this.engine = engine
     this.ai = new SearchAI(engine, 'AI', boss.archetype, depth)
@@ -361,10 +368,15 @@ export class GameApp {
       this.showMenu()
       return
     }
-    // Clearing the final boss clears the tier and unlocks the next.
-    if (res.winner === 'HUMAN' && this.bossIndex >= BOSS_DECKS.length) {
-      this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
+    // Winning any boss earns shards (scaling with tier + boss); the final boss also unlocks the tier.
+    if (res.winner === 'HUMAN') {
+      const gained = 4 + this.tier + this.bossIndex
+      this.save.shards += gained
+      if (this.bossIndex >= BOSS_DECKS.length) {
+        this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
+      }
       writeSave(this.save)
+      this.showToast(`+${gained} shards`)
     }
     const boss = BOSS_DECKS[this.bossIndex - 1]!
     this.onResult?.({
@@ -1100,6 +1112,16 @@ export class GameApp {
     this.overlay = overlay
   }
 
+  /** Bosses' cards level up with the tier (and gain masteries deep in), so higher tiers hit harder
+   *  through smarter/stronger cards, not just raw life. */
+  private aiCardLevels(): CardLevels {
+    const level = Math.min(CARD_MAX_LEVEL, 1 + Math.floor((this.tier - 1) / 3))
+    const mastery = this.tier >= 13
+    const out: CardLevels = {}
+    for (const id of ALL_CARD_IDS) out[id] = { level, mastery }
+    return out
+  }
+
   private resetLadder(tier = this.tier): void {
     this.demo = false
     this.tier = clampTier(tier)
@@ -1151,6 +1173,7 @@ export class GameApp {
       tierRow +
       `<div class="menu-btns">` +
       primary +
+      `<button class="ttg-mini" data-m="collection">🃏 Collection (💠 ${this.save.shards})</button>` +
       `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
       `<button class="ttg-mini" data-m="help">? How to Play</button>` +
       `</div></div>`
@@ -1160,6 +1183,10 @@ export class GameApp {
         const m = b.dataset.m
         if (m === 'help') {
           this.showHelp()
+          return
+        }
+        if (m === 'collection') {
+          this.showCollection()
           return
         }
         el.remove()
@@ -1183,6 +1210,98 @@ export class GameApp {
       }),
     )
     this.root.appendChild(el)
+  }
+
+  // -------------------------------------------------------------------------
+  // Collection (card levels + masteries)
+  // -------------------------------------------------------------------------
+
+  private collEntry(cardId: string): { level: number; mastery: boolean } {
+    return this.save.collection[cardId] ?? { level: 1, mastery: false }
+  }
+
+  private levelCost(level: number): number {
+    return level * 4 // L1→2: 4 … L6→7: 24
+  }
+  private static readonly MASTERY_COST = 30
+
+  private showCollection(): void {
+    this.root.querySelector('.ttg-collection')?.remove()
+    const el = this.div('ttg-modal ttg-collection')
+    const card = this.div('modal-card')
+    card.innerHTML =
+      `<h3>Collection</h3>` +
+      `<div class="modal-sub">💠 ${this.save.shards} shards · level cards to grow their effect; max level unlocks a Mastery.</div>`
+    const grid = this.div('coll-grid')
+    const ids = [...ALL_CARD_IDS].sort((a, b) => getCard(a).cost - getCard(b).cost || getCard(a).name.localeCompare(getCard(b).name))
+    for (const id of ids) grid.appendChild(this.collCard(id, () => this.showCollection()))
+    const close = document.createElement('button')
+    close.className = 'ttg-mini'
+    close.textContent = 'Close'
+    close.addEventListener('click', () => el.remove())
+    card.append(grid, close)
+    el.appendChild(card)
+    el.addEventListener('click', e => {
+      if (e.target === el) el.remove()
+    })
+    this.root.appendChild(el)
+  }
+
+  private collCard(cardId: string, refresh: () => void): HTMLElement {
+    const def = getCard(cardId)
+    const prog = CARD_PROG[cardId]
+    const { level, mastery } = this.collEntry(cardId)
+    const wrap = this.div('coll-item')
+    const face = this.cardFace(cardId, 'mini', () => {}, `L${level}${mastery ? '★' : ''}`)
+    face.style.cursor = 'default' // hover shows the preview; no click action here
+
+    const val = cardLevelValue(cardId, level, mastery)
+    const info = this.div('coll-info')
+    const nextVal = level < CARD_MAX_LEVEL ? cardLevelValue(cardId, level + 1, mastery) : val
+    info.innerHTML =
+      `<div class="coll-name">${def.name} <span class="coll-lvl">L${level}/${CARD_MAX_LEVEL}</span></div>` +
+      `<div class="coll-effect">${this.fmtVal(cardId, val)}${level < CARD_MAX_LEVEL ? ` → ${this.fmtVal(cardId, nextVal)}` : ''}</div>` +
+      (prog ? `<div class="coll-mastery${mastery ? ' on' : ''}">★ ${prog.masteryName}: ${prog.masteryText}</div>` : '')
+
+    const btn = document.createElement('button')
+    btn.className = 'ttg-mini coll-buy'
+    if (level < CARD_MAX_LEVEL) {
+      const cost = this.levelCost(level)
+      btn.textContent = `Level up · ${cost}💠`
+      btn.disabled = this.save.shards < cost
+      btn.addEventListener('click', () => {
+        if (this.save.shards < cost) return
+        this.save.shards -= cost
+        this.save.collection[cardId] = { level: level + 1, mastery }
+        writeSave(this.save)
+        refresh()
+      })
+    } else if (!mastery) {
+      const cost = GameApp.MASTERY_COST
+      btn.textContent = `Unlock Mastery · ${cost}💠`
+      btn.classList.add('mastery')
+      btn.disabled = this.save.shards < cost
+      btn.addEventListener('click', () => {
+        if (this.save.shards < cost) return
+        this.save.shards -= cost
+        this.save.collection[cardId] = { level, mastery: true }
+        writeSave(this.save)
+        refresh()
+      })
+    } else {
+      btn.textContent = 'MAX ★'
+      btn.disabled = true
+      btn.classList.add('maxed')
+    }
+    wrap.append(face, info, btn)
+    return wrap
+  }
+
+  /** Format a card's numeric value for display (percent cards as %, others as +N). */
+  private fmtVal(cardId: string, v: number): string {
+    const pct = cardId === 'critical-chance' || cardId === 'plasma-cannon' || cardId === 'land-mine-chance'
+    if (pct) return `${Math.round(v * 100)}%`
+    return `${v}`
   }
 
   // -------------------------------------------------------------------------

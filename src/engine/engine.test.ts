@@ -198,6 +198,28 @@ describe('combat', () => {
   })
 })
 
+describe('card levels + mastery', () => {
+  it('a leveled + mastered Damage scales the ATK bonus', () => {
+    const { engine: e } = createEngine({
+      humanDeck: mkDeck(['damage', 'land-mine-stun']),
+      aiDeck: mkDeck([]),
+      seed: 'lvl',
+      shuffle: false,
+      firstPlayer: 'HUMAN',
+      // Damage level 6 (value 3) + mastery (+1) => +4 ATK.
+      cardLevels: { HUMAN: { damage: { level: 6, mastery: true } } },
+    })
+    pass(e) // t1 → AI
+    pass(e) // AI → t2
+    pass(e) // t2 → AI
+    pass(e) // AI → t3 (mana 3)
+    e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
+    e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
+    pass(e) // combat: land-mine base 1 ATK + Damage(+4) = 5 to AI face
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 5)
+  })
+})
+
 describe('ultimates', () => {
   it('Plasma Cannon removes 50% of current HP (rounded up)', () => {
     const e = build(['plasma-cannon'], ['berserker']) // berserker 2/4

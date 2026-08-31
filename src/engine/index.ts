@@ -19,6 +19,16 @@ export { createRng, type Rng } from './rng'
 export { createEngine, createEngineFromState } from './engine'
 export { cardValue, rewardCandidates, weakestIndex } from './deckbuild'
 export {
+  CARD_PROG,
+  CARD_MAX_LEVEL,
+  cardLevelValue,
+  cardMasterySpecial,
+  cardUnitStat,
+  clampLevel,
+  type CardProg,
+  type MasterySpecial,
+} from './card-progression'
+export {
   LADDER_TIERS,
   MAX_TIER,
   BATTLE_CONDITION_TIER,

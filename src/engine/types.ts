@@ -248,7 +248,12 @@ export interface EngineOptions {
   readonly bonusLife?: Partial<Record<Side, number>>
   /** Extra starting max mana per side (a small tempo edge for the top bosses). */
   readonly bonusStartMana?: Partial<Record<Side, number>>
+  /** Per-side card levels/masteries. Missing entries default to level 1, no mastery. */
+  readonly cardLevels?: Partial<Record<Side, CardLevels>>
 }
+
+/** A side's card progression: level (1-7) and whether the mastery is unlocked, keyed by card id. */
+export type CardLevels = Record<string, { level: number; mastery: boolean }>
 
 // ---------------------------------------------------------------------------
 // Serializable full state (for cloning + save/restore; powers search + the CLI)
@@ -299,6 +304,7 @@ export interface EngineState {
   shuffleDecks: boolean
   bonusLife: Partial<Record<Side, number>>
   bonusStartMana: Partial<Record<Side, number>>
+  cardLevels: Partial<Record<Side, CardLevels>>
 }
 
 export interface Engine {

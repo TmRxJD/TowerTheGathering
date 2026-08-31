@@ -1144,6 +1144,74 @@
   color: var(--ttg-danger);
   font-weight: 800;
 }
+
+/* --- Collection screen -------------------------------------------------- */
+.ttg-collection .modal-card {
+  max-width: 760px;
+  width: 100%;
+}
+.coll-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.coll-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 150px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(20, 14, 20, 0.6);
+  border: 1px solid var(--ttg-line);
+}
+.coll-info {
+  text-align: center;
+  width: 100%;
+}
+.coll-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+.coll-lvl {
+  color: var(--ttg-gold);
+  font-weight: 800;
+}
+.coll-effect {
+  font-size: 11px;
+  color: var(--ttg-accent);
+  font-weight: 700;
+  margin: 2px 0;
+}
+.coll-mastery {
+  font-size: 9px;
+  line-height: 1.3;
+  color: var(--ttg-dim);
+  opacity: 0.7;
+}
+.coll-mastery.on {
+  color: var(--ttg-gold);
+  opacity: 1;
+}
+.coll-buy {
+  width: 100%;
+  justify-content: center;
+}
+.coll-buy.mastery:not(:disabled) {
+  border-color: var(--ttg-gold);
+  color: var(--ttg-gold);
+}
+.coll-buy.maxed {
+  border-color: var(--ttg-gold);
+  color: var(--ttg-gold);
+  opacity: 0.9;
+}
 .deck-curve {
   display: flex;
   justify-content: center;

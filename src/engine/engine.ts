@@ -12,11 +12,13 @@
  */
 
 import { getCard, MINE_TOKEN } from './cards'
+import { cardLevelValue, cardMasterySpecial, cardUnitStat, type MasterySpecial } from './card-progression'
 import { createRng, type Rng } from './rng'
 import { TUNING } from './tuning'
 import type {
   Action,
   CardRef,
+  CardLevels,
   Engine,
   EngineOptions,
   EngineState,
@@ -86,6 +88,7 @@ class TowerEngine implements Engine {
   private readonly shuffleDecks: boolean
   private readonly bonusLife: Partial<Record<Side, number>>
   private readonly bonusStartMana: Partial<Record<Side, number>>
+  private readonly cardLevels: Partial<Record<Side, CardLevels>>
 
   constructor(opts: EngineOptions, restore?: EngineState) {
     this.rng = createRng(opts.seed ?? 'ttg-default')
@@ -99,6 +102,7 @@ class TowerEngine implements Engine {
       this.shuffleDecks = restore.shuffleDecks
       this.bonusLife = restore.bonusLife
       this.bonusStartMana = restore.bonusStartMana
+      this.cardLevels = restore.cardLevels
       this.activeSide = restore.activeSide
       this.players = { HUMAN: this.blankPlayer('HUMAN'), AI: this.blankPlayer('AI') }
       this.loadState(restore)
@@ -108,6 +112,7 @@ class TowerEngine implements Engine {
     this.shuffleDecks = opts.shuffle !== false
     this.bonusLife = opts.bonusLife ?? {}
     this.bonusStartMana = opts.bonusStartMana ?? {}
+    this.cardLevels = opts.cardLevels ?? {}
     this.players = {
       HUMAN: this.newPlayer('HUMAN', opts.humanDeck),
       AI: this.newPlayer('AI', opts.aiDeck),
@@ -187,7 +192,26 @@ class TowerEngine implements Engine {
       shuffleDecks: this.shuffleDecks,
       bonusLife: { ...this.bonusLife },
       bonusStartMana: { ...this.bonusStartMana },
+      cardLevels: this.cardLevels,
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Card levels / masteries
+  // -------------------------------------------------------------------------
+
+  private cardEntry(side: Side, cardId: string): { level: number; mastery: boolean } {
+    return this.cardLevels[side]?.[cardId] ?? { level: 1, mastery: false }
+  }
+
+  /** The card's numeric value for `side`, scaled by its level (+ mastery stat bonus). */
+  private cardVal(side: Side, cardId: string): number {
+    const e = this.cardEntry(side, cardId)
+    return cardLevelValue(cardId, e.level, e.mastery)
+  }
+
+  private hasMasterySpecial(side: Side, cardId: string, which: MasterySpecial): boolean {
+    return cardMasterySpecial(cardId, this.cardEntry(side, cardId).mastery) === which
   }
 
   private loadState(state: EngineState): void {
@@ -359,17 +383,20 @@ class TowerEngine implements Engine {
     this.pendingMana[side] = 0
     events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
 
-    // Start-of-turn: Health Regen.
+    // Start-of-turn: Health Regen (per copy, scaled by level).
     if (this.countModule(side, 'health-regen') > 0) {
-      const amt = TUNING.REGEN_PER_TURN * this.countModule(side, 'health-regen')
+      const amt = this.cardVal(side, 'health-regen') * this.countModule(side, 'health-regen')
       this.healNexus(side, amt, events)
       for (const lane of LANES) {
         for (const u of this.lanes[lane][side]) this.healUnit(u, amt, events)
       }
     }
 
-    // Draw: 1 + Coins (own) + Enemy Balance (any side in play).
-    const draws = 1 + this.countModule(side, 'coins') + this.countAllModules('enemy-balance')
+    // Draw: 1 + Coins (own) + Enemy Balance (own, both copies drew; levels scale the bonus).
+    const draws =
+      1 +
+      this.countModule(side, 'coins') * this.cardVal(side, 'coins') +
+      this.countModule(side, 'enemy-balance') * this.cardVal(side, 'enemy-balance')
     for (let i = 0; i < draws; i++) this.drawCard(p, events)
 
     this.phase = 'MAIN'
@@ -404,7 +431,7 @@ class TowerEngine implements Engine {
     // Land Mine Chance: 50% per copy to spawn a mine in a random empty lane.
     const mineModules = this.countModule(side, 'land-mine-chance')
     for (let i = 0; i < mineModules; i++) {
-      if (!this.rng.chance(TUNING.LAND_MINE_SPAWN_CHANCE)) continue
+      if (!this.rng.chance(this.cardVal(side, 'land-mine-chance'))) continue
       const empty = LANES.filter(l => this.lanes[l][side].length === 0)
       if (empty.length === 0) break
       const lane = empty[this.rng.int(empty.length)] as Lane
@@ -454,10 +481,10 @@ class TowerEngine implements Engine {
     this.takeFromHand(p, uid)
     const unit = this.makeUnit(side, ref.cardId, lane, ref.uid)
 
-    // Slow Aura (opponent's): this unit enters tapped.
+    // Slow Aura (opponent's): this unit enters tapped for the aura's leveled duration.
     const opp = this.opponent(side)
     if (this.countModule(opp, 'slow-aura') > 0) {
-      unit.tappedTurns = 1
+      unit.tappedTurns = this.cardVal(opp, 'slow-aura')
       events.push({ type: 'unitTapped', uid: unit.uid })
     }
 
@@ -503,8 +530,9 @@ class TowerEngine implements Engine {
 
     // Health module resolves immediately (raises max and heals).
     if (def.id === 'health') {
-      p.maxLife += TUNING.HEALTH_MODULE_BONUS
-      this.healNexus(side, TUNING.HEALTH_MODULE_BONUS, events)
+      const bonus = this.cardVal(side, 'health')
+      p.maxLife += bonus
+      this.healNexus(side, bonus, events)
     }
   }
 
@@ -536,11 +564,11 @@ class TowerEngine implements Engine {
     const p = this.players[side]
     switch (cardId) {
       case 'cash':
-        p.manaPool += 2
+        p.manaPool += this.cardVal(side, 'cash')
         events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
         break
       case 'intro-sprint': {
-        for (let i = 0; i < 3; i++) this.drawCard(p, events)
+        for (let i = 0; i < this.cardVal(side, 'intro-sprint'); i++) this.drawCard(p, events)
         // Discard the lowest-value card (a unit/module cost tiebreak). Deterministic.
         if (p.hand.length > 0) {
           const worst = [...p.hand].sort((a, b) => getCard(a.cardId).cost - getCard(b.cardId).cost)[0]!
@@ -552,7 +580,8 @@ class TowerEngine implements Engine {
       }
       case 'free-upgrades': {
         const revealed: CardRef[] = []
-        for (let i = 0; i < 3 && p.deck.length > 0; i++) revealed.push(p.deck.pop() as CardRef)
+        const revealN = this.cardVal(side, 'free-upgrades')
+        for (let i = 0; i < revealN && p.deck.length > 0; i++) revealed.push(p.deck.pop() as CardRef)
         const eligible = revealed.filter(r => {
           const d = getCard(r.cardId)
           return d.type === 'UNIT' && d.cost <= 3
@@ -582,14 +611,22 @@ class TowerEngine implements Engine {
         }
         break
       }
-      case 'wave-skip':
+      case 'wave-skip': {
         this.players[this.opponent(side)].skipNextCombat = true
+        const heal = this.cardVal(side, 'wave-skip')
+        if (heal > 0) this.healNexus(side, heal, events)
         break
+      }
       case 'plasma-cannon': {
         const u = this.unitByTarget(target)
         if (u) {
-          const dmg = Math.ceil(u.hp / 2)
-          this.damageUnit(u, dmg, null, false, events)
+          const pct = this.cardVal(side, 'plasma-cannon')
+          this.damageUnit(u, Math.ceil(u.hp * pct), null, false, events)
+          // Elite Cannon mastery: also strike a second enemy unit.
+          if (this.hasMasterySpecial(side, 'plasma-cannon', 'elite-cannon')) {
+            const second = this.biggestEnemyUnit(side, u.uid)
+            if (second) this.damageUnit(second, Math.ceil(second.hp * pct), null, false, events)
+          }
         }
         break
       }
@@ -598,7 +635,7 @@ class TowerEngine implements Engine {
         if (u) {
           const lane = u.lane
           const uSide = u.owner
-          this.damageUnit(u, TUNING.DEATH_RAY_MAIN, null, false, events)
+          this.damageUnit(u, this.cardVal(side, 'death-ray'), null, false, events)
           for (const adj of ADJACENT[lane]) {
             const front = this.frontUnit(adj, uSide)
             if (front) this.damageUnit(front, TUNING.DEATH_RAY_SPLASH, null, false, events)
@@ -609,7 +646,7 @@ class TowerEngine implements Engine {
       case 'energy-net': {
         const u = this.unitByTarget(target)
         if (u) {
-          u.frozenTurns = Math.max(u.frozenTurns, 2)
+          u.frozenTurns = Math.max(u.frozenTurns, this.cardVal(side, 'energy-net'))
           events.push({ type: 'unitFrozen', uid: u.uid, turns: u.frozenTurns })
         }
         break
@@ -617,7 +654,7 @@ class TowerEngine implements Engine {
       case 'recovery-package': {
         const u = this.unitByTarget(target)
         if (u) {
-          u.maxHp += TUNING.RECOVERY_OVERHEAL
+          u.maxHp += this.cardVal(side, 'recovery-package')
           const before = u.hp
           u.hp = u.maxHp
           events.push({ type: 'heal', targetUid: u.uid, side: u.owner, amount: u.hp - before })
@@ -627,7 +664,7 @@ class TowerEngine implements Engine {
       case 'demon-mode': {
         const u = this.unitByTarget(target)
         if (u) {
-          u.atk += TUNING.DEMON_MODE_ATK
+          u.atk += this.cardVal(side, 'demon-mode')
           u.invulnerableThisTurn = true
           u.sacrificeAtEndOfTurn = true
           events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
@@ -636,7 +673,7 @@ class TowerEngine implements Engine {
       }
       case 'ultimate-crit': {
         const u = this.unitByTarget(target)
-        if (u) u.chargedCritMultiplier = TUNING.ULTIMATE_CRIT_MULTIPLIER
+        if (u) u.chargedCritMultiplier = this.cardVal(side, 'ultimate-crit')
         break
       }
       case 'nuke': {
@@ -645,9 +682,24 @@ class TowerEngine implements Engine {
             for (const u of [...this.lanes[lane][s]]) this.killUnit(u, events)
           }
         }
+        // Bonus Nexus damage from level, plus Radiation mastery.
+        let dmg = this.cardVal(side, 'nuke')
+        if (this.hasMasterySpecial(side, 'nuke', 'radiation')) dmg += 6
+        if (dmg > 0) this.damageNexus(this.opponent(side), dmg, events)
         break
       }
     }
+  }
+
+  /** The enemy unit (of `side`'s foe) with the most HP, excluding `excludeUid`. For Elite Cannon. */
+  private biggestEnemyUnit(side: Side, excludeUid: number): UnitInstance | undefined {
+    const opp = this.opponent(side)
+    let best: UnitInstance | undefined
+    for (const lane of LANES) for (const u of this.lanes[lane][opp]) {
+      if (u.uid === excludeUid) continue
+      if (!best || u.hp > best.hp) best = u
+    }
+    return best
   }
 
   // -------------------------------------------------------------------------
@@ -748,7 +800,7 @@ class TowerEngine implements Engine {
 
     let atk = baseAtk
     let crit = false
-    if (this.countModule(side, 'critical-chance') > 0 && this.rng.chance(TUNING.CRIT_CHANCE)) {
+    if (this.countModule(side, 'critical-chance') > 0 && this.rng.chance(this.cardVal(side, 'critical-chance'))) {
       crit = true
       atk *= TUNING.CRIT_MULTIPLIER
     }
@@ -847,11 +899,32 @@ class TowerEngine implements Engine {
     if (idx === 0 && stack.length > 0) {
       events.push({ type: 'unitPromoted', uid: stack[0]!.uid, lane: unit.lane, side: unit.owner })
     }
-    // Critical Coin: the killer's owner gains +1 mana next turn (only on a real killer).
+
+    // Viking Funeral mastery: a dying Berserker throws its ATK at the enemy Nexus.
+    if (unit.atk > 0 && this.hasMasterySpecial(unit.owner, unit.cardId, 'viking-funeral')) {
+      this.damageNexus(this.opponent(unit.owner), unit.atk, events)
+    }
+    // Fortress Walls mastery: rebuild a small wall in the lane once (the token can't re-trigger).
+    if (this.hasMasterySpecial(unit.owner, unit.cardId, 'fortress-walls')) {
+      const wall = this.makeUnit(unit.owner, MINE_TOKEN.id, unit.lane)
+      wall.hp = 4
+      wall.maxHp = 4
+      wall.atk = 0
+      stack.unshift(wall)
+      events.push({ type: 'unitPlaced', unit: wall, index: 0 })
+    }
+
     if (killerUid !== null) {
       const killer = this.findUnit(killerUid)
-      if (killer && this.countModule(killer.owner, 'critical-coin') > 0) {
-        this.pendingMana[killer.owner] += this.countModule(killer.owner, 'critical-coin')
+      if (killer) {
+        // Critical Coin: the killer's owner gains mana next turn (scaled by level).
+        if (this.countModule(killer.owner, 'critical-coin') > 0) {
+          this.pendingMana[killer.owner] += this.cardVal(killer.owner, 'critical-coin') * this.countModule(killer.owner, 'critical-coin')
+        }
+        // Coin Orb mastery: an Extra Orbs that kills draws a card.
+        if (this.hasMasterySpecial(killer.owner, killer.cardId, 'coin-orb')) {
+          this.drawCard(this.players[killer.owner], events)
+        }
       }
     }
   }
@@ -877,15 +950,17 @@ class TowerEngine implements Engine {
 
     let applied = amount
     if (!bypass) {
-      // Energy Shield: negate the whole next instance, then destroy the shield.
+      // Energy Shield: negate this instance; it absorbs a leveled number of instances before breaking.
       const shield = p.modules.find(m => m.cardId === 'energy-shield')
       if (shield) {
-        this.destroyModule(side, shield.uid, events)
+        const used = (typeof shield.data.used === 'number' ? shield.data.used : 0) + 1
+        shield.data.used = used
+        if (used >= this.cardVal(side, 'energy-shield')) this.destroyModule(side, shield.uid, events)
         events.push({ type: 'nexusDamage', side, amount: 0, life: p.life })
         return
       }
-      // Extra Defense: reduce by 1 per copy, but a hit never drops below 1.
-      const reduction = TUNING.EXTRA_DEFENSE_REDUCTION * this.countModule(side, 'extra-defense')
+      // Extra Defense: reduce per copy (scaled by level), but a hit never drops below 1.
+      const reduction = this.cardVal(side, 'extra-defense') * this.countModule(side, 'extra-defense')
       applied = Math.max(1, amount - reduction)
     }
 
@@ -893,13 +968,18 @@ class TowerEngine implements Engine {
     events.push({ type: 'nexusDamage', side, amount: applied, life: Math.max(0, p.life) })
 
     if (p.life <= 0) {
-      // Second Wind: prevent the fatal blow once.
+      // Second Wind: prevent the fatal blow once, healing to a leveled amount.
       const secretIdx = p.secrets.findIndex(s => s.cardId === 'second-wind')
       if (secretIdx >= 0) {
         const [secret] = p.secrets.splice(secretIdx, 1)
-        p.life = TUNING.SECOND_WIND_HEAL
+        const heal = this.cardVal(side, 'second-wind')
+        p.life = heal
         events.push({ type: 'secretTriggered', cardId: secret!.cardId, side })
-        events.push({ type: 'heal', targetUid: null, side, amount: TUNING.SECOND_WIND_HEAL })
+        events.push({ type: 'heal', targetUid: null, side, amount: heal })
+        // Angel Wings mastery: also heal all your units to full.
+        if (this.hasMasterySpecial(side, 'second-wind', 'angel-wings')) {
+          for (const lane of LANES) for (const u of this.lanes[lane][side]) this.healUnit(u, u.maxHp, events)
+        }
         return
       }
       this.declareWinner(this.opponent(side), events)
@@ -945,7 +1025,7 @@ class TowerEngine implements Engine {
     // Package Chance: drawing an Ultimate grants Nexus HP.
     if (getCard(card.cardId).type === 'ULTIMATE') {
       const n = this.countModule(p.side, 'package-chance')
-      if (n > 0) this.healNexus(p.side, TUNING.PACKAGE_CHANCE_HP * n, events)
+      if (n > 0) this.healNexus(p.side, this.cardVal(p.side, 'package-chance') * n, events)
     }
   }
 
@@ -955,14 +1035,19 @@ class TowerEngine implements Engine {
 
   private makeUnit(side: Side, cardId: string, lane: Lane, uid = this.uidSeq++): UnitInstance {
     const def = getCard(cardId)
+    let atk = def.atk ?? 0
+    let hp = def.hp ?? 1
+    const unitStat = cardUnitStat(cardId) // level scales the unit's primary stat
+    if (unitStat === 'atk') atk = this.cardVal(side, cardId)
+    else if (unitStat === 'hp') hp = this.cardVal(side, cardId)
     return {
       uid,
       cardId,
       owner: side,
       lane,
-      atk: def.atk ?? 0,
-      hp: def.hp ?? 1,
-      maxHp: def.hp ?? 1,
+      atk,
+      hp,
+      maxHp: hp,
       innate: new Set<Keyword>(def.keywords ?? []),
       tappedTurns: 0,
       frozenTurns: 0,
@@ -980,14 +1065,18 @@ class TowerEngine implements Engine {
     return kw
   }
 
-  /** Effective ATK: base + Damage aura + Orbs Speed + Enemy Balance (to the module owner's foe) + Super Tower. */
+  /** Effective ATK: base + Damage/Attack-Speed/Range auras + Orbs Speed + Enemy Balance (to the foe) +
+   *  Super Tower. Module bonuses scale with the module's card level. */
   private unitAtk(unit: UnitInstance, superTurn: Record<Side, boolean>): number {
+    const side = unit.owner
     let atk = unit.atk
-    atk += this.countModule(unit.owner, 'damage')
-    if (unit.cardId === 'extra-orbs') atk += TUNING.ORBS_SPEED_ATK * this.countModule(unit.owner, 'orbs-speed')
-    // Enemy Balance buffs the units of the module owner's OPPONENT.
-    atk += this.countModule(this.opponent(unit.owner), 'enemy-balance')
-    if (superTurn[unit.owner]) atk += TUNING.SUPER_TOWER_ATK
+    atk += this.countModule(side, 'damage') * this.cardVal(side, 'damage')
+    atk += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
+    atk += this.countModule(side, 'range') * this.cardVal(side, 'range')
+    if (unit.cardId === 'extra-orbs') atk += this.countModule(side, 'orbs-speed') * this.cardVal(side, 'orbs-speed')
+    // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy).
+    atk += this.countModule(this.opponent(side), 'enemy-balance')
+    if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
     return Math.max(0, atk)
   }
 
@@ -1037,7 +1126,8 @@ class TowerEngine implements Engine {
   private effectiveCost(side: Side, cardId: string): number {
     const def = getCard(cardId)
     let cost = def.cost
-    if (def.type === 'ULTIMATE') cost -= this.countModule(side, 'wave-accelerator')
+    if (def.type === 'ULTIMATE')
+      cost -= this.cardVal(side, 'wave-accelerator') * this.countModule(side, 'wave-accelerator')
     return Math.max(1, cost)
   }
 

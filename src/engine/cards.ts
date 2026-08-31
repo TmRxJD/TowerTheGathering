@@ -96,7 +96,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'common',
     type: 'MODULE',
     cost: 1,
-    text: 'Both sides draw +1 each turn, but all enemy units have +1 ATK.',
+    text: 'Draw +1 card each turn, but all enemy units have +1 ATK.',
     art: 'enemy-balance.jpg',
   },
   'extra-defense': {
