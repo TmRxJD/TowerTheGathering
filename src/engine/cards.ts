@@ -392,14 +392,14 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'shrink-ray': {
     id: 'shrink-ray', name: 'Shrink Ray', rarity: 'epic', type: 'ULTIMATE', cost: 3,
-    text: "Shrink an enemy unit's mass: it permanently loses 2 max HP.",
+    text: "Shrink an enemy unit's mass: its hits weaken — permanently −2 ATK.",
     art: 'shrink-ray.webp',
   },
 
   // --- Armor modules (defense) ------------------------------------------------
   'anti-cube-portal': {
     id: 'anti-cube-portal', name: 'Anti-Cube Portal', rarity: 'epic', type: 'MODULE', cost: 4,
-    text: 'End of your turn: a shockwave deals 1 damage to each enemy front unit.',
+    text: 'When your unit attacks, a shockwave deals 1 to the enemy fronts in the neighboring lanes.',
     art: 'anti-cube-portal.webp',
   },
   'negative-mass-projector': {

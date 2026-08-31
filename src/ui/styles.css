@@ -1150,18 +1150,88 @@
 }
 
 /* --- Collection: a compact grid of faces (no inner scrollbar) ----------- */
+.modal-x {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(20, 10, 14, 0.9);
+  border: 1px solid var(--ttg-line);
+  color: var(--ttg-text);
+  font-size: 15px;
+  cursor: pointer;
+  z-index: 3;
+  transition: background 0.14s, border-color 0.14s;
+}
+.modal-x:hover {
+  background: rgba(255, 90, 120, 0.28);
+  border-color: var(--ttg-danger);
+}
+.coll-legend {
+  font-size: 11px;
+  color: var(--ttg-dim);
+  margin: 0 0 10px;
+}
+.coll-legend span {
+  color: var(--ttg-text);
+  font-weight: 700;
+}
+.coll-legend .lg-cost {
+  color: var(--ttg-accent);
+}
+.coll-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--ttg-dim);
+  margin-bottom: 12px;
+}
+.coll-sort {
+  font-size: 11px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ttg-line);
+  color: var(--ttg-dim);
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
+}
+.coll-sort.on {
+  background: var(--ttg-accent);
+  color: #06101f;
+  border-color: var(--ttg-accent);
+  font-weight: 800;
+}
+/* The collection can be taller than the viewport; anchor it to the top so the header stays visible,
+   and keep the whole thing on screen (the ✕ is fixed to the overlay corner regardless). */
+.ttg-collection {
+  align-items: flex-start;
+  padding: 8px;
+}
 .ttg-collection .modal-card {
   max-width: 720px;
   width: 100%;
   max-height: none;
   overflow: visible;
+  padding: 12px 16px 14px;
+}
+.ttg-collection .modal-card h3 {
+  font-size: 17px;
+}
+.ttg-collection .modal-sub {
+  margin-bottom: 6px;
+  font-size: 12px;
 }
 .coll-faces {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   justify-content: center;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 .coll-faces .ttg-card.mini {
   cursor: pointer;

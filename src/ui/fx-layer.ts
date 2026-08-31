@@ -52,7 +52,14 @@ interface Flash {
   max: number
   color: string
 }
-type Effect = FloatNum | Beam | Particle | Ring | Flash
+interface Bolt {
+  kind: 'bolt'
+  pts: Array<{ x: number; y: number }>
+  life: number
+  max: number
+  color: string
+}
+type Effect = FloatNum | Beam | Particle | Ring | Flash | Bolt
 
 export class FxLayer {
   private readonly canvas: HTMLCanvasElement
@@ -116,6 +123,29 @@ export class FxLayer {
     this.wake()
   }
 
+  /** A jagged lightning bolt between two points (Chain Lightning, electric hits). Visual only. */
+  bolt(x1: number, y1: number, x2: number, y2: number, color = '#bff2ff'): void {
+    const segs = 7
+    const pts: Array<{ x: number; y: number }> = [{ x: x1, y: y1 }]
+    const nx = -(y2 - y1)
+    const ny = x2 - x1
+    const len = Math.hypot(nx, ny) || 1
+    for (let i = 1; i < segs; i++) {
+      const f = i / segs
+      const jitter = (Math.random() - 0.5) * 26
+      pts.push({ x: x1 + (x2 - x1) * f + (nx / len) * jitter, y: y1 + (y2 - y1) * f + (ny / len) * jitter })
+    }
+    pts.push({ x: x2, y: y2 })
+    this.effects.push({ kind: 'bolt', pts, life: 300, max: 300, color })
+    this.wake()
+  }
+
+  /** A big impact — ring + particle burst. For missile/mine explosions and black holes. */
+  explode(x: number, y: number, color: string, power = 0.7): void {
+    this.ring(x, y, color, 46)
+    this.burst(x, y, color, 20, power)
+  }
+
   /** Full-board colour flash — for board-wide spells (Nuke). */
   flash(color: string): void {
     this.effects.push({ kind: 'flash', life: 460, max: 460, color })
@@ -176,6 +206,21 @@ export class FxLayer {
         ctx.globalAlpha = k * 0.55
         ctx.fillStyle = e.color
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      } else if (e.kind === 'bolt') {
+        ctx.globalAlpha = Math.min(1, k * 2.2)
+        ctx.strokeStyle = e.color
+        ctx.shadowColor = e.color
+        ctx.shadowBlur = 16
+        ctx.lineJoin = 'round'
+        ctx.beginPath()
+        ctx.moveTo(e.pts[0]!.x, e.pts[0]!.y)
+        for (let i = 1; i < e.pts.length; i++) ctx.lineTo(e.pts[i]!.x, e.pts[i]!.y)
+        ctx.lineWidth = 5 * k + 1
+        ctx.stroke()
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 2 * k + 0.5
+        ctx.stroke()
+        ctx.shadowBlur = 0
       } else {
         e.vy += 0.0006 * dt // gravity
         e.x += e.vx * dt

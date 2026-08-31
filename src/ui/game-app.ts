@@ -112,6 +112,7 @@ export class GameApp {
   /** The player's deck for the current ladder run; grows/trims via the reward step between bosses. */
   private playerDeck: string[] = [...STARTER_DECK]
   private save: SaveState = { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
+  private collSort: 'cost' | 'rarity' | 'type' = 'cost'
   private toastEl!: HTMLElement
   /** True during a menu "Watch Demo" run — a throwaway ladder that never touches the saved run. */
   private demo = false
@@ -639,7 +640,7 @@ export class GameApp {
     for (const m of p.modules) {
       const d = this.div('ttg-module')
       d.title = `${m.name}`
-      d.style.backgroundImage = `url('${cardArtUrl(m.cardId) ?? ''}')`
+      this.applyArt(d, m.cardId)
       if (!this.seenModules.has(m.uid)) {
         d.classList.add('pop')
         this.seenModules.add(m.uid)
@@ -684,7 +685,7 @@ export class GameApp {
     node.dataset.uid = String(u.uid)
     node.dataset.side = side
     node.dataset.rarity = getCard(u.cardId).rarity
-    node.style.backgroundImage = `url('${cardArtUrl(u.cardId) ?? ''}')`
+    this.applyArt(node, u.cardId)
     node.innerHTML =
       '<div class="kw"></div><div class="status"></div>' +
       '<div class="ttg-badge atk"></div><div class="ttg-badge hp"></div><div class="nm"></div>'
@@ -768,7 +769,7 @@ export class GameApp {
     const node = this.div('ttg-card enter')
     node.dataset.card = String(uid)
     node.dataset.rarity = def.rarity
-    node.style.backgroundImage = `url('${cardArtUrl(cardId) ?? ''}')`
+    this.applyArt(node, cardId)
     node.title = def.text
     const stats =
       def.type === 'UNIT'
@@ -796,6 +797,18 @@ export class GameApp {
     if (!rect) return null
     const r = this.rootRect()
     return { x: rect.left - r.left + rect.width / 2, y: rect.top - r.top + rect.height / 2 }
+  }
+
+  /** Screen centers of every unit belonging to the caster's opponent — for board-wide cast FX. */
+  private enemyCenters(caster: Side): Array<{ x: number; y: number }> {
+    const opp = caster === 'HUMAN' ? 'AI' : 'HUMAN'
+    const out: Array<{ x: number; y: number }> = []
+    for (const node of this.unitNodes.values()) {
+      if (node.dataset.side !== opp) continue
+      const c = this.centerIn(node.getBoundingClientRect())
+      if (c) out.push(c)
+    }
+    return out
   }
 
   private renderAndAnimate(events: GameEvent[]): void {
@@ -904,6 +917,44 @@ export class GameApp {
       case 'nuke':
         this.fx.flash('#ff5b6e')
         this.shake()
+        break
+      case 'chain-lightning': {
+        // A bolt from the tower to the first target, then arcing on to nearby enemies.
+        if (self && t) this.fx.bolt(self.x, self.y, t.x, t.y, '#bff2ff')
+        if (t) this.fx.explode(t.x, t.y, '#8fe4ff', 0.4)
+        let prev = t
+        for (const c of this.enemyCenters(side).filter(c => !t || Math.hypot(c.x - t.x, c.y - t.y) > 6).slice(0, 2)) {
+          if (prev) this.fx.bolt(prev.x, prev.y, c.x, c.y, '#bff2ff')
+          this.fx.explode(c.x, c.y, '#8fe4ff', 0.3)
+          prev = c
+        }
+        break
+      }
+      case 'smart-missiles':
+        for (const c of this.enemyCenters(side)) this.fx.explode(c.x, c.y, '#ffb060', 0.5)
+        this.shake()
+        break
+      case 'black-hole':
+        for (const c of this.enemyCenters(side)) {
+          this.fx.ring(c.x, c.y, '#b07bff', 62)
+          this.fx.burst(c.x, c.y, '#c78bff', 16, 0.4)
+        }
+        break
+      case 'chrono-field':
+        this.fx.flash('#6fe0ff')
+        for (const c of this.enemyCenters(side)) this.fx.ring(c.x, c.y, '#6fe0ff', 44)
+        break
+      case 'spotlight':
+        if (t) {
+          this.fx.ring(t.x, t.y, '#ffd257', 56)
+          this.fx.burst(t.x, t.y, '#ffe08a', 12, 0.3)
+        }
+        break
+      case 'shrink-ray':
+        if (t) {
+          this.fx.ring(t.x, t.y, '#c78bff', 40)
+          this.fx.burst(t.x, t.y, '#c78bff', 10, 0.25)
+        }
         break
       case 'cash':
       case 'coins':
@@ -1232,31 +1283,58 @@ export class GameApp {
     return 30 + mastery * 8 // unlock: 30, then 38, 46 … up to mastery 9
   }
 
-  /** Collection: a compact grid of card faces (no scroll) — click one for its full detail. */
+  /** Order the collection by the active sort key. */
+  private sortedCardIds(): string[] {
+    const rarityRank = { epic: 0, rare: 1, common: 2 } as const
+    const typeRank = { UNIT: 0, MODULE: 1, ULTIMATE: 2 } as const
+    const byCost = (a: string, b: string) =>
+      getCard(a).cost - getCard(b).cost || getCard(a).name.localeCompare(getCard(b).name)
+    return [...ALL_CARD_IDS].sort((a, b) => {
+      if (this.collSort === 'rarity') return rarityRank[getCard(a).rarity] - rarityRank[getCard(b).rarity] || byCost(a, b)
+      if (this.collSort === 'type') return typeRank[getCard(a).type] - typeRank[getCard(b).type] || byCost(a, b)
+      return byCost(a, b)
+    })
+  }
+
+  /** Collection: a compact grid of card faces (no scroll). Persistent close ✕, sort, number legend. */
   private showCollection(): void {
     this.root.querySelector('.ttg-collection')?.remove()
     const el = this.div('ttg-modal ttg-collection')
     const card = this.div('modal-card')
+
+    const sortBtns = (['cost', 'rarity', 'type'] as const)
+      .map(k => `<button class="coll-sort${this.collSort === k ? ' on' : ''}" data-sort="${k}">${k[0]!.toUpperCase()}${k.slice(1)}</button>`)
+      .join('')
     card.innerHTML =
       `<h3>Collection · 💠 ${this.save.shards}</h3>` +
-      `<div class="modal-sub">Win battles to earn 💠 shards — spend them here to level cards (1→7) and level their Mastery (1→9). Tap a card.</div>`
+      `<div class="modal-sub">Win battles to earn 💠 shards — spend them to level cards (1→7) and their Mastery (1→9). Tap a card.</div>` +
+      `<div class="coll-legend"><span class="lg-cost">◆</span> mana cost · <span class="lg-lvl">L1</span> your level · <span class="lg-stat">2 / 4</span> ATK / HP (units)</div>` +
+      `<div class="coll-toolbar"><span>Sort:</span> ${sortBtns}</div>`
     const grid = this.div('coll-faces')
-    const ids = [...ALL_CARD_IDS].sort(
-      (a, b) => getCard(a).cost - getCard(b).cost || getCard(a).name.localeCompare(getCard(b).name),
-    )
-    for (const id of ids) {
+    for (const id of this.sortedCardIds()) {
       const { level, mastery } = this.collEntry(id)
-      const face = this.cardFace(id, 'mini', () => this.showCardDetail(id), `${mastery > 0 ? '★' : ''}L${level}`)
-      grid.appendChild(face)
+      grid.appendChild(this.cardFace(id, 'mini', () => this.showCardDetail(id), `${mastery > 0 ? '★' : ''}L${level}`))
     }
-    const close = document.createElement('button')
-    close.className = 'ttg-mini'
-    close.textContent = 'Close'
-    close.addEventListener('click', () => el.remove())
-    card.append(grid, close)
+    card.appendChild(grid)
     el.appendChild(card)
+
+    // Persistent close, anchored to the overlay (viewport corner) so it never scrolls out of reach.
+    const x = document.createElement('button')
+    x.className = 'modal-x'
+    x.title = 'Close'
+    x.textContent = '✕'
+    el.appendChild(x)
+
+    const close = () => el.remove()
+    x.addEventListener('click', close)
+    card.querySelectorAll<HTMLElement>('.coll-sort').forEach(b =>
+      b.addEventListener('click', () => {
+        this.collSort = (b.dataset.sort as 'cost' | 'rarity' | 'type') ?? 'cost'
+        this.showCollection()
+      }),
+    )
     el.addEventListener('click', e => {
-      if (e.target === el) el.remove()
+      if (e.target === el) close()
     })
     this.root.appendChild(el)
   }
@@ -1459,11 +1537,26 @@ export class GameApp {
 
   /** A non-interactive card face (for reward/trim screens), with hover preview, an optional click,
    *  and an optional corner badge (e.g. how many copies you already run). */
+  /** Paint a card's art. Full-bleed tiles (.jpg base cards) fill via cover; transparent illustrations
+   *  (.webp UW/module art) are shown whole (contain) on a tile background so nothing is cropped. */
+  private applyArt(node: HTMLElement, cardId: string): void {
+    const def = getCard(cardId)
+    const url = cardArtUrl(cardId) ?? ''
+    if (def.art.endsWith('.webp')) {
+      node.style.backgroundImage = `url('${url}'), radial-gradient(120% 120% at 50% 30%, #1b2947, #0a0f1c)`
+      node.style.backgroundSize = 'contain, cover'
+      node.style.backgroundRepeat = 'no-repeat, no-repeat'
+      node.style.backgroundPosition = 'center 40%, center'
+    } else {
+      node.style.backgroundImage = `url('${url}')`
+    }
+  }
+
   private cardFace(cardId: string, extraCls: string, onClick: () => void, badge?: string): HTMLElement {
     const def = getCard(cardId)
     const node = this.div(`ttg-card ${extraCls}`.trim())
     node.dataset.rarity = def.rarity
-    node.style.backgroundImage = `url('${cardArtUrl(cardId) ?? ''}')`
+    this.applyArt(node, cardId)
     const stats =
       def.type === 'UNIT'
         ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`

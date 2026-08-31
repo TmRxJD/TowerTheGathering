@@ -487,17 +487,6 @@ class TowerEngine implements Engine {
   }
 
   private endPhase(side: Side, events: GameEvent[]): void {
-    // Anti-Cube Portal: an end-of-turn shockwave hits each enemy front unit.
-    if (this.countModule(side, 'anti-cube-portal') > 0) {
-      const dmg = this.cardVal(side, 'anti-cube-portal') * this.countModule(side, 'anti-cube-portal')
-      const opp = this.opponent(side)
-      for (const lane of LANES) {
-        const f = this.frontUnit(lane, opp)
-        if (f) this.damageUnit(f, dmg, null, false, events)
-      }
-      if (this.winner !== null) return
-    }
-
     // Land Mine Chance: 50% per copy to spawn a mine in a random empty lane.
     const mineModules = this.countModule(side, 'land-mine-chance')
     for (let i = 0; i < mineModules; i++) {
@@ -841,11 +830,10 @@ class TowerEngine implements Engine {
         break
       }
       case 'shrink-ray': {
+        // Shrinking an enemy's mass saps the force of its hits (less damage to you).
         const u = this.unitByTarget(target)
         if (u) {
-          const shrink = this.cardVal(side, 'shrink-ray')
-          u.maxHp = Math.max(1, u.maxHp - shrink)
-          u.hp = Math.min(u.hp, u.maxHp)
+          u.atk = Math.max(0, u.atk - this.cardVal(side, 'shrink-ray'))
           events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
         }
         break
@@ -981,6 +969,15 @@ class TowerEngine implements Engine {
       if (bounce <= 0) continue
       const behind = this.lanes[lane][this.opponent(f.side)][1]
       if (behind) this.damageUnit(behind, bounce, f.unit.uid, false, events)
+    }
+    // Anti-Cube Portal: an attack sends a shockwave into the enemy fronts of the neighboring lanes.
+    for (const f of firing) {
+      const shock = this.countModule(f.side, 'anti-cube-portal') * this.cardVal(f.side, 'anti-cube-portal')
+      if (shock <= 0) continue
+      for (const adj of ADJACENT[lane]) {
+        const neighbor = this.frontUnit(adj, this.opponent(f.side))
+        if (neighbor) this.damageUnit(neighbor, shock, f.unit.uid, false, events)
+      }
     }
     // Berserker grows on surviving damage; then the dead are cleared and reserves promote.
     for (const uid of damaged.keys()) {

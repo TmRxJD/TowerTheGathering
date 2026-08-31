@@ -93,10 +93,10 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'being-annihilator': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Super Crit', masteryText: '+1 guaranteed crit per level.', masteryBonus: 1 },
   'death-penalty': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Doom', masteryText: '+1 enemy marked per turn, per level.', masteryBonus: 1 },
   'havoc-bringer': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Rend Max', masteryText: '+1 damage enemies take, per level.', masteryBonus: 1 },
-  'shrink-ray': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Compress', masteryText: '−1 more enemy max HP per level.', masteryBonus: 1 },
+  'shrink-ray': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Compress', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
 
   // --- Armor modules (defense) ---
-  'anti-cube-portal': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Aftershock', masteryText: '+1 aftershock damage per level.', masteryBonus: 1 },
+  'anti-cube-portal': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Aftershock', masteryText: '+1 shockwave damage per level.', masteryBonus: 1 },
   'negative-mass-projector': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Heavy', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
   'sharp-fortitude': { levels: [4, 5, 6, 7, 8, 10, 12], masteryName: 'Barbed', masteryText: '+1 max Nexus HP per level.', masteryBonus: 1 },
   'wormhole-redirector': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Conduit', masteryText: '+1 Nexus recovery each turn, per level.', masteryBonus: 1 },
@@ -174,9 +174,9 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'being-annihilator': { fmt: 'flat', label: 'guaranteed crits (2× damage) each turn' },
   'death-penalty': { fmt: 'flat', label: 'entering enemies Marked (first hit destroys them)' },
   'havoc-bringer': { fmt: 'plus', label: 'damage enemy units take from your attacks' },
-  'shrink-ray': { fmt: 'flat', label: 'max HP shrunk off an enemy unit (permanent)' },
+  'shrink-ray': { fmt: 'flat', label: 'ATK shrunk off an enemy unit (permanent)' },
   // Armor modules
-  'anti-cube-portal': { fmt: 'flat', label: 'damage to each enemy front at end of your turn' },
+  'anti-cube-portal': { fmt: 'flat', label: "shockwave damage to neighboring lanes' enemy fronts" },
   'negative-mass-projector': { fmt: 'flat', label: 'ATK removed from all enemy units' },
   'sharp-fortitude': { fmt: 'plus', label: 'max Nexus HP (healed); attackers take 1 thorns' },
   'wormhole-redirector': { fmt: 'flat', label: 'Nexus HP recovered at the start of each turn' },
