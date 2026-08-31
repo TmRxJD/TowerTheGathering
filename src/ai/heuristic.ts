@@ -172,26 +172,31 @@ export class HeuristicAI {
     const b = this.bias()
     const atk = def.atk ?? 0
     const hp = def.hp ?? 0
+    const isDefender = def.keywords?.includes('defender') ?? false
+    const myFront = this.front(lane, this.side)
     const enemyFront = this.front(lane, this.opp)
-    const myStack = this.snap().lanes[lane][this.side].length
 
-    let v = atk * 1.2 + hp * 0.7 + 1
+    // Only the front unit fights. A unit that lands behind an existing front (and isn't a Defender
+    // jumping ahead of a non-Defender) is just a reserve — worth little now.
+    const willFront = !myFront || (isDefender && !myFront.keywords.includes('defender'))
+    if (!willFront) return (0.4 + (atk + hp) * 0.15) * b.unit
+
+    const foeLife = this.foe().life
+    let v = 1 + atk * 0.6 + hp * 0.4
     if (enemyFront) {
-      // Blocking / trading value scales with the threat this lane poses.
-      const blockValue = Math.min(enemyFront.atk, hp) * 1.3
-      const trade = atk >= enemyFront.hp ? enemyFront.atk * 1.4 + enemyFront.hp * 0.4 : atk * 0.6
-      v += blockValue + trade
-      if (def.keywords?.includes('defender')) v += 2
-      // Only my FIRST unit in a contested lane blocks; reserves are near-idle.
-      if (myStack >= 1) v -= 3
+      const kills = atk >= enemyFront.hp
+      const survives = hp > enemyFront.atk
+      v += Math.min(enemyFront.atk, hp) * 1.4 // damage this body soaks
+      if (kills) v += enemyFront.atk * 1.6 + enemyFront.hp * 0.5 + (survives ? 3 : 0)
+      if (isDefender) v += 2.5
+      v += enemyFront.atk * 0.4 // blocking a hard-hitting lane is more urgent
     } else {
-      // Open lane → face pressure. Worth much more when it helps close the game.
-      v += atk * 1.1 + 1.5
-      const foeLife = this.foe().life
+      // Open lane → a NEW attacking front → direct face pressure.
+      v += atk * 2 + 1.5
       const potential = this.myFacePotential() + atk
-      if (potential >= foeLife) v += 8 // lethal / near-lethal push
-      else if (potential >= foeLife * 0.6) v += 2
-      if (myStack >= 1) v -= 2 // don't pile behind an already-attacking unit
+      if (potential >= foeLife) v += 25 // this swing is lethal / near-lethal
+      else if (potential >= foeLife * 0.6) v += 5
+      else if (this.me().life > this.foe().life) v += 2 // ahead → keep the pressure on
     }
     return Math.max(0, v) * b.unit
   }
@@ -253,22 +258,26 @@ export class HeuristicAI {
     }
     if (def.id === 'nuke') {
       const diff = this.foeUnitCount() - this.myUnitCount()
-      return diff >= 2 ? (4 + diff * 1.5) * b.removal : 0
+      const boardPressure = this.foeBoardAtk() >= this.me().life * 0.6
+      return diff >= 2 || boardPressure ? (4 + diff * 1.5) * b.removal : 0
     }
     if (def.id === 'plasma-cannon' || def.id === 'death-ray' || def.id === 'energy-net') {
       const t = target ? this.unitOfTarget(target) : undefined
       if (!t) return 0
-      // Prefer removing the biggest threat; energy-net matters most when it's attacking us.
-      const threat = t.atk * 1.6 + t.hp * 0.5
-      const bonus = def.id === 'death-ray' ? 2 : 0
-      return (1.5 + threat + bonus) * b.removal
+      // Prioritise a threat that is actually hitting our face (enemy front, our lane open).
+      const unblocked = this.isEnemyUnblockedThreat(t.uid)
+      let threat = t.atk * (unblocked ? 2.5 : 1.3) + t.hp * 0.4
+      if (def.id === 'death-ray') threat += 3 // also splashes neighbours
+      if (def.id === 'energy-net' && !unblocked) threat *= 0.6 // a freeze on a blocked unit does little
+      return (1 + threat) * b.removal
     }
     if (def.id === 'demon-mode' || def.id === 'ultimate-crit') {
       const t = target ? this.unitOfTarget(target) : undefined
       if (!t || t.frozen || t.tapped) return 0
-      // Best on a hard-hitting attacker, especially into an open lane for reach to face.
-      const open = LANES.some(l => this.front(l, this.side)?.uid === t.uid && !this.front(l, this.opp))
-      return (2 + t.atk * 1.2 + (open ? 3 : 0)) * b.buff
+      const openFront = this.isMyOpenFront(t.uid) // its damage goes to the enemy Nexus
+      const swing = def.id === 'ultimate-crit' ? t.atk * 3 : this.myFacePotential() + 5
+      if (openFront && swing >= this.foe().life) return 40 // lethal enabler
+      return (2 + t.atk * 1.3 + (openFront ? 4 : 0)) * b.buff
     }
     if (def.id === 'recovery-package') {
       const t = target ? this.unitOfTarget(target) : undefined
@@ -299,6 +308,33 @@ export class HeuristicAI {
     let a = 0
     for (const lane of LANES) for (const u of s.lanes[lane][this.side]) a += u.atk
     return a
+  }
+
+  private foeBoardAtk(): number {
+    const s = this.snap()
+    let a = 0
+    for (const lane of LANES) for (const u of s.lanes[lane][this.opp]) a += u.atk
+    return a
+  }
+
+  /** True if `uid` is the enemy's front in a lane where we have no blocker — i.e. hitting our face. */
+  private isEnemyUnblockedThreat(uid: number): boolean {
+    const s = this.snap()
+    for (const lane of LANES) {
+      const ef = s.lanes[lane][this.opp][0]
+      if (ef && ef.uid === uid) return !s.lanes[lane][this.side][0]
+    }
+    return false
+  }
+
+  /** True if `uid` is our front in a lane the enemy doesn't block — i.e. its damage hits their Nexus. */
+  private isMyOpenFront(uid: number): boolean {
+    const s = this.snap()
+    for (const lane of LANES) {
+      const mf = s.lanes[lane][this.side][0]
+      if (mf && mf.uid === uid) return !s.lanes[lane][this.opp][0]
+    }
+    return false
   }
 
   private haveOrbs(): boolean {

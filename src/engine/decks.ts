@@ -238,8 +238,8 @@ export function bossHandicap(index: number): { bonusLife: number; bonusStartMana
   // a flat slope, which made the mid-ladder a wall and crushed full-clear rates. Tuned via
   // `pnpm harness:ladder`.
   return {
-    bonusLife: Math.round(Math.pow(index - 1, 1.35)),
-    bonusStartMana: index >= 9 ? 1 : 0,
+    bonusLife: Math.round(Math.pow(index - 1, 1.45)),
+    bonusStartMana: index >= 7 ? 1 : 0,
   }
 }
 
