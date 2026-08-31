@@ -37,7 +37,22 @@ interface Particle {
   color: string
   size: number
 }
-type Effect = FloatNum | Beam | Particle
+interface Ring {
+  kind: 'ring'
+  x: number
+  y: number
+  maxR: number
+  life: number
+  max: number
+  color: string
+}
+interface Flash {
+  kind: 'flash'
+  life: number
+  max: number
+  color: string
+}
+type Effect = FloatNum | Beam | Particle | Ring | Flash
 
 export class FxLayer {
   private readonly canvas: HTMLCanvasElement
@@ -95,6 +110,18 @@ export class FxLayer {
     this.wake()
   }
 
+  /** Expanding ring — a spell impact / freeze / buff pulse. */
+  ring(x: number, y: number, color: string, maxR = 60): void {
+    this.effects.push({ kind: 'ring', x, y, maxR, life: 440, max: 440, color })
+    this.wake()
+  }
+
+  /** Full-board colour flash — for board-wide spells (Nuke). */
+  flash(color: string): void {
+    this.effects.push({ kind: 'flash', life: 460, max: 460, color })
+    this.wake()
+  }
+
   private wake(): void {
     if (this.raf) return
     this.last = 0
@@ -133,6 +160,22 @@ export class FxLayer {
         ctx.lineTo(e.x2, e.y2)
         ctx.stroke()
         ctx.shadowBlur = 0
+      } else if (e.kind === 'ring') {
+        const grow = 1 - k
+        const r = 6 + e.maxR * grow
+        ctx.globalAlpha = Math.min(1, k * 1.6)
+        ctx.strokeStyle = e.color
+        ctx.lineWidth = 3 + 4 * k
+        ctx.shadowColor = e.color
+        ctx.shadowBlur = 14
+        ctx.beginPath()
+        ctx.arc(e.x, e.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.shadowBlur = 0
+      } else if (e.kind === 'flash') {
+        ctx.globalAlpha = k * 0.55
+        ctx.fillStyle = e.color
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
       } else {
         e.vy += 0.0006 * dt // gravity
         e.x += e.vx * dt

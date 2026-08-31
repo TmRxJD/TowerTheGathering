@@ -12,7 +12,9 @@
  */
 
 import {
+  ALL_CARD_IDS,
   BOSS_DECKS,
+  COPY_LIMITS,
   STARTER_DECK,
   bossHandicap,
   createEngine,
@@ -92,6 +94,8 @@ export class GameApp {
   private prevActive: Side | null = null
   private watching = false
   private watchTimer: ReturnType<typeof setTimeout> | null = null
+  /** The player's deck for the current ladder run; grows/trims via the reward step between bosses. */
+  private playerDeck: string[] = [...STARTER_DECK]
 
   // persistent skeleton refs
   private ladderEl!: HTMLElement
@@ -129,6 +133,7 @@ export class GameApp {
     this.fx = new FxLayer(this.root)
     globalThis.addEventListener?.('resize', () => this.fx.resize())
     this.startMatch(this.bossIndex)
+    this.showMenu()
   }
 
   // -------------------------------------------------------------------------
@@ -266,7 +271,7 @@ export class GameApp {
     const boss = BOSS_DECKS[bossIndex - 1]!
     const hc = bossHandicap(bossIndex)
     const { engine } = createEngine({
-      humanDeck: STARTER_DECK,
+      humanDeck: this.playerDeck,
       aiDeck: boss.cards,
       seed: `${this.seed}-b${bossIndex}`,
       bonusLife: { AI: hc.bonusLife },
@@ -300,6 +305,8 @@ export class GameApp {
   private resetBoard(): void {
     this.overlay?.remove()
     this.overlay = null
+    this.root.querySelectorAll('.ttg-modal, .ttg-help').forEach(n => n.remove())
+    this.hidePreview()
     for (const n of this.unitNodes.values()) n.remove()
     this.unitNodes.clear()
     for (const n of this.cardNodes.values()) n.remove()
@@ -444,21 +451,28 @@ export class GameApp {
   /** One autoplay step = one full turn by whichever side is active, then a beat before the next. */
   private autoStep(): void {
     if (!this.watching) return
-    if (this.engine.isOver()) {
-      this.watching = false
-      this.finishMatch()
-      return
-    }
+    if (this.engine.isOver()) return this.onWatchGameOver()
     const active = this.engine.snapshot().activeSide
     const bot = active === 'AI' ? this.ai : this.humanAi
     const events = bot.takeTurn()
     this.renderAndAnimate(events)
-    if (this.engine.isOver()) {
-      this.watching = false
-      this.finishMatch()
+    if (this.engine.isOver()) return this.onWatchGameOver()
+    this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 1000)
+  }
+
+  /** When a demo match ends: if the AI won a non-final boss, roll on to the next one (rewards are
+   *  auto-skipped during a demo) so Watch Demo plays the whole ladder. Otherwise stop and show the
+   *  result. */
+  private onWatchGameOver(): void {
+    const res = this.engine.result()
+    if (res && res.winner === 'HUMAN' && this.bossIndex < BOSS_DECKS.length && this.watching) {
+      this.watchTimer = globalThis.setTimeout(() => {
+        if (this.watching) this.advanceBoss() // startMatch re-arms autoStep while watching
+      }, 1500)
       return
     }
-    this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 1000)
+    this.watching = false
+    this.finishMatch()
   }
 
   private onEndTurn(): void {
@@ -760,11 +774,87 @@ export class GameApp {
         const node = this.unitNodes.get(ev.uid)
         const c = node ? this.centerIn(node.getBoundingClientRect()) : null
         if (c) this.fx.burst(c.x, c.y, ev.side === 'AI' ? '#ff6b7e' : '#7fb0ff', 18, 0.5)
-      } else if (ev.type === 'ultimateCast' && ev.target && ev.target.kind === 'unit') {
-        const from = this.centerIn(this.nexus[ev.side].el.getBoundingClientRect())
-        const to = this.centerIn(this.unitNodes.get(ev.target.uid)?.getBoundingClientRect())
-        if (from && to) this.fx.beam(from.x, from.y, to.x, to.y, ev.side === 'AI' ? '#ff5b6e' : '#5b8cff')
+      } else if (ev.type === 'ultimateCast') {
+        this.castFx(ev.cardId, ev.side, ev.target)
       }
+    }
+  }
+
+  /** Distinct cast visual per ultimate — a beam + coloured impact ring/burst for targeted spells,
+   *  a board flash + shake for Nuke, and a sparkle on your own nexus for economy/utility spells. */
+  private castFx(cardId: string, side: Side, target: Target | undefined): void {
+    const self = this.centerIn(this.nexus[side].el.getBoundingClientRect())
+    const node = target && target.kind === 'unit' ? this.unitNodes.get(target.uid) : undefined
+    const t = node ? this.centerIn(node.getBoundingClientRect()) : null
+    const beam = (color: string) => {
+      if (self && t) this.fx.beam(self.x, self.y, t.x, t.y, color)
+    }
+    const sparkle = (color: string) => {
+      if (self) {
+        this.fx.ring(self.x, self.y, color, 40)
+        this.fx.burst(self.x, self.y, color, 10, 0.3)
+      }
+    }
+    switch (cardId) {
+      case 'death-ray':
+        beam('#ff3b5c')
+        if (t) {
+          this.fx.ring(t.x, t.y, '#ff3b5c', 74)
+          this.fx.burst(t.x, t.y, '#ff5b6e', 22, 0.65)
+        }
+        this.shake()
+        break
+      case 'plasma-cannon':
+        beam('#b07bff')
+        if (t) {
+          this.fx.ring(t.x, t.y, '#b07bff', 56)
+          this.fx.burst(t.x, t.y, '#c78bff', 12, 0.42)
+        }
+        break
+      case 'energy-net':
+        if (t) {
+          this.fx.ring(t.x, t.y, '#6fe0ff', 52)
+          this.fx.burst(t.x, t.y, '#8fd0ff', 14, 0.28)
+        }
+        break
+      case 'demon-mode':
+        if (t) {
+          this.fx.ring(t.x, t.y, '#ff4d4d', 54)
+          this.fx.burst(t.x, t.y, '#ff6b6b', 16, 0.5)
+        }
+        break
+      case 'ultimate-crit':
+        if (t) {
+          this.fx.ring(t.x, t.y, '#ffd257', 54)
+          this.fx.burst(t.x, t.y, '#ffd257', 14, 0.4)
+        }
+        break
+      case 'recovery-package':
+        if (t) {
+          this.fx.ring(t.x, t.y, '#43e08a', 50)
+          this.fx.burst(t.x, t.y, '#5ff0a0', 12, 0.32)
+        }
+        break
+      case 'nuke':
+        this.fx.flash('#ff5b6e')
+        this.shake()
+        break
+      case 'cash':
+      case 'coins':
+        sparkle('#ffd257')
+        break
+      case 'wave-skip':
+        sparkle('#6fe0ff')
+        break
+      case 'intro-sprint':
+      case 'free-upgrades':
+        sparkle('#7fb0ff')
+        break
+      case 'second-wind':
+        sparkle('#ffd257')
+        break
+      default:
+        if (t) beam(side === 'AI' ? '#ff5b6e' : '#5b8cff')
     }
   }
 
@@ -919,15 +1009,156 @@ export class GameApp {
     p.textContent = `Boss ${this.bossIndex}: ${boss.name} · ${res.turns} turns`
     const btn = document.createElement('button')
     btn.className = 'ttg-btn ready'
-    btn.textContent = won ? (last ? 'Play Again' : 'Next Boss →') : 'Retry'
+    btn.textContent = won ? (last ? 'Play Again' : 'Choose Reward →') : 'Retry'
     btn.addEventListener('click', () => {
-      if (won && last) this.startMatch(1)
-      else if (won) this.startMatch(this.bossIndex + 1)
-      else this.startMatch(this.bossIndex)
+      overlay.remove()
+      this.overlay = null
+      if (won && last) {
+        this.resetLadder()
+        this.startMatch(1)
+        this.showMenu()
+      } else if (won) {
+        this.showReward() // pick a card, trim, then advance
+      } else {
+        this.startMatch(this.bossIndex) // retry same boss, same deck
+      }
     })
     overlay.append(h2, p, btn)
     this.root.appendChild(overlay)
     this.overlay = overlay
+  }
+
+  private resetLadder(): void {
+    this.playerDeck = [...STARTER_DECK]
+    this.bossIndex = 1
+  }
+
+  private advanceBoss(): void {
+    this.startMatch(this.bossIndex + 1)
+  }
+
+  // -------------------------------------------------------------------------
+  // Start menu
+  // -------------------------------------------------------------------------
+
+  private showMenu(): void {
+    this.root.querySelector('.ttg-menu')?.remove()
+    if (this.watchTimer) clearTimeout(this.watchTimer)
+    this.watching = false
+    const el = this.div('ttg-menu')
+    el.innerHTML =
+      `<div class="menu-card">` +
+      `<div class="menu-logo">Tower: The Gathering</div>` +
+      `<div class="menu-sub">A lane battler of towers &amp; horrors — climb the 10-boss ladder.</div>` +
+      `<div class="menu-btns">` +
+      `<button class="ttg-btn ready" data-m="play">▶ Start Ladder</button>` +
+      `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
+      `<button class="ttg-mini" data-m="help">? How to Play</button>` +
+      `</div></div>`
+    el.querySelectorAll<HTMLElement>('[data-m]').forEach(b =>
+      b.addEventListener('click', () => {
+        const m = b.dataset.m
+        if (m === 'help') {
+          this.showHelp()
+          return
+        }
+        el.remove()
+        this.resetLadder()
+        this.startMatch(1)
+        if (m === 'watch') this.toggleWatch()
+      }),
+    )
+    this.root.appendChild(el)
+  }
+
+  // -------------------------------------------------------------------------
+  // Deckbuilding between bosses
+  // -------------------------------------------------------------------------
+
+  /** 3 distinct reward candidates the current deck still has room for (respects copy limits),
+   *  weighted toward commons. Meta-random (Math.random) — not part of match determinism. */
+  private rewardCandidates(): string[] {
+    const counts: Record<string, number> = {}
+    for (const id of this.playerDeck) counts[id] = (counts[id] ?? 0) + 1
+    const pool = ALL_CARD_IDS.filter(id => (counts[id] ?? 0) < COPY_LIMITS[getCard(id).rarity])
+    const weight = (id: string): number => {
+      const r = getCard(id).rarity
+      return r === 'common' ? 3 : r === 'rare' ? 2 : 1
+    }
+    const bag = [...pool]
+    const picks: string[] = []
+    while (picks.length < 3 && bag.length > 0) {
+      const total = bag.reduce((s, id) => s + weight(id), 0)
+      let roll = Math.random() * total
+      let idx = 0
+      for (; idx < bag.length; idx++) {
+        roll -= weight(bag[idx]!)
+        if (roll <= 0) break
+      }
+      picks.push(bag.splice(Math.min(idx, bag.length - 1), 1)[0]!)
+    }
+    return picks
+  }
+
+  private showReward(): void {
+    const cands = this.rewardCandidates()
+    const el = this.div('ttg-modal')
+    const card = this.div('modal-card')
+    card.innerHTML = `<h3>Victory — choose a card</h3><div class="modal-sub">Add one to your deck for this run.</div>`
+    const row = this.div('modal-cards')
+    for (const id of cands) row.appendChild(this.cardFace(id, '', () => {
+      this.playerDeck.push(id)
+      el.remove()
+      this.showTrim()
+    }))
+    const skip = document.createElement('button')
+    skip.className = 'ttg-mini'
+    skip.textContent = 'Skip'
+    skip.addEventListener('click', () => {
+      el.remove()
+      this.advanceBoss()
+    })
+    card.append(row, skip)
+    el.appendChild(card)
+    this.root.appendChild(el)
+  }
+
+  private showTrim(): void {
+    const el = this.div('ttg-modal')
+    const card = this.div('modal-card')
+    card.innerHTML =
+      `<h3>Trim your deck</h3>` +
+      `<div class="modal-sub">Your deck has ${this.playerDeck.length}. Remove one to return to ${TUNING.DECK_SIZE}.</div>`
+    const grid = this.div('modal-grid')
+    this.playerDeck.forEach((id, idx) =>
+      grid.appendChild(
+        this.cardFace(id, 'mini', () => {
+          this.playerDeck.splice(idx, 1)
+          el.remove()
+          this.advanceBoss()
+        }),
+      ),
+    )
+    card.appendChild(grid)
+    el.appendChild(card)
+    this.root.appendChild(el)
+  }
+
+  /** A non-interactive card face (for reward/trim screens), with hover preview and an optional click. */
+  private cardFace(cardId: string, extraCls: string, onClick: () => void): HTMLElement {
+    const def = getCard(cardId)
+    const node = this.div(`ttg-card ${extraCls}`.trim())
+    node.dataset.rarity = def.rarity
+    node.style.backgroundImage = `url('${cardArtUrl(cardId) ?? ''}')`
+    const stats =
+      def.type === 'UNIT'
+        ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`
+        : ''
+    node.innerHTML = `<div class="cost">${def.cost}</div><div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
+    node.addEventListener('click', onClick)
+    node.addEventListener('mouseenter', () => this.showPreview(cardId, node.getBoundingClientRect()))
+    node.addEventListener('mouseleave', () => this.hidePreview())
+    return node
   }
 
   destroy(): void {
