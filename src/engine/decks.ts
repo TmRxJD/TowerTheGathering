@@ -29,20 +29,16 @@ function deck(entries: ReadonlyArray<readonly [string, number]>): string[] {
 /** The player's default 20-card deck: a rounded, teachable list that leans slightly aggressive so
  *  the opening isn't a grind (Damage ×3 + Attack Speed sharpen the few attackers) while keeping
  *  walls, removal, and a Nuke finisher. */
+// The player starts Tier 1 with a lean 10-card deck; it grows +1 per tier climbed (see
+// maxDeckForTier), reaching ~33 by Tier 24 — more variety and a reason to keep climbing.
 export const STARTER_DECK: readonly string[] = deck([
   ['fortress', 2],
   ['extra-orbs', 2],
-  ['berserker', 1],
-  ['land-mine-stun', 2],
-  ['damage', 3],
-  ['attack-speed', 1],
-  ['range', 1],
-  ['health-regen', 1],
-  ['coins', 1],
-  ['plasma-cannon', 2],
+  ['damage', 2],
+  ['plasma-cannon', 1],
   ['death-ray', 1],
-  ['cash', 2],
-  ['nuke', 1],
+  ['cash', 1],
+  ['coins', 1],
 ])
 
 export const BOSS_DECKS: readonly BossDeck[] = [
@@ -250,11 +246,13 @@ export interface DeckValidation {
   readonly errors: readonly string[]
 }
 
-/** Enforce deck size and per-rarity copy limits. Unit-tested against every built-in deck. */
-export function validateDeck(cards: readonly string[]): DeckValidation {
+/** Enforce deck size and per-rarity copy limits. Unit-tested against every built-in deck. Boss decks
+ *  are authored at DECK_SIZE (20); the player's starter is smaller and grows per tier, so its expected
+ *  size is passed explicitly. */
+export function validateDeck(cards: readonly string[], expectedSize: number = TUNING.DECK_SIZE): DeckValidation {
   const errors: string[] = []
-  if (cards.length !== TUNING.DECK_SIZE) {
-    errors.push(`deck has ${cards.length} cards, expected ${TUNING.DECK_SIZE}`)
+  if (cards.length !== expectedSize) {
+    errors.push(`deck has ${cards.length} cards, expected ${expectedSize}`)
   }
   const counts = new Map<string, number>()
   for (const id of cards) counts.set(id, (counts.get(id) ?? 0) + 1)

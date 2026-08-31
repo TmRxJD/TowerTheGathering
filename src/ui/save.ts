@@ -8,7 +8,7 @@
  * slot 0 on first load.
  */
 
-import { ALL_CARD_IDS, CARD_MAX_LEVEL, TUNING, clampLevel, clampMastery, clampTier, getCard, type CardLevels } from '../engine'
+import { ALL_CARD_IDS, CARD_MAX_LEVEL, STARTER_DECK, clampLevel, clampMastery, clampTier, getCard, maxDeckForTier, type CardLevels } from '../engine'
 
 const KEY = 'ttg.saves.v3'
 const LEGACY_KEY = 'ttg.save.v2'
@@ -109,8 +109,10 @@ function cleanSave(raw: unknown): SaveState {
   let run: SaveState['run'] = null
   if (s.run && Array.isArray(s.run.deck)) {
     const deck = s.run.deck.filter(id => typeof id === 'string' && VALID_IDS.has(id))
-    if (deck.length >= TUNING.DECK_SIZE && deck.length <= TUNING.MAX_DECK && copiesLegal(deck)) {
-      run = { tier: clampTier(s.run.tier ?? 1), bossIndex: clampInt(s.run.bossIndex, 1, 10, 1), deck }
+    const tier = clampTier(s.run.tier ?? 1)
+    // Deck may be anywhere from the starter size up to this tier's cap (it grows +1 per tier climbed).
+    if (deck.length >= STARTER_DECK.length && deck.length <= maxDeckForTier(tier) && copiesLegal(deck)) {
+      run = { tier, bossIndex: clampInt(s.run.bossIndex, 1, 10, 1), deck }
     }
   }
   return {

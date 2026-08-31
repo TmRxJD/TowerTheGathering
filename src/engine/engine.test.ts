@@ -47,7 +47,7 @@ function stack(e: Engine, lane: Lane, side: Side) {
 
 describe('decks', () => {
   it('every built-in deck is legal (size + copy limits)', () => {
-    expect(validateDeck(STARTER_DECK).ok).toBe(true)
+    expect(validateDeck(STARTER_DECK, STARTER_DECK.length).ok).toBe(true) // starter is smaller (grows per tier)
     for (const boss of BOSS_DECKS) {
       const v = validateDeck(boss.cards)
       expect(v.errors).toEqual([])
@@ -56,7 +56,7 @@ describe('decks', () => {
   })
 
   it('the validator actually rejects a bad deck (guardrail proven by a planted fault)', () => {
-    expect(validateDeck([...STARTER_DECK, 'cash']).ok).toBe(false) // 21 cards
+    expect(validateDeck([...STARTER_DECK, 'cash'], STARTER_DECK.length).ok).toBe(false) // wrong size
     expect(validateDeck(mkDeck(['nuke', 'nuke'])).ok).toBe(false) // 2× epic
   })
 })

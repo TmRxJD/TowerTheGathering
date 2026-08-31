@@ -63,11 +63,12 @@ export function spendShards(coll: CardLevels, deck: readonly string[], bank: num
   return { bank, bought }
 }
 
-/** Take a reward card into the deck; grow toward the cap, trimming the weakest only once over it. */
-export function takeRewardAndTrim(deck: string[], rand: () => number): void {
+/** Take a reward card into the deck; grow toward the cap, trimming the weakest only once over it.
+ *  `maxDeck` is the tier-scaled cap (see maxDeckForTier) so the deck grows one slot per tier climbed. */
+export function takeRewardAndTrim(deck: string[], rand: () => number, maxDeck: number = TUNING.MAX_DECK): void {
   const offered = rewardCandidates(deck, rand)
   if (offered.length === 0) return
   const pick = offered.sort((a, b) => cardValue(b) - cardValue(a))[0]!
   deck.push(pick)
-  if (deck.length > TUNING.MAX_DECK) deck.splice(weakestIndex(deck), 1)
+  if (deck.length > maxDeck) deck.splice(weakestIndex(deck), 1)
 }

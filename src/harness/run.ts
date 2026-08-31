@@ -18,7 +18,7 @@ function main(): void {
   // Fail loudly if any built-in deck is illegal — a mis-built deck must never reach a match.
   const bad: string[] = []
   for (const d of [STARTER_DECK, ...BOSS_DECKS.map(b => b.cards)]) {
-    const v = validateDeck(d)
+    const v = validateDeck(d, d === STARTER_DECK ? STARTER_DECK.length : undefined)
     if (!v.ok) bad.push(v.errors.join('; '))
   }
   if (bad.length > 0) {

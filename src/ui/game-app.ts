@@ -23,6 +23,7 @@ import {
   cardEffectLabel,
   cardLevelValue,
   clampTier,
+  maxDeckForTier,
   levelUpCost,
   masteryUpCost,
   shardReward,
@@ -629,7 +630,7 @@ export class GameApp {
       this.demoStuck = 0
       this.recordWin(res.turns)
       this.save.shards += shardReward(this.tier, this.bossIndex)
-      takeRewardAndTrim(this.playerDeck, () => Math.random())
+      takeRewardAndTrim(this.playerDeck, () => Math.random(), maxDeckForTier(this.tier))
       this.save.shards = spendShards(this.save.collection, this.playerDeck, this.save.shards).bank
       if (this.bossIndex < BOSS_DECKS.length) {
         this.persistSaves()
@@ -1736,8 +1737,8 @@ export class GameApp {
         this.cardFace(id, '', () => {
           this.playerDeck.push(id)
           el.remove()
-          // Grow the deck toward the cap; only force a trim once it's over.
-          if (this.playerDeck.length > TUNING.MAX_DECK) this.showTrim()
+          // Grow the deck toward the tier cap; only force a trim once it's over.
+          if (this.playerDeck.length > maxDeckForTier(this.tier)) this.showTrim()
           else this.advanceBoss()
         }, badge),
       )
@@ -1759,7 +1760,7 @@ export class GameApp {
     const card = this.div('modal-card')
     card.innerHTML =
       `<h3>Trim your deck</h3>` +
-      `<div class="modal-sub">Your deck has ${this.playerDeck.length} (cap ${TUNING.MAX_DECK}). Remove one.</div>`
+      `<div class="modal-sub">Your deck has ${this.playerDeck.length} (cap ${maxDeckForTier(this.tier)}). Remove one.</div>`
     const grid = this.div('modal-grid')
     this.playerDeck.forEach((id, idx) =>
       grid.appendChild(

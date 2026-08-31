@@ -31,6 +31,14 @@ export function clampTier(level: number): number {
   return Math.max(1, Math.min(MAX_TIER, Math.floor(level) || 1))
 }
 
+/** The player's deck-size cap for a tier: 10 at Tier 1, +1 for every tier climbed, so a full climb
+ *  reaches 33 by Tier 24 (34 once Tier 24 itself is cleared). The deck grows toward this cap via the
+ *  post-win reward cards — bigger decks mean more variety AND resist fatigue in the long top-tier
+ *  slogs, so climbing is rewarded and grinding a low tier for easy shards is not. */
+export function maxDeckForTier(level: number): number {
+  return 9 + clampTier(level)
+}
+
 export function tierName(level: number): string {
   return `Tier ${clampTier(level)}`
 }
@@ -51,16 +59,21 @@ export function tierAiDepth(level: number): number {
  */
 export function tierBossHandicap(level: number, index: number): { bonusLife: number; bonusStartMana: number } {
   const t = clampTier(level)
+  const i = index // 1..10 — position within the tier's ladder
   // Tuned against a search-vs-search sim so that even OPTIMAL play is walled only near the very top
   // (a normal player feels it far sooner). Too steep and the optimal Autoplay demo can't reach T24.
-  const base = Math.round(Math.max(0, t - 1) * 1.2) // a clear step every tier from Tier 2
-  const hard = Math.round(Math.max(0, t - 13) * 1.5) // the mid-late squeeze, from Tier 14
+  //
+  // Within-tier ramp: boss 1 is the softest of the tier and boss 10 the hardest, and that gap widens
+  // with the tier — so climbing the ladder always FEELS like it's getting harder, regardless of which
+  // archetype sits at each rung.
+  const bossRamp = Math.round((i - 1) * (0.6 + t * 0.16)) // T1: 0..~5, T24: 0..~40
+  const tierFloor = Math.round(Math.max(0, t - 2) * 1.1) // a rising floor across tiers (all bosses)
+  const hard = Math.round(Math.max(0, t - 13) * 1.4) // the mid-late squeeze, from Tier 14
   const brutal = Math.max(0, t - 20) * 4 // Tiers 21-24 spike hard
-  const nightmare = t >= MAX_TIER ? 48 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
-  const backHalf = index >= 8 ? Math.max(0, t - 7) : 0 // bosses 8-10 get extra, from Tier 8
-  const capstone = index === 10 ? Math.round(Math.max(0, t - 2) * 2) : 0 // the tier boss grows fastest
+  const nightmare = t >= MAX_TIER ? 40 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
+  const capstone = i === 10 ? Math.round(Math.max(0, t - 2) * 1.4) : 0 // the tier boss grows fastest
   const bonusStartMana = t >= 23 ? 1 : 0 // a small tempo edge only at the very top
-  return { bonusLife: base + hard + brutal + nightmare + backHalf + capstone, bonusStartMana }
+  return { bonusLife: tierFloor + bossRamp + hard + brutal + nightmare + capstone, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —

@@ -24,6 +24,7 @@ import {
   cardMaxCost,
   clampTier,
   createRng,
+  maxDeckForTier,
   shardReward,
   spendShards,
   takeRewardAndTrim,
@@ -65,7 +66,7 @@ function run(): void {
 
   console.log(`Progression speedrun — player=${PLAYER_AI} boss=${BOSS_AI} retryCap=${RETRY_CAP} tiers=1..${MAXTIER}`)
   console.log(`One card: levels 546 + masteries 8550 = ${cardMaxCost()} shards · whole ${ALL_CARD_IDS.length}-card collection = ${cardMaxCost() * ALL_CARD_IDS.length}\n`)
-  console.log('tier  clr  matches  earned    cumEarned  bank    ups  deckLvl  deckMst  deckMaxed')
+  console.log('tier  clr  matches  earned    cumEarned  bank    ups  deckLvl  deckMst  deckMaxed  size')
   const milestones: string[] = []
   let deckLevelsDoneTier = 0
   let firstMasteryTier = 0
@@ -110,7 +111,7 @@ function run(): void {
       bank += r
       earned += r
       totalEarned += r
-      takeRewardAndTrim(deck, () => rng.next())
+      takeRewardAndTrim(deck, () => rng.next(), maxDeckForTier(tier))
       const s = spendShards(coll, deck, bank)
       bank = s.bank
       ups += s.bought
@@ -137,7 +138,7 @@ function run(): void {
       milestones.push(`Deck FULLY maxed at Tier ${tier} (cum ${totalEarned})`)
     }
     console.log(
-      `${pad(tier, 4)}  ${stuck ? ' ✗ ' : ' ✓ '}  ${pad(matches, 7)}  ${pad(earned, 6)}  ${pad(totalEarned, 9)}  ${pad(bank, 6)}  ${pad(ups, 5)}  ${pad(avg(deckLvls).toFixed(1), 7)}  ${pad(avg(deckMst).toFixed(1), 7)}  ${pad(maxed + '/' + ids.length, 9)}`,
+      `${pad(tier, 4)}  ${stuck ? ' ✗ ' : ' ✓ '}  ${pad(matches, 7)}  ${pad(earned, 6)}  ${pad(totalEarned, 9)}  ${pad(bank, 6)}  ${pad(ups, 5)}  ${pad(avg(deckLvls).toFixed(1), 7)}  ${pad(avg(deckMst).toFixed(1), 7)}  ${pad(maxed + '/' + ids.length, 9)}  ${pad(deck.length, 4)}`,
     )
     if (stuck) {
       console.log(`\nSTUCK at Tier ${tier}, boss ${stuck} — lost ${RETRY_CAP} straight even after upgrading.`)
