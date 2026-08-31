@@ -184,12 +184,17 @@ export class GameApp {
     restartBtn.textContent = '↻'
     restartBtn.title = 'Restart this match'
     restartBtn.addEventListener('click', () => this.startMatch(this.bossIndex))
+    const deckBtn = document.createElement('button')
+    deckBtn.className = 'ttg-mini'
+    deckBtn.textContent = '🂡 Deck'
+    deckBtn.title = 'View your deck'
+    deckBtn.addEventListener('click', () => this.showDeck())
     const helpBtn = document.createElement('button')
     helpBtn.className = 'ttg-mini'
     helpBtn.textContent = '?'
     helpBtn.title = 'How to play'
     helpBtn.addEventListener('click', () => this.showHelp())
-    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, restartBtn, helpBtn)
+    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, deckBtn, restartBtn, helpBtn)
 
     this.banner = this.div('ttg-banner')
     this.banner.appendChild(document.createElement('span'))
@@ -561,6 +566,7 @@ export class GameApp {
       const drop = this.selection?.kind === 'UNIT' && this.selection.lanes.has(lane)
       this.laneEls[lane].classList.toggle('droppable', !!drop)
     }
+    this.root.classList.toggle('targeting', !!this.selection?.needsTarget)
 
     // Ladder header
     const boss = BOSS_DECKS[this.bossIndex - 1]!
@@ -1106,7 +1112,7 @@ export class GameApp {
     el.innerHTML =
       `<div class="menu-card">` +
       `<div class="menu-logo">Tower: The Gathering</div>` +
-      `<div class="menu-sub">A lane battler of towers &amp; horrors — climb the 10-boss ladder.</div>` +
+      `<div class="menu-sub">A 1v1 mana lane battler — climb the 10-boss ladder.</div>` +
       best +
       `<div class="menu-btns">` +
       primary +
@@ -1136,6 +1142,55 @@ export class GameApp {
         }
       }),
     )
+    this.root.appendChild(el)
+  }
+
+  // -------------------------------------------------------------------------
+  // Deck view
+  // -------------------------------------------------------------------------
+
+  private showDeck(): void {
+    this.root.querySelector('.ttg-modal')?.remove()
+    const counts = this.deckCounts()
+    const entries = Object.keys(counts)
+      .map(id => ({ id, n: counts[id]! }))
+      .sort((a, b) => getCard(a.id).cost - getCard(b.id).cost || getCard(a.id).name.localeCompare(getCard(b.id).name))
+    const by = (t: string) => this.playerDeck.filter(id => getCard(id).type === t).length
+
+    // Mana curve, buckets 1..7 with 7 = 7+.
+    const curve = new Array(7).fill(0)
+    for (const id of this.playerDeck) curve[Math.min(7, Math.max(1, getCard(id).cost)) - 1]++
+    const maxc = Math.max(1, ...curve)
+    const curveHtml =
+      `<div class="deck-curve">` +
+      curve
+        .map((c, i) => {
+          const label = i === 6 ? '7+' : String(i + 1)
+          const h = Math.round((c / maxc) * 46)
+          return `<div class="dc-col"><div class="dc-bar" style="height:${h}px"><span>${c || ''}</span></div><div class="dc-lbl">${label}</div></div>`
+        })
+        .join('') +
+      `</div>`
+
+    const el = this.div('ttg-modal')
+    const card = this.div('modal-card')
+    card.innerHTML =
+      `<h3>Your Deck (${this.playerDeck.length})</h3>` +
+      `<div class="modal-sub">${by('UNIT')} units · ${by('MODULE')} modules · ${by('ULTIMATE')} ultimates</div>` +
+      curveHtml
+    const grid = this.div('modal-grid')
+    for (const e of entries) {
+      grid.appendChild(this.cardFace(e.id, 'mini', () => {}, e.n > 1 ? `×${e.n}` : undefined))
+    }
+    const close = document.createElement('button')
+    close.className = 'ttg-mini'
+    close.textContent = 'Close'
+    close.addEventListener('click', () => el.remove())
+    card.append(grid, close)
+    el.appendChild(card)
+    el.addEventListener('click', e => {
+      if (e.target === el) el.remove()
+    })
     this.root.appendChild(el)
   }
 

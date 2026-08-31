@@ -463,6 +463,19 @@
 .ttg-lane.droppable:hover {
   background-color: #1c2740;
 }
+.ttg-lane.droppable::after {
+  content: '▾ Play here';
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  color: var(--ttg-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 3px #000;
+  pointer-events: none;
+}
 
 /* --- Units -------------------------------------------------------------- */
 .ttg-unit {
@@ -565,6 +578,11 @@
   right: 3px;
   font-size: 11px;
   filter: drop-shadow(0 1px 1px #000);
+}
+/* While choosing a spell target, fade everything that isn't a legal target so the picks pop. */
+.ttg-root.targeting .ttg-unit:not(.targetable) {
+  opacity: 0.4;
+  filter: saturate(0.6);
 }
 .ttg-unit.targetable {
   cursor: crosshair;
@@ -1105,6 +1123,44 @@
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 14px;
+}
+.deck-curve {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+  height: 68px;
+  margin: 0 auto 14px;
+  padding: 0 8px;
+}
+.dc-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 26px;
+}
+.dc-bar {
+  width: 20px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, #7fd0ff, #2f7fe0);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  position: relative;
+}
+.dc-bar span {
+  position: absolute;
+  top: -14px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ttg-text);
+}
+.dc-lbl {
+  font-size: 10px;
+  color: var(--ttg-dim);
+  font-variant-numeric: tabular-nums;
 }
 .ttg-card .owned {
   position: absolute;
