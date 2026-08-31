@@ -10,14 +10,20 @@
 
 import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
 
-/** Cost in shards to raise a card from `level` to `level + 1` (valid for level 1..6). */
+/** Cost in shards to raise a card from `level` to `level + 1` (valid for level 1..6). Levels are the
+ *  mid-game investment: affordable while you climb, a card's 7 levels total 546. */
 export function levelUpCost(level: number): number {
   return level * level * 6 // 6 · 24 · 54 · 96 · 150 · 216  → 546 to max a card's 7 levels
 }
 
-/** Cost in shards to raise a card's mastery from `mastery` to `mastery + 1` (valid for mastery 0..8). */
+/**
+ * Cost to raise a card's mastery from `mastery` to `mastery + 1` (valid for mastery 0..8). Masteries
+ * are the LONG endgame: a sharp quadratic curve so you can't seriously start maxing them until the
+ * high tiers pay out. 30 · 120 · 270 · 480 · 750 · 1080 · 1470 · 1920 · 2430  → 8550 for a full 0→9,
+ * ~3× a card's levels and steeply back-loaded.
+ */
 export function masteryUpCost(mastery: number): number {
-  return 60 * (mastery + 1) // 60 · 120 … 540  → 2700 for a full 0→9
+  return 30 * (mastery + 1) * (mastery + 1)
 }
 
 /**
@@ -26,13 +32,14 @@ export function masteryUpCost(mastery: number): number {
  * incentive is always to climb, never to farm a cleared tier.
  */
 export function tierShardBonus(tier: number): number {
-  return tier * tier * 2 // per-boss base: T1 = 2, T5 = 50, T10 = 200, T24 = 1152
+  return tier * tier // per-boss base: T1 = 1, T5 = 25, T10 = 100, T20 = 400, T24 = 576
 }
 
 /**
- * The per-boss bump also scales with tier, so *both* terms grow as you climb — a higher tier is
- * always worth far more than any lower one, and replaying a cleared low tier for "easy" shards is
- * never worth it. Tier 1 is unchanged (75/ladder); tier 24 pays ~12.8k/ladder (~170× tier 1).
+ * Income is intentionally lean so shards are hard-won: both terms scale with tier, so a higher tier
+ * is always worth far more (never farm a cleared low tier), but the totals stay small against the
+ * costs. A full ladder pays ≈ 65 at T1, ≈ 5100 at T20, ≈ 7080 at T24 — a whole 24-tier climb earns
+ * only ~65k, so maxing levels is a mid-game goal and maxing masteries is a long post-T20 grind.
  */
 export function shardReward(tier: number, boss: number): number {
   return tierShardBonus(tier) + boss * tier

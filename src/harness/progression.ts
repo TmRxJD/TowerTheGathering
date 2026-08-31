@@ -29,7 +29,6 @@ import {
   takeRewardAndTrim,
   tierAiDepth,
   tierBossHandicap,
-  tierClearReward,
   tierPlayerLifePenalty,
   type CardLevels,
 } from '../engine'
@@ -65,8 +64,11 @@ function run(): void {
   const rng = createRng(`${SEED}-meta`)
 
   console.log(`Progression speedrun — player=${PLAYER_AI} boss=${BOSS_AI} retryCap=${RETRY_CAP} tiers=1..${MAXTIER}`)
-  console.log(`One card fully maxed = ${cardMaxCost()} shards · whole ${ALL_CARD_IDS.length}-card collection = ${cardMaxCost() * ALL_CARD_IDS.length} shards\n`)
-  console.log('tier  clr  matches  earned   bank    ups  deckLvl  deckMaxed  tierPayout')
+  console.log(`One card: levels 546 + masteries 8550 = ${cardMaxCost()} shards · whole ${ALL_CARD_IDS.length}-card collection = ${cardMaxCost() * ALL_CARD_IDS.length}\n`)
+  console.log('tier  clr  matches  earned    cumEarned  bank    ups  deckLvl  deckMst  deckMaxed')
+  const milestones: string[] = []
+  let deckLevelsDoneTier = 0
+  let firstMasteryTier = 0
 
   for (let tier = 1; tier <= MAXTIER; tier++) {
     const bl = bossLevels(tier)
@@ -115,13 +117,27 @@ function run(): void {
       totalUpgrades += s.bought
     }
 
-    const deckLvls = uniq(deck).map(id => (coll[id] ?? { level: 1 }).level)
-    const maxed = uniq(deck).filter(id => {
+    const ids = uniq(deck)
+    const deckLvls = ids.map(id => (coll[id] ?? { level: 1 }).level)
+    const deckMst = ids.map(id => (coll[id] ?? { mastery: 0 }).mastery)
+    const maxed = ids.filter(id => {
       const e = coll[id] ?? { level: 1, mastery: 0 }
       return e.level >= CARD_MAX_LEVEL && e.mastery >= MASTERY_MAX_LEVEL
     }).length
+    const levelsDone = ids.every(id => (coll[id] ?? { level: 1 }).level >= CARD_MAX_LEVEL)
+    if (levelsDone && !deckLevelsDoneTier) {
+      deckLevelsDoneTier = tier
+      milestones.push(`Deck LEVELS maxed at Tier ${tier} (cum ${totalEarned})`)
+    }
+    if (deckMst.some(m => m > 0) && !firstMasteryTier) {
+      firstMasteryTier = tier
+      milestones.push(`First mastery bought at Tier ${tier} (cum ${totalEarned})`)
+    }
+    if (maxed === ids.length && !milestones.some(s => s.includes('fully maxed'))) {
+      milestones.push(`Deck FULLY maxed at Tier ${tier} (cum ${totalEarned})`)
+    }
     console.log(
-      `${pad(tier, 4)}  ${stuck ? ' ✗ ' : ' ✓ '}  ${pad(matches, 7)}  ${pad(earned, 6)}  ${pad(bank, 6)}  ${pad(ups, 5)}  ${pad(avg(deckLvls).toFixed(1), 7)}  ${pad(maxed + '/' + uniq(deck).length, 9)}  ${pad(tierClearReward(tier), 10)}`,
+      `${pad(tier, 4)}  ${stuck ? ' ✗ ' : ' ✓ '}  ${pad(matches, 7)}  ${pad(earned, 6)}  ${pad(totalEarned, 9)}  ${pad(bank, 6)}  ${pad(ups, 5)}  ${pad(avg(deckLvls).toFixed(1), 7)}  ${pad(avg(deckMst).toFixed(1), 7)}  ${pad(maxed + '/' + ids.length, 9)}`,
     )
     if (stuck) {
       console.log(`\nSTUCK at Tier ${tier}, boss ${stuck} — lost ${RETRY_CAP} straight even after upgrading.`)
@@ -135,6 +151,9 @@ function run(): void {
     return e.level >= CARD_MAX_LEVEL && e.mastery >= MASTERY_MAX_LEVEL
   }).length
   console.log(`Deck: ${uniq(deck).length} unique cards, ${deckMaxed} fully maxed, avg level ${avg(uniq(deck).map(id => (coll[id] ?? { level: 1 }).level)).toFixed(2)}`)
+  console.log('\nMilestones:')
+  for (const m of milestones) console.log(`  · ${m}`)
+  if (deckMaxed < uniq(deck).length) console.log(`  · Deck NOT fully maxed within ${MAXTIER} tiers — masteries remain a post-climb grind.`)
 }
 
 run()
