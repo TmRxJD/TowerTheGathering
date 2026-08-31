@@ -5,7 +5,7 @@
  * blocked site data) and must never crash the game — we fall back to a fresh save.
  */
 
-import { ALL_CARD_IDS, CARD_MAX_LEVEL, TUNING, clampLevel, clampTier, getCard, type CardLevels } from '../engine'
+import { ALL_CARD_IDS, CARD_MAX_LEVEL, TUNING, clampLevel, clampMastery, clampTier, getCard, type CardLevels } from '../engine'
 
 const KEY = 'ttg.save.v2'
 
@@ -14,7 +14,7 @@ export interface SaveState {
   highestTierCleared: number
   /** The in-progress run to resume, or null. */
   run: { tier: number; bossIndex: number; deck: string[] } | null
-  /** Card collection: level (1-7) + mastery per card. Missing = level 1, no mastery. */
+  /** Card collection: level (1-7) + mastery level (0-9) per card. Missing = level 1, no mastery. */
   collection: CardLevels
   /** Currency earned from wins, spent to level cards + unlock masteries. */
   shards: number
@@ -33,8 +33,10 @@ function cleanCollection(raw: unknown): CardLevels {
       if (!VALID_IDS.has(id) || !v || typeof v !== 'object') continue
       const e = v as { level?: unknown; mastery?: unknown }
       const level = clampLevel(Number(e.level) || 1)
-      const mastery = level >= CARD_MAX_LEVEL && e.mastery === true
-      if (level > 1 || mastery) out[id] = { level, mastery }
+      // Mastery only exists once base level is maxed. Legacy saves stored a boolean → treat true as 1.
+      const rawMastery = e.mastery === true ? 1 : clampMastery(Number(e.mastery) || 0)
+      const mastery = level >= CARD_MAX_LEVEL ? rawMastery : 0
+      if (level > 1 || mastery > 0) out[id] = { level, mastery }
     }
   }
   return out

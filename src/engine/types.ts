@@ -87,6 +87,10 @@ export interface UnitInstance {
   sacrificeAtEndOfTurn: boolean
   /** Ultimate Crit charges the unit's next attack to hit the Nexus for 3×, bypassing blockers. */
   chargedCritMultiplier: number
+  /** Spotlight: extra damage this unit takes from every source while it lives. */
+  vulnerable: number
+  /** Death Penalty: the first damage this unit takes destroys it outright. */
+  marked: boolean
 }
 
 /** A module in a player's backline. `data` holds per-module counters (Super Tower turn, etc.). */
@@ -252,8 +256,9 @@ export interface EngineOptions {
   readonly cardLevels?: Partial<Record<Side, CardLevels>>
 }
 
-/** A side's card progression: level (1-7) and whether the mastery is unlocked, keyed by card id. */
-export type CardLevels = Record<string, { level: number; mastery: boolean }>
+/** A side's card progression, keyed by card id: base level (1-7) and mastery level (0-9, 0 = the
+ *  mastery is not yet unlocked). Matches The Tower, where a card levels 7 times and its mastery 9. */
+export type CardLevels = Record<string, { level: number; mastery: number }>
 
 // ---------------------------------------------------------------------------
 // Serializable full state (for cloning + save/restore; powers search + the CLI)
@@ -273,6 +278,8 @@ export interface UnitState {
   invulnerableThisTurn: boolean
   sacrificeAtEndOfTurn: boolean
   chargedCritMultiplier: number
+  vulnerable: number
+  marked: boolean
 }
 
 export interface PlayerStateSnapshot {

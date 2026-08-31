@@ -1,17 +1,20 @@
 /**
- * Card levels (1-7) and masteries — a faithful adaptation of The Tower's card system. Collecting a
- * card levels it up (scaling its main number); reaching max level unlocks its named MASTERY, a
- * secondary ability. Mastery names come from the real game (see packages/sdk .../cards/data.ts).
+ * Card levels (1-7) and masteries (0-9) — a faithful adaptation of The Tower's card system, where a
+ * card levels up 7 times and, once maxed, its named MASTERY levels up a further 9 times. Collecting
+ * a card levels its main number; reaching max level unlocks the mastery, then each mastery level
+ * adds more (a scaling secondary ability).
  *
  * Backward-compatible by design: `levels[0]` (level 1) equals the card's original value, so an
  * un-levelled deck plays exactly as before and existing balance/tests are unaffected — leveling is
  * pure upside. The engine reads a card's value for its owner via `cardLevelValue`.
  *
- * A mastery is either a generic stat boost (`masteryBonus` added to the level value — the real game's
- * common "+", e.g. Damage+) or a distinct ability (`masterySpecial`, handled in the engine).
+ * A mastery is either a generic stat boost (`masteryBonus` added PER mastery level to the level value
+ * — the real game's common "+", e.g. Damage+) or a distinct ability (`masterySpecial`, handled in the
+ * engine, active once mastery level ≥ 1).
  */
 
 export const CARD_MAX_LEVEL = 7
+export const MASTERY_MAX_LEVEL = 9
 
 export type MasterySpecial =
   | 'fortress-walls' // Fortress: on death, leaves a 0/4 wall once (rebuilds).
@@ -74,17 +77,44 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   nuke: { levels: [0, 0, 2, 2, 4, 4, 6], masteryName: 'Radiation', masteryText: 'Also deals 6 damage to the enemy Nexus.', masterySpecial: 'radiation' },
   'ultimate-crit': { levels: [3, 3, 3, 4, 4, 4, 5], masteryName: 'Ultimate Crit+', masteryText: '+1 more damage multiplier.', masteryBonus: 1 },
 
-  // --- Expansion cards ---
-  'chain-lightning': { levels: [3, 3, 4, 4, 5, 5, 6], masteryName: 'Overload', masteryText: '+1 more to every bolt.', masteryBonus: 1 },
-  'smart-missiles': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Cluster Warheads', masteryText: '+1 more damage per lane.', masteryBonus: 1 },
-  'black-hole': { levels: [3, 3, 4, 4, 5, 5, 6], masteryName: 'Singularity', masteryText: 'Destroys tougher units (+1 HP).', masteryBonus: 1 },
-  'chrono-field': { levels: [2, 2, 2, 3, 3, 3, 4], masteryName: 'Time Stop', masteryText: 'Freeze +1 more turn.', masteryBonus: 1 },
-  spotlight: { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Overexpose', masteryText: '+1 more ATK.', masteryBonus: 1 },
-  'death-wave': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Tsunami', masteryText: '+1 more damage each turn.', masteryBonus: 1 },
-  'golden-tower': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Gilded', masteryText: '+1 more temporary mana each turn.', masteryBonus: 1 },
-  'death-penalty': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Vengeance', masteryText: '+1 more Nexus damage per death.', masteryBonus: 1 },
-  'havoc-bringer': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Havoc+', masteryText: '+1 more ATK to your units.', masteryBonus: 1 },
-  'multiverse-nexus': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Wormhole', masteryText: 'The spawned token has +1 more HP.', masteryBonus: 1 },
+  // --- Ultimate Weapons (the 9 real UWs) ---
+  'chain-lightning': { levels: [3, 3, 4, 4, 5, 5, 6], masteryName: 'Smite', masteryText: '+1 to every bolt per level.', masteryBonus: 1 },
+  'smart-missiles': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Cover Fire', masteryText: '+1 missile damage per lane, per level.', masteryBonus: 1 },
+  'death-wave': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Kill Wall', masteryText: '+1 wave damage each turn, per level.', masteryBonus: 1 },
+  'chrono-field': { levels: [2, 2, 2, 3, 3, 3, 4], masteryName: 'Chrono Loop', masteryText: '+1 freeze turn per level.', masteryBonus: 1 },
+  'inner-land-mines': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Charged Mines', masteryText: '+1 mine damage per level.', masteryBonus: 1 },
+  'golden-tower': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Golden Combo', masteryText: '+1 mana per enemy killed, per level.', masteryBonus: 1 },
+  'poison-swamp': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Death Creep', masteryText: '+1 poison damage per level.', masteryBonus: 1 },
+  'black-hole': { levels: [3, 3, 4, 4, 5, 5, 6], masteryName: 'Consume', masteryText: 'Destroys units +1 HP tougher per level.', masteryBonus: 1 },
+  spotlight: { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Light Range', masteryText: '+1 extra damage taken per level.', masteryBonus: 1 },
+
+  // --- Cannon modules (attack) ---
+  'astral-deliverance': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Ricochet', masteryText: '+1 bounce damage per level.', masteryBonus: 1 },
+  'being-annihilator': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Super Crit', masteryText: '+1 guaranteed crit per level.', masteryBonus: 1 },
+  'death-penalty': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Doom', masteryText: '+1 enemy marked per turn, per level.', masteryBonus: 1 },
+  'havoc-bringer': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Rend Max', masteryText: '+1 damage enemies take, per level.', masteryBonus: 1 },
+  'shrink-ray': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Compress', masteryText: '−1 more enemy max HP per level.', masteryBonus: 1 },
+
+  // --- Armor modules (defense) ---
+  'anti-cube-portal': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Aftershock', masteryText: '+1 aftershock damage per level.', masteryBonus: 1 },
+  'negative-mass-projector': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Heavy', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
+  'sharp-fortitude': { levels: [4, 5, 6, 7, 8, 10, 12], masteryName: 'Barbed', masteryText: '+1 max Nexus HP per level.', masteryBonus: 1 },
+  'wormhole-redirector': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Conduit', masteryText: '+1 Nexus recovery each turn, per level.', masteryBonus: 1 },
+  'space-displacer': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Organize', masteryText: '+1 mine HP per level.', masteryBonus: 1 },
+
+  // --- Generator modules (utility) ---
+  'black-hole-digestor': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Digest', masteryText: '+1 mana per module, per level.', masteryBonus: 1 },
+  'galaxy-compressor': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Recover', masteryText: '−1 more Ultimate cost after healing, per level.', masteryBonus: 1 },
+  'project-funding': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Investment', masteryText: '+1 ATK per 3 mana, per level.', masteryBonus: 1 },
+  'pulsar-harvester': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Decay', masteryText: '−1 more enemy ATK on hit per level.', masteryBonus: 1 },
+  'singularity-harness': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Bot Boost', masteryText: '+1 more token ATK per level.', masteryBonus: 1 },
+
+  // --- Core modules (ultimate weapons) ---
+  'dimension-core': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Overcharge', masteryText: '+1 Ultimate damage per level.', masteryBonus: 1 },
+  'harmony-conductor': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Discord', masteryText: '+1 enemy misses per level.', masteryBonus: 1 },
+  'magnetic-hook': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Reel', masteryText: '+1 hook damage per level.', masteryBonus: 1 },
+  'multiverse-nexus': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Synchrony', masteryText: '+1 synced free Ultimate per level.', masteryBonus: 1 },
+  'om-chip': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Focus', masteryText: '+1 focus ATK per level.', masteryBonus: 1 },
 }
 
 /** How a card's numeric value is shown, and what the number MEANS (so the UI reads like the game). */
@@ -129,16 +159,40 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'demon-mode': { fmt: 'plus', label: 'ATK this turn (unit is sacrificed after)' },
   nuke: { fmt: 'flat', label: 'bonus Nexus damage (destroys all units)' },
   'ultimate-crit': { fmt: 'flat', label: '× damage straight to the Nexus (bypasses blockers)' },
-  'chain-lightning': { fmt: 'flat', label: 'damage to a target, then −1 to two more enemies' },
+  // Ultimate Weapons
+  'chain-lightning': { fmt: 'flat', label: 'damage to a target, arcing −1 to each next enemy' },
   'smart-missiles': { fmt: 'flat', label: "damage to each lane's front enemy" },
-  'black-hole': { fmt: 'flat', label: 'max HP of the enemy destroyed in each lane' },
-  'chrono-field': { fmt: 'flat', label: 'turns all enemy units are frozen' },
-  spotlight: { fmt: 'plus', label: 'ATK to a friendly unit (permanent)' },
   'death-wave': { fmt: 'flat', label: 'damage to every enemy unit each turn' },
-  'golden-tower': { fmt: 'plus', label: 'temporary mana each turn' },
-  'death-penalty': { fmt: 'flat', label: 'Nexus damage when a friendly unit dies' },
-  'havoc-bringer': { fmt: 'plus', label: 'ATK to all friendly units' },
-  'multiverse-nexus': { fmt: 'flat', label: 'HP of the Defender token spawned each turn' },
+  'chrono-field': { fmt: 'flat', label: 'turns all enemy units are frozen' },
+  'inner-land-mines': { fmt: 'flat', label: 'damage to each enemy unit as it enters a lane' },
+  'golden-tower': { fmt: 'flat', label: 'temporary mana when your unit destroys an enemy' },
+  'poison-swamp': { fmt: 'flat', label: "damage to a dying enemy's lane-mates" },
+  'black-hole': { fmt: 'flat', label: 'max HP of the enemy destroyed in each lane' },
+  spotlight: { fmt: 'flat', label: 'extra damage an enemy unit takes (permanent)' },
+  // Cannon modules
+  'astral-deliverance': { fmt: 'flat', label: 'bounce damage to the enemy behind your target' },
+  'being-annihilator': { fmt: 'flat', label: 'guaranteed crits (2× damage) each turn' },
+  'death-penalty': { fmt: 'flat', label: 'entering enemies Marked (first hit destroys them)' },
+  'havoc-bringer': { fmt: 'plus', label: 'damage enemy units take from your attacks' },
+  'shrink-ray': { fmt: 'flat', label: 'max HP shrunk off an enemy unit (permanent)' },
+  // Armor modules
+  'anti-cube-portal': { fmt: 'flat', label: 'damage to each enemy front at end of your turn' },
+  'negative-mass-projector': { fmt: 'flat', label: 'ATK removed from all enemy units' },
+  'sharp-fortitude': { fmt: 'plus', label: 'max Nexus HP (healed); attackers take 1 thorns' },
+  'wormhole-redirector': { fmt: 'flat', label: 'Nexus HP recovered at the start of each turn' },
+  'space-displacer': { fmt: 'flat', label: 'HP of a Mine spawned in each empty lane each turn' },
+  // Generator modules
+  'black-hole-digestor': { fmt: 'flat', label: 'temporary mana each turn per Module you control' },
+  'galaxy-compressor': { fmt: 'flat', label: 'less Ultimate cost on turns you heal your Nexus' },
+  'project-funding': { fmt: 'plus', label: 'ATK to your units per 3 mana in your pool' },
+  'pulsar-harvester': { fmt: 'flat', label: 'ATK removed from an enemy your unit damages' },
+  'singularity-harness': { fmt: 'plus', label: 'ATK to your Mine & Wall tokens (your "bots")' },
+  // Core modules
+  'dimension-core': { fmt: 'plus', label: 'damage to your damage-dealing Ultimates' },
+  'harmony-conductor': { fmt: 'flat', label: 'enemy front units that miss their attack each turn' },
+  'magnetic-hook': { fmt: 'flat', label: 'damage to the strongest enemy unit each turn' },
+  'multiverse-nexus': { fmt: 'flat', label: 'synced free Ultimate(s) after you play one (they fire together)' },
+  'om-chip': { fmt: 'plus', label: 'ATK to your strongest unit each turn' },
 }
 
 /** Format a card value for display per its fmt: percent (50%), additive (+2), or plain (5). */
@@ -157,17 +211,22 @@ export function clampLevel(level: number): number {
   return Math.max(1, Math.min(CARD_MAX_LEVEL, Math.floor(level) || 1))
 }
 
-/** The card's numeric value at `level`, plus its generic mastery bonus if `mastery` is unlocked. */
-export function cardLevelValue(cardId: string, level: number, mastery: boolean): number {
+/** Mastery level 0-9 (0 = not yet unlocked). */
+export function clampMastery(mastery: number): number {
+  return Math.max(0, Math.min(MASTERY_MAX_LEVEL, Math.floor(mastery) || 0))
+}
+
+/** The card's numeric value at `level`, plus its generic mastery bonus scaled by `masteryLevel`. */
+export function cardLevelValue(cardId: string, level: number, masteryLevel: number): number {
   const prog = CARD_PROG[cardId]
   if (!prog) return 0
   const base = prog.levels[clampLevel(level) - 1] ?? prog.levels[0] ?? 0
-  return base + (mastery && prog.masteryBonus ? prog.masteryBonus : 0)
+  return base + (prog.masteryBonus ? prog.masteryBonus * clampMastery(masteryLevel) : 0)
 }
 
-/** The distinct mastery ability id for a card, if it has one and `mastery` is unlocked. */
-export function cardMasterySpecial(cardId: string, mastery: boolean): MasterySpecial | undefined {
-  return mastery ? CARD_PROG[cardId]?.masterySpecial : undefined
+/** The distinct mastery ability id for a card, if it has one and its mastery is unlocked (level ≥ 1). */
+export function cardMasterySpecial(cardId: string, masteryLevel: number): MasterySpecial | undefined {
+  return clampMastery(masteryLevel) >= 1 ? CARD_PROG[cardId]?.masterySpecial : undefined
 }
 
 /** For a unit card, which stat its level scales (undefined for non-units / unlevelled). */

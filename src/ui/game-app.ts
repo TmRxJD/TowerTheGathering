@@ -16,6 +16,7 @@ import {
   BATTLE_CONDITION_TIER,
   BOSS_DECKS,
   CARD_MAX_LEVEL,
+  MASTERY_MAX_LEVEL,
   CARD_PROG,
   MAX_TIER,
   STARTER_DECK,
@@ -1118,7 +1119,8 @@ export class GameApp {
    *  through smarter/stronger cards, not just raw life. */
   private aiCardLevels(): CardLevels {
     const level = Math.min(CARD_MAX_LEVEL, 1 + Math.floor((this.tier - 1) / 3))
-    const mastery = this.tier >= 13
+    // From tier 13 the bosses' masteries come online and level up with the tier (13→1 … 21→9).
+    const mastery = this.tier >= 13 ? Math.min(MASTERY_MAX_LEVEL, this.tier - 12) : 0
     const out: CardLevels = {}
     for (const id of ALL_CARD_IDS) out[id] = { level, mastery }
     return out
@@ -1218,14 +1220,17 @@ export class GameApp {
   // Collection (card levels + masteries)
   // -------------------------------------------------------------------------
 
-  private collEntry(cardId: string): { level: number; mastery: boolean } {
-    return this.save.collection[cardId] ?? { level: 1, mastery: false }
+  private collEntry(cardId: string): { level: number; mastery: number } {
+    return this.save.collection[cardId] ?? { level: 1, mastery: 0 }
   }
 
   private levelCost(level: number): number {
     return level * 4 // L1→2: 4 … L6→7: 24
   }
-  private static readonly MASTERY_COST = 30
+  /** Mastery unlock (m 0→1) and each subsequent mastery level get pricier than base levels. */
+  private masteryCost(mastery: number): number {
+    return 30 + mastery * 8 // unlock: 30, then 38, 46 … up to mastery 9
+  }
 
   /** Collection: a compact grid of card faces (no scroll) — click one for its full detail. */
   private showCollection(): void {
@@ -1234,14 +1239,14 @@ export class GameApp {
     const card = this.div('modal-card')
     card.innerHTML =
       `<h3>Collection · 💠 ${this.save.shards}</h3>` +
-      `<div class="modal-sub">Tap a card to level it up and unlock its Mastery.</div>`
+      `<div class="modal-sub">Win battles to earn 💠 shards — spend them here to level cards (1→7) and level their Mastery (1→9). Tap a card.</div>`
     const grid = this.div('coll-faces')
     const ids = [...ALL_CARD_IDS].sort(
       (a, b) => getCard(a).cost - getCard(b).cost || getCard(a).name.localeCompare(getCard(b).name),
     )
     for (const id of ids) {
       const { level, mastery } = this.collEntry(id)
-      const face = this.cardFace(id, 'mini', () => this.showCardDetail(id), `${mastery ? '★' : ''}L${level}`)
+      const face = this.cardFace(id, 'mini', () => this.showCardDetail(id), `${mastery > 0 ? '★' : ''}L${level}`)
       grid.appendChild(face)
     }
     const close = document.createElement('button')
@@ -1256,37 +1261,43 @@ export class GameApp {
     this.root.appendChild(el)
   }
 
-  /** Full card detail (mirrors the game): rarity, art, per-level table, and the Mastery ability. */
+  /** Full card detail (mirrors the game): rarity, art, one effect line, a level strip, and the
+   *  Mastery track. One number, one place — the current value already folds in the mastery bonus. */
   private showCardDetail(cardId: string): void {
     this.root.querySelector('.ttg-detail')?.remove()
     const def = getCard(cardId)
     const prog = CARD_PROG[cardId]
     const { level, mastery } = this.collEntry(cardId)
     const max = level >= CARD_MAX_LEVEL
+    const masteryMaxed = mastery >= MASTERY_MAX_LEVEL
 
     const el = this.div('ttg-modal ttg-detail')
     el.dataset.rarity = def.rarity
-    const rows = (prog?.levels ?? [])
-      .map((v, i) => {
-        const lv = i + 1
-        const here = lv === level ? ' cur' : ''
-        return `<div class="dl-row${here}"><span>Lv ${lv}</span><span>${formatCardValue(cardId, v)}</span></div>`
-      })
+    // Current effect value — includes any mastery bonus, so it's the single source of truth.
+    const cur = formatCardValue(cardId, cardLevelValue(cardId, level, mastery))
+    const levelChips = (prog?.levels ?? [])
+      .map((v, i) => `<span class="lchip${i + 1 === level ? ' cur' : ''}"><i>${i + 1}</i>${formatCardValue(cardId, v)}</span>`)
       .join('')
-    const cur = formatCardValue(cardId, cardLevelValue(cardId, level, false))
-    const masteryBenefit = prog?.masterySpecial ? '' : prog?.masteryBonus ? ` (${formatCardValue(cardId, prog.masteryBonus)})` : ''
+    const masteryDots = Array.from({ length: MASTERY_MAX_LEVEL }, (_, i) =>
+      `<span class="mchip${i < mastery ? ' on' : ''}${i + 1 === mastery ? ' cur' : ''}">${i + 1}</span>`,
+    ).join('')
+    const masterySection = prog
+      ? `<div class="detail-mastery${mastery > 0 ? ' on' : ''}">` +
+        `<div class="dm-title">★ ${prog.masteryName}</div>` +
+        `<div class="dm-text">${prog.masteryText}</div>` +
+        (max ? `<div class="mtrack">${masteryDots}</div>` : `<div class="dm-lock">Unlocks at base Lv ${CARD_MAX_LEVEL}</div>`) +
+        `</div>`
+      : ''
 
     el.innerHTML =
       `<div class="detail-card" data-rarity="${def.rarity}">` +
-      `<div class="detail-rarity">${def.rarity.toUpperCase()}</div>` +
+      `<div class="detail-rarity">${def.rarity.toUpperCase()} · ${def.type}${def.cost != null ? ` · ${def.cost}◆` : ''}</div>` +
       `<div class="detail-name">${def.name}</div>` +
       `<div class="detail-art" style="background-image:url('${cardArtUrl(cardId) ?? ''}')"></div>` +
-      `<div class="detail-level">${max ? '★ MAX LEVEL' : `Lv ${level} / ${CARD_MAX_LEVEL}`}</div>` +
       `<div class="detail-effect"><b>${cur}</b> ${cardEffectLabel(cardId)}</div>` +
-      `<div class="detail-levels">${rows}</div>` +
-      (prog
-        ? `<div class="detail-mastery${mastery ? ' on' : ''}"><div class="dm-title">★ Mastery — ${prog.masteryName}${masteryBenefit}${mastery ? '' : max ? ' (ready)' : ' (at max level)'}</div><div class="dm-text">${prog.masteryText}</div></div>`
-        : '') +
+      `<div class="dtrack-label">Base Lv ${level}/${CARD_MAX_LEVEL}${mastery > 0 ? ` · ★ Mastery ${mastery}/${MASTERY_MAX_LEVEL}` : ''}</div>` +
+      `<div class="detail-levels">${levelChips}</div>` +
+      masterySection +
       `<div class="detail-btns"></div>` +
       `</div>`
 
@@ -1311,14 +1322,14 @@ export class GameApp {
         writeSave(this.save)
         this.showCardDetail(cardId)
       })
-    } else if (!mastery) {
-      const cost = GameApp.MASTERY_COST
-      action.textContent = `Unlock Mastery · ${cost}💠`
+    } else if (!masteryMaxed) {
+      const cost = this.masteryCost(mastery)
+      action.textContent = `${mastery === 0 ? 'Unlock' : 'Level Up'} Mastery · ${cost}💠`
       action.disabled = this.save.shards < cost
       action.addEventListener('click', () => {
         if (this.save.shards < cost) return
         this.save.shards -= cost
-        this.save.collection[cardId] = { level, mastery: true }
+        this.save.collection[cardId] = { level, mastery: mastery + 1 }
         writeSave(this.save)
         this.showCardDetail(cardId)
       })

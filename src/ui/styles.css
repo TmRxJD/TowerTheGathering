@@ -953,7 +953,7 @@
 .ttg-help {
   position: absolute;
   inset: 0;
-  z-index: 26;
+  z-index: 32; /* above the menu/collection/detail modals (27) so it never opens behind them */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1092,16 +1092,20 @@
   max-width: 540px;
 }
 .ttg-card.mini {
-  width: 52px;
-  height: 72px;
-  box-shadow: inset 0 -26px 20px -16px rgba(0, 0, 0, 0.9);
+  width: 60px;
+  height: 82px;
+  box-shadow: inset 0 -30px 22px -16px rgba(0, 0, 0, 0.92);
 }
 .ttg-card.mini:hover {
   transform: translateY(-6px) scale(1.06);
 }
 .ttg-card.mini .cn {
-  font-size: 7px;
-  bottom: 12px;
+  font-size: 7.5px;
+  line-height: 1.05;
+  bottom: 14px;
+  white-space: normal; /* let long names (Negative Mass Projector) wrap instead of clipping */
+  max-height: 2.2em;
+  overflow: hidden;
 }
 .ttg-card.mini .ct {
   display: none;
@@ -1202,12 +1206,14 @@
   margin: 2px 0 8px;
 }
 .detail-art {
-  width: 120px;
-  height: 120px;
-  margin: 0 auto 8px;
+  width: 132px;
+  height: 132px;
+  margin: 0 auto 10px;
   border-radius: 10px;
-  background-size: cover;
-  background-position: center 25%;
+  background-size: contain; /* show the whole illustration — never crop it */
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: #0c0710;
   border: 1px solid var(--ttg-line);
 }
 .detail-level {
@@ -1225,29 +1231,75 @@
   color: var(--ttg-accent);
   font-size: 15px;
 }
-.detail-levels {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px 16px;
-  margin: 0 auto 12px;
-  max-width: 240px;
+.dtrack-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ttg-gold);
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
 }
-.dl-row {
+.detail-levels {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  margin: 0 auto 12px;
+  max-width: 100%;
+}
+.lchip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 11px;
   color: var(--ttg-dim);
-  padding: 1px 6px;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ttg-line);
+  border-radius: 6px;
+  padding: 2px 6px;
   font-variant-numeric: tabular-nums;
 }
-.dl-row.cur {
-  background: rgba(91, 140, 255, 0.16);
+.lchip i {
+  font-style: normal;
+  font-size: 9px;
+  opacity: 0.6;
+}
+.lchip.cur {
+  background: rgba(91, 140, 255, 0.18);
+  border-color: var(--ttg-accent);
   color: var(--ttg-text);
   font-weight: 800;
 }
-.dl-row.cur span:last-child {
-  color: var(--ttg-accent);
+.mtrack {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.mchip {
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ttg-line);
+  color: var(--ttg-dim);
+}
+.mchip.on {
+  background: var(--ttg-gold);
+  color: #1a1206;
+  border-color: var(--ttg-gold);
+  font-weight: 800;
+}
+.mchip.cur {
+  box-shadow: 0 0 0 2px rgba(255, 190, 90, 0.5);
+}
+.dm-lock {
+  font-size: 11px;
+  color: var(--ttg-dim);
+  font-style: italic;
+  margin-top: 6px;
 }
 .detail-mastery {
   border-top: 1px solid var(--ttg-line);

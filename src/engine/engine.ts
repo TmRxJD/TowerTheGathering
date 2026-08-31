@@ -73,7 +73,8 @@ const ULTIMATE_TARGET: Readonly<Record<string, TargetType>> = {
   'recovery-package': 'friendlyUnit',
   'ultimate-crit': 'friendlyUnit',
   'chain-lightning': 'enemyUnit',
-  spotlight: 'friendlyUnit',
+  spotlight: 'enemyUnit',
+  'shrink-ray': 'enemyUnit',
 }
 
 class TowerEngine implements Engine {
@@ -176,6 +177,8 @@ class TowerEngine implements Engine {
       invulnerableThisTurn: u.invulnerableThisTurn,
       sacrificeAtEndOfTurn: u.sacrificeAtEndOfTurn,
       chargedCritMultiplier: u.chargedCritMultiplier,
+      vulnerable: u.vulnerable,
+      marked: u.marked,
     })
     const lanes = {} as Record<Lane, Record<Side, UnitState[]>>
     for (const lane of LANES) {
@@ -202,8 +205,8 @@ class TowerEngine implements Engine {
   // Card levels / masteries
   // -------------------------------------------------------------------------
 
-  private cardEntry(side: Side, cardId: string): { level: number; mastery: boolean } {
-    return this.cardLevels[side]?.[cardId] ?? { level: 1, mastery: false }
+  private cardEntry(side: Side, cardId: string): { level: number; mastery: number } {
+    return this.cardLevels[side]?.[cardId] ?? { level: 1, mastery: 0 }
   }
 
   /** The card's numeric value for `side`, scaled by its level (+ mastery stat bonus). */
@@ -256,6 +259,8 @@ class TowerEngine implements Engine {
           invulnerableThisTurn: u.invulnerableThisTurn,
           sacrificeAtEndOfTurn: u.sacrificeAtEndOfTurn,
           chargedCritMultiplier: u.chargedCritMultiplier,
+          vulnerable: u.vulnerable,
+          marked: u.marked,
         }))
       }
     }
@@ -385,6 +390,14 @@ class TowerEngine implements Engine {
     this.pendingMana[side] = 0
     events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
 
+    // Refresh per-turn module counters (guaranteed crits, marks, heal-discount, weapon sync).
+    for (const m of p.modules) {
+      if (m.cardId === 'being-annihilator') m.data.critsUsed = 0
+      if (m.cardId === 'death-penalty') m.data.marksLeft = this.cardVal(side, 'death-penalty')
+      if (m.cardId === 'galaxy-compressor') m.data.healedThisTurn = false
+      if (m.cardId === 'multiverse-nexus') m.data.freeUltsLeft = 0
+    }
+
     // Start-of-turn: Health Regen (per copy, scaled by level).
     if (this.countModule(side, 'health-regen') > 0) {
       const amt = this.cardVal(side, 'health-regen') * this.countModule(side, 'health-regen')
@@ -401,10 +414,14 @@ class TowerEngine implements Engine {
       this.countModule(side, 'enemy-balance') * this.cardVal(side, 'enemy-balance')
     for (let i = 0; i < draws; i++) this.drawCard(p, events)
 
-    // Golden Tower: temporary mana at the start of each turn.
-    if (this.countModule(side, 'golden-tower') > 0) {
-      p.manaPool += this.cardVal(side, 'golden-tower') * this.countModule(side, 'golden-tower')
+    // Black Hole Digestor: your upgrades "digest" into temporary mana each turn (per Module held).
+    if (this.countModule(side, 'black-hole-digestor') > 0) {
+      p.manaPool += this.cardVal(side, 'black-hole-digestor') * this.countModule(side, 'black-hole-digestor') * p.modules.length
       events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
+    }
+    // Wormhole Redirector: channel a little Nexus recovery at the start of each turn.
+    if (this.countModule(side, 'wormhole-redirector') > 0) {
+      this.healNexus(side, this.cardVal(side, 'wormhole-redirector') * this.countModule(side, 'wormhole-redirector'), events)
     }
     // Death Wave: damage every enemy unit.
     if (this.countModule(side, 'death-wave') > 0) {
@@ -413,16 +430,31 @@ class TowerEngine implements Engine {
       for (const lane of LANES) for (const u of [...this.lanes[lane][opp]]) this.damageUnit(u, dmg, null, false, events)
       if (this.winner !== null) return
     }
-    // Multiverse Nexus: spawn a Defender token in a random empty lane.
-    if (this.countModule(side, 'multiverse-nexus') > 0) {
-      const empty = LANES.filter(l => this.lanes[l][side].length === 0)
-      if (empty.length > 0) {
-        const lane = empty[this.rng.int(empty.length)] as Lane
-        const token = this.makeUnit(side, MINE_TOKEN.id, lane)
-        token.hp = this.cardVal(side, 'multiverse-nexus')
-        token.maxHp = token.hp
-        this.lanes[lane][side].unshift(token)
-        events.push({ type: 'unitPlaced', unit: token, index: 0 })
+    // Magnetic Hook: yank the strongest enemy unit for hook damage.
+    if (this.countModule(side, 'magnetic-hook') > 0) {
+      const hook = this.cardVal(side, 'magnetic-hook') * this.countModule(side, 'magnetic-hook')
+      const target = this.strongestEnemyUnit(side)
+      if (target) this.damageUnit(target, hook, null, false, events)
+      if (this.winner !== null) return
+    }
+    // Om Chip: focus fire — your strongest unit gains ATK each turn.
+    if (this.countModule(side, 'om-chip') > 0) {
+      const focus = this.strongestOwnUnit(side)
+      if (focus) {
+        focus.atk += this.cardVal(side, 'om-chip') * this.countModule(side, 'om-chip')
+        events.push({ type: 'unitBuffed', uid: focus.uid, atk: focus.atk, hp: focus.hp })
+      }
+    }
+    // Space Displacer: inner land mines organize around the tower — a Mine per empty lane.
+    if (this.countModule(side, 'space-displacer') > 0) {
+      const hp = this.cardVal(side, 'space-displacer')
+      for (const lane of LANES) {
+        if (this.lanes[lane][side].length > 0) continue
+        const mine = this.makeUnit(side, MINE_TOKEN.id, lane)
+        mine.hp = hp
+        mine.maxHp = hp
+        this.lanes[lane][side].unshift(mine)
+        events.push({ type: 'unitPlaced', unit: mine, index: 0 })
       }
     }
 
@@ -455,6 +487,17 @@ class TowerEngine implements Engine {
   }
 
   private endPhase(side: Side, events: GameEvent[]): void {
+    // Anti-Cube Portal: an end-of-turn shockwave hits each enemy front unit.
+    if (this.countModule(side, 'anti-cube-portal') > 0) {
+      const dmg = this.cardVal(side, 'anti-cube-portal') * this.countModule(side, 'anti-cube-portal')
+      const opp = this.opponent(side)
+      for (const lane of LANES) {
+        const f = this.frontUnit(lane, opp)
+        if (f) this.damageUnit(f, dmg, null, false, events)
+      }
+      if (this.winner !== null) return
+    }
+
     // Land Mine Chance: 50% per copy to spawn a mine in a random empty lane.
     const mineModules = this.countModule(side, 'land-mine-chance')
     for (let i = 0; i < mineModules; i++) {
@@ -540,6 +583,25 @@ class TowerEngine implements Engine {
       events.push({ type: 'unitFrozen', uid: unit.uid, turns: unit.frozenTurns })
       this.killUnit(trap, events)
     }
+
+    // Inner Land Mines: the enemy's mines detonate on the entering unit for AOE damage.
+    if (this.countModule(opp, 'inner-land-mines') > 0) {
+      const dmg = this.cardVal(opp, 'inner-land-mines') * this.countModule(opp, 'inner-land-mines')
+      this.damageUnit(unit, dmg, null, false, events)
+    }
+    // Death Penalty: the enemy marks the entering unit for death (a limited number per turn).
+    if (unit.hp > 0) {
+      for (const m of this.players[opp].modules) {
+        if (m.cardId !== 'death-penalty') continue
+        const left = typeof m.data.marksLeft === 'number' ? m.data.marksLeft : 0
+        if (left > 0) {
+          m.data.marksLeft = left - 1
+          unit.marked = true
+          events.push({ type: 'moduleTriggered', uid: m.uid, cardId: m.cardId, side: opp })
+          break
+        }
+      }
+    }
   }
 
   private playModule(side: Side, uid: number, events: GameEvent[]): void {
@@ -555,9 +617,9 @@ class TowerEngine implements Engine {
     p.modules.push(mod)
     events.push({ type: 'moduleAttached', module: mod })
 
-    // Health module resolves immediately (raises max and heals).
-    if (def.id === 'health') {
-      const bonus = this.cardVal(side, 'health')
+    // Health / Sharp Fortitude resolve immediately (raise max Nexus HP and heal).
+    if (def.id === 'health' || def.id === 'sharp-fortitude') {
+      const bonus = this.cardVal(side, def.id)
       p.maxLife += bonus
       this.healNexus(side, bonus, events)
     }
@@ -574,6 +636,16 @@ class TowerEngine implements Engine {
     this.spend(p, this.effectiveCost(side, ref.cardId))
     this.takeFromHand(p, uid)
     events.push({ type: 'ultimateCast', cardId: def.id, side, ...(target ? { target } : {}) })
+
+    // Multiverse Nexus: weapons fire together. A PAID ultimate opens a window of free ultimates;
+    // each free ultimate consumes one. (effectiveCost returns 0 while the window is open.)
+    const mvn = this.countModule(side, 'multiverse-nexus')
+    if (mvn > 0) {
+      const inst = p.modules.find(m => m.cardId === 'multiverse-nexus')!
+      const left = typeof inst.data.freeUltsLeft === 'number' ? inst.data.freeUltsLeft : 0
+      if (left > 0) inst.data.freeUltsLeft = left - 1
+      else inst.data.freeUltsLeft = this.cardVal(side, 'multiverse-nexus') * mvn
+    }
 
     // Second Wind is a face-down secret, not an immediate effect.
     if (def.id === 'second-wind') {
@@ -662,7 +734,7 @@ class TowerEngine implements Engine {
         if (u) {
           const lane = u.lane
           const uSide = u.owner
-          this.damageUnit(u, this.cardVal(side, 'death-ray'), null, false, events)
+          this.damageUnit(u, this.cardVal(side, 'death-ray') + this.ultBonus(side), null, false, events)
           for (const adj of ADJACENT[lane]) {
             const front = this.frontUnit(adj, uSide)
             if (front) this.damageUnit(front, TUNING.DEATH_RAY_SPLASH, null, false, events)
@@ -719,7 +791,7 @@ class TowerEngine implements Engine {
         const first = this.unitByTarget(target)
         if (first) {
           const hit = new Set<number>()
-          let bolt = this.cardVal(side, 'chain-lightning')
+          let bolt = this.cardVal(side, 'chain-lightning') + this.ultBonus(side)
           let u: UnitInstance | undefined = first
           while (u && bolt > 0) {
             hit.add(u.uid)
@@ -731,7 +803,7 @@ class TowerEngine implements Engine {
         break
       }
       case 'smart-missiles': {
-        const dmg = this.cardVal(side, 'smart-missiles')
+        const dmg = this.cardVal(side, 'smart-missiles') + this.ultBonus(side)
         for (const lane of LANES) {
           const front = this.frontUnit(lane, this.opponent(side))
           if (front) this.damageUnit(front, dmg, null, false, events)
@@ -760,14 +832,30 @@ class TowerEngine implements Engine {
         break
       }
       case 'spotlight': {
+        // Enemies in the spotlight take more damage from every source, permanently.
         const u = this.unitByTarget(target)
         if (u) {
-          u.atk += this.cardVal(side, 'spotlight')
+          u.vulnerable += this.cardVal(side, 'spotlight')
+          events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
+        }
+        break
+      }
+      case 'shrink-ray': {
+        const u = this.unitByTarget(target)
+        if (u) {
+          const shrink = this.cardVal(side, 'shrink-ray')
+          u.maxHp = Math.max(1, u.maxHp - shrink)
+          u.hp = Math.min(u.hp, u.maxHp)
           events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
         }
         break
       }
     }
+  }
+
+  /** Dimension Core: bonus damage added to this side's damage-dealing Ultimates. */
+  private ultBonus(side: Side): number {
+    return this.countModule(side, 'dimension-core') * this.cardVal(side, 'dimension-core')
   }
 
   /** Highest-HP enemy unit of `side`'s foe not already in `exclude`. For Chain Lightning. */
@@ -777,6 +865,25 @@ class TowerEngine implements Engine {
     for (const lane of LANES) for (const u of this.lanes[lane][opp]) {
       if (exclude.has(u.uid)) continue
       if (!best || u.hp > best.hp) best = u
+    }
+    return best
+  }
+
+  /** The enemy unit (of `side`'s foe) with the highest ATK. For Magnetic Hook. */
+  private strongestEnemyUnit(side: Side): UnitInstance | undefined {
+    const opp = this.opponent(side)
+    let best: UnitInstance | undefined
+    for (const lane of LANES) for (const u of this.lanes[lane][opp]) {
+      if (!best || u.atk > best.atk) best = u
+    }
+    return best
+  }
+
+  /** `side`'s own unit with the highest ATK. For Om Chip. */
+  private strongestOwnUnit(side: Side): UnitInstance | undefined {
+    let best: UnitInstance | undefined
+    for (const lane of LANES) for (const u of this.lanes[lane][side]) {
+      if (!best || u.atk > best.atk) best = u
     }
     return best
   }
@@ -803,6 +910,13 @@ class TowerEngine implements Engine {
     }
     if (superTurn[active]) {
       for (const lane of LANES) for (const u of this.lanes[lane][active]) u.invulnerableThisTurn = true
+    }
+
+    // Harmony Conductor: prime this combat's pool of enemy "miss-attacks" (one per instance × level).
+    for (const s of SIDES) {
+      for (const m of this.players[s].modules) {
+        if (m.cardId === 'harmony-conductor') m.data.missesLeft = this.cardVal(s, 'harmony-conductor')
+      }
     }
 
     for (const lane of LANES) {
@@ -842,7 +956,14 @@ class TowerEngine implements Engine {
     ] as const) {
       if (!unit || !this.canAct(unit)) continue
       const isFirst = this.effectiveKeywords(unit).has('firstStrike')
-      if ((step === 'first') === isFirst) firing.push({ unit, side })
+      if ((step === 'first') === isFirst) {
+        // Harmony Conductor: the enemy may force this front to miss its attack.
+        if (this.consumeHarmonyMiss(this.opponent(side))) {
+          events.push({ type: 'unitTapped', uid: unit.uid })
+          continue
+        }
+        firing.push({ unit, side })
+      }
     }
     if (firing.length === 0) return
 
@@ -854,6 +975,13 @@ class TowerEngine implements Engine {
     // Apply all damage before resolving any death, so both sides of a tie land their hit.
     const damaged = new Map<number, number>() // victimUid → last attackerUid (kill attribution)
     for (const plan of plans) this.applyPlan(plan, events, damaged)
+    // Astral Deliverance: each attack bounces, hitting the enemy unit behind the front too.
+    for (const f of firing) {
+      const bounce = this.countModule(f.side, 'astral-deliverance') * this.cardVal(f.side, 'astral-deliverance')
+      if (bounce <= 0) continue
+      const behind = this.lanes[lane][this.opponent(f.side)][1]
+      if (behind) this.damageUnit(behind, bounce, f.unit.uid, false, events)
+    }
     // Berserker grows on surviving damage; then the dead are cleared and reserves promote.
     for (const uid of damaged.keys()) {
       const u = this.findUnit(uid)
@@ -890,10 +1018,22 @@ class TowerEngine implements Engine {
 
     let atk = baseAtk
     let crit = false
-    if (this.countModule(side, 'critical-chance') > 0 && this.rng.chance(this.cardVal(side, 'critical-chance'))) {
-      crit = true
-      atk *= TUNING.CRIT_MULTIPLIER
+    // Being Annihilator: a leveled number of this side's attacks each turn are guaranteed crits.
+    const ann = this.players[side].modules.find(m => m.cardId === 'being-annihilator')
+    if (ann) {
+      const used = typeof ann.data.critsUsed === 'number' ? ann.data.critsUsed : 0
+      const allowed = this.cardVal(side, 'being-annihilator') * this.countModule(side, 'being-annihilator')
+      if (used < allowed) {
+        crit = true
+        ann.data.critsUsed = used + 1
+      }
     }
+    if (!crit && this.countModule(side, 'critical-chance') > 0 && this.rng.chance(this.cardVal(side, 'critical-chance'))) {
+      crit = true
+    }
+    if (crit) atk *= TUNING.CRIT_MULTIPLIER
+    // Havoc Bringer (rend armor): enemy UNITS take extra damage from this side's attacks.
+    const havoc = this.countModule(side, 'havoc-bringer') * this.cardVal(side, 'havoc-bringer')
 
     const enemyFront = this.frontUnit(lane, opp)
     if (enemyFront) {
@@ -903,7 +1043,7 @@ class TowerEngine implements Engine {
         target: 'unit',
         uid: enemyFront.uid,
         hpBefore: enemyFront.hp,
-        amount: atk,
+        amount: atk + havoc,
         crit,
         ...(spill ? { spillSide: opp } : {}),
       }
@@ -919,7 +1059,7 @@ class TowerEngine implements Engine {
             target: 'unit',
             uid: adjFront.uid,
             hpBefore: adjFront.hp,
-            amount: atk,
+            amount: atk + havoc,
             crit,
           }
         }
@@ -932,6 +1072,12 @@ class TowerEngine implements Engine {
   private applyPlan(plan: CombatPlan, events: GameEvent[], damaged: Map<number, number>): void {
     if (plan.target === 'nexus') {
       this.damageNexus(plan.side, plan.amount, events)
+      // Sharp Fortitude: the wall's thorns hurt whoever strikes the Nexus.
+      const thorns = this.countModule(plan.side, 'sharp-fortitude')
+      if (thorns > 0) {
+        const attacker = this.findUnit(plan.attackerUid)
+        if (attacker) this.damageUnit(attacker, thorns, null, false, events)
+      }
       return
     }
     const u = this.findUnit(plan.uid)
@@ -940,11 +1086,26 @@ class TowerEngine implements Engine {
       events.push({ type: 'damage', targetUid: u.uid, amount: 0, sourceUid: plan.attackerUid, crit: plan.crit })
       return
     }
-    u.hp -= plan.amount
-    events.push({ type: 'damage', targetUid: u.uid, amount: plan.amount, sourceUid: plan.attackerUid, crit: plan.crit })
+    let amount = plan.amount + (plan.amount > 0 ? u.vulnerable : 0)
+    // Death Penalty: the first damage a Marked unit takes destroys it.
+    if (u.marked && amount > 0) {
+      amount = Math.max(amount, u.hp)
+      u.marked = false
+    }
+    u.hp -= amount
+    events.push({ type: 'damage', targetUid: u.uid, amount, sourceUid: plan.attackerUid, crit: plan.crit })
     damaged.set(u.uid, plan.attackerUid)
-    if (plan.spillSide && plan.amount >= plan.hpBefore) {
-      const overkill = plan.amount - plan.hpBefore
+    // Pulsar Harvester: the attacker's side saps a surviving enemy's ATK.
+    const attacker = this.findUnit(plan.attackerUid)
+    if (attacker && u.hp > 0 && u.owner === this.opponent(attacker.owner)) {
+      const sap = this.countModule(attacker.owner, 'pulsar-harvester') * this.cardVal(attacker.owner, 'pulsar-harvester')
+      if (sap > 0) {
+        u.atk = Math.max(0, u.atk - sap)
+        events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
+      }
+    }
+    if (plan.spillSide && amount >= plan.hpBefore) {
+      const overkill = amount - plan.hpBefore
       if (overkill > 0) this.damageNexus(plan.spillSide, overkill, events)
     }
   }
@@ -965,9 +1126,14 @@ class TowerEngine implements Engine {
       events.push({ type: 'damage', targetUid: unit.uid, amount: 0, sourceUid, crit })
       return 0
     }
-    const dealt = Math.min(unit.hp, amount)
-    unit.hp -= amount
-    events.push({ type: 'damage', targetUid: unit.uid, amount, sourceUid, crit })
+    let amt = amount + unit.vulnerable // Spotlight
+    if (unit.marked) {
+      amt = Math.max(amt, unit.hp) // Death Penalty: first hit destroys
+      unit.marked = false
+    }
+    const dealt = Math.min(unit.hp, amt)
+    unit.hp -= amt
+    events.push({ type: 'damage', targetUid: unit.uid, amount: amt, sourceUid, crit })
     if (unit.hp > 0) {
       // Berserker: +1/+0 on surviving damage.
       if (unit.cardId === 'berserker') {
@@ -994,9 +1160,11 @@ class TowerEngine implements Engine {
     if (unit.atk > 0 && this.hasMasterySpecial(unit.owner, unit.cardId, 'viking-funeral')) {
       this.damageNexus(this.opponent(unit.owner), unit.atk, events)
     }
-    // Death Penalty module: a friendly death punishes the enemy Nexus.
-    if (this.countModule(unit.owner, 'death-penalty') > 0) {
-      this.damageNexus(this.opponent(unit.owner), this.cardVal(unit.owner, 'death-penalty'), events)
+    // Poison Swamp: an enemy dying spreads poison to its surviving lane-mates.
+    const poisoner = this.opponent(unit.owner)
+    if (this.countModule(poisoner, 'poison-swamp') > 0) {
+      const dmg = this.cardVal(poisoner, 'poison-swamp') * this.countModule(poisoner, 'poison-swamp')
+      for (const mate of [...stack]) this.damageUnit(mate, dmg, null, false, events)
     }
     // Fortress Walls mastery: rebuild a small wall in the lane once (the token can't re-trigger).
     if (this.hasMasterySpecial(unit.owner, unit.cardId, 'fortress-walls')) {
@@ -1014,6 +1182,12 @@ class TowerEngine implements Engine {
         // Critical Coin: the killer's owner gains mana next turn (scaled by level).
         if (this.countModule(killer.owner, 'critical-coin') > 0) {
           this.pendingMana[killer.owner] += this.cardVal(killer.owner, 'critical-coin') * this.countModule(killer.owner, 'critical-coin')
+        }
+        // Golden Tower: the golden tower pays out temporary mana for each enemy killed.
+        if (this.countModule(killer.owner, 'golden-tower') > 0) {
+          const kp = this.players[killer.owner]
+          kp.manaPool += this.cardVal(killer.owner, 'golden-tower') * this.countModule(killer.owner, 'golden-tower')
+          events.push({ type: 'manaChanged', side: killer.owner, pool: kp.manaPool, max: kp.manaMax })
         }
         // Coin Orb mastery: an Extra Orbs that kills draws a card.
         if (this.hasMasterySpecial(killer.owner, killer.cardId, 'coin-orb')) {
@@ -1036,6 +1210,8 @@ class TowerEngine implements Engine {
     const before = p.life
     p.life = Math.min(p.maxLife, p.life + amount)
     events.push({ type: 'heal', targetUid: null, side, amount: p.life - before })
+    // Galaxy Compressor: a recovery this turn shortens ultimate "cooldowns" (cheaper ults this turn).
+    for (const m of p.modules) if (m.cardId === 'galaxy-compressor') m.data.healedThisTurn = true
   }
 
   private damageNexus(side: Side, amount: number, events: GameEvent[], bypass = false): void {
@@ -1148,6 +1324,8 @@ class TowerEngine implements Engine {
       invulnerableThisTurn: false,
       sacrificeAtEndOfTurn: false,
       chargedCritMultiplier: 0,
+      vulnerable: 0,
+      marked: false,
     }
   }
 
@@ -1167,10 +1345,16 @@ class TowerEngine implements Engine {
     atk += this.countModule(side, 'damage') * this.cardVal(side, 'damage')
     atk += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
     atk += this.countModule(side, 'range') * this.cardVal(side, 'range')
-    atk += this.countModule(side, 'havoc-bringer') * this.cardVal(side, 'havoc-bringer')
     if (unit.cardId === 'extra-orbs') atk += this.countModule(side, 'orbs-speed') * this.cardVal(side, 'orbs-speed')
+    // Singularity Harness: supercharges your "bots" — Mine/Wall tokens gain ATK.
+    if (unit.cardId === MINE_TOKEN.id)
+      atk += this.countModule(side, 'singularity-harness') * this.cardVal(side, 'singularity-harness')
+    // Project Funding: damage scales with your banked mana (per 3 in pool).
+    atk += this.countModule(side, 'project-funding') * this.cardVal(side, 'project-funding') * Math.floor(this.players[side].manaPool / 3)
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy).
     atk += this.countModule(this.opponent(side), 'enemy-balance')
+    // Negative Mass Projector: the enemy's projector saps this unit's ATK.
+    atk -= this.countModule(this.opponent(side), 'negative-mass-projector') * this.cardVal(this.opponent(side), 'negative-mass-projector')
     if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
     return Math.max(0, atk)
   }
@@ -1214,6 +1398,19 @@ class TowerEngine implements Engine {
     return this.players[side].modules.reduce((n, m) => (m.cardId === cardId ? n + 1 : n), 0)
   }
 
+  /** Spend one of `side`'s Harmony Conductor miss-attacks this combat, if any remain. */
+  private consumeHarmonyMiss(side: Side): boolean {
+    for (const m of this.players[side].modules) {
+      if (m.cardId !== 'harmony-conductor') continue
+      const left = typeof m.data.missesLeft === 'number' ? m.data.missesLeft : 0
+      if (left > 0) {
+        m.data.missesLeft = left - 1
+        return true
+      }
+    }
+    return false
+  }
+
   private countAllModules(cardId: string): number {
     return this.countModule('HUMAN', cardId) + this.countModule('AI', cardId)
   }
@@ -1221,8 +1418,18 @@ class TowerEngine implements Engine {
   private effectiveCost(side: Side, cardId: string): number {
     const def = getCard(cardId)
     let cost = def.cost
-    if (def.type === 'ULTIMATE')
+    if (def.type === 'ULTIMATE') {
+      // Multiverse Nexus: a synced free Ultimate costs nothing.
+      const mods = this.players[side].modules
+      if (mods.some(m => m.cardId === 'multiverse-nexus' && typeof m.data.freeUltsLeft === 'number' && m.data.freeUltsLeft > 0)) {
+        return 0
+      }
       cost -= this.cardVal(side, 'wave-accelerator') * this.countModule(side, 'wave-accelerator')
+      // Galaxy Compressor: recovering this turn shortens ultimate cooldowns (cheaper).
+      if (mods.some(m => m.cardId === 'galaxy-compressor' && m.data.healedThisTurn === true)) {
+        cost -= this.cardVal(side, 'galaxy-compressor') * this.countModule(side, 'galaxy-compressor')
+      }
+    }
     return Math.max(1, cost)
   }
 

@@ -206,8 +206,8 @@ describe('card levels + mastery', () => {
       seed: 'lvl',
       shuffle: false,
       firstPlayer: 'HUMAN',
-      // Damage level 6 (value 3) + mastery (+1) => +4 ATK.
-      cardLevels: { HUMAN: { damage: { level: 6, mastery: true } } },
+      // Damage level 6 (value 3) + mastery level 1 (+1) => +4 ATK.
+      cardLevels: { HUMAN: { damage: { level: 6, mastery: 1 } } },
     })
     pass(e) // t1 → AI
     pass(e) // AI → t2
