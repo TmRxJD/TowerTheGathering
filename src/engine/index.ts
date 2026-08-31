@@ -20,12 +20,16 @@ export { createEngine, createEngineFromState } from './engine'
 export { cardValue, rewardCandidates, weakestIndex } from './deckbuild'
 export {
   CARD_PROG,
+  CARD_DISPLAY,
   CARD_MAX_LEVEL,
+  cardEffectLabel,
   cardLevelValue,
   cardMasterySpecial,
   cardUnitStat,
   clampLevel,
+  formatCardValue,
   type CardProg,
+  type CardDisplay,
   type MasterySpecial,
 } from './card-progression'
 export {

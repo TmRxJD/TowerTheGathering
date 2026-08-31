@@ -75,6 +75,62 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'ultimate-crit': { levels: [3, 3, 3, 4, 4, 4, 5], masteryName: 'Ultimate Crit+', masteryText: '+1 more damage multiplier.', masteryBonus: 1 },
 }
 
+/** How a card's numeric value is shown, and what the number MEANS (so the UI reads like the game). */
+export type ValueFmt = 'flat' | 'plus' | 'percent'
+export interface CardDisplay {
+  readonly fmt: ValueFmt
+  /** Noun phrase describing the level number, e.g. "ATK to friendly units". */
+  readonly label: string
+}
+
+export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
+  fortress: { fmt: 'flat', label: 'HP · Defender wall, deals no damage' },
+  'extra-orbs': { fmt: 'flat', label: 'ATK · First Strike, spillover' },
+  berserker: { fmt: 'flat', label: 'ATK · gains +1 ATK when it survives a hit' },
+  'land-mine-stun': { fmt: 'flat', label: 'ATK · Trap: freezes an entering enemy 1 turn' },
+  damage: { fmt: 'plus', label: 'ATK to all friendly units' },
+  'attack-speed': { fmt: 'plus', label: 'ATK to your units (grants First Strike)' },
+  health: { fmt: 'plus', label: 'max Nexus HP (healed on play)' },
+  'health-regen': { fmt: 'plus', label: 'HP healed to Nexus & units each turn' },
+  range: { fmt: 'plus', label: 'ATK to units (grants Reach)' },
+  coins: { fmt: 'flat', label: 'cards drawn each turn' },
+  'slow-aura': { fmt: 'flat', label: 'turns enemy units enter tapped' },
+  'critical-chance': { fmt: 'percent', label: 'chance on hit to deal 2× damage' },
+  'enemy-balance': { fmt: 'flat', label: 'cards drawn each turn (enemy units +1 ATK)' },
+  'extra-defense': { fmt: 'plus', label: 'incoming Nexus damage reduced (min 1)' },
+  'critical-coin': { fmt: 'plus', label: 'mana next turn when a unit kills' },
+  'package-chance': { fmt: 'plus', label: 'Nexus HP when you draw an Ultimate' },
+  'land-mine-chance': { fmt: 'percent', label: 'chance to spawn a mine each turn' },
+  'orbs-speed': { fmt: 'plus', label: 'ATK to your Extra Orbs' },
+  'super-tower': { fmt: 'plus', label: 'ATK to your units every 3rd turn (invulnerable)' },
+  'wave-accelerator': { fmt: 'plus', label: 'less mana for your Ultimates (min 1)' },
+  'energy-shield': { fmt: 'flat', label: 'instances of Nexus damage absorbed' },
+  cash: { fmt: 'plus', label: 'temporary mana this turn' },
+  'free-upgrades': { fmt: 'flat', label: 'cards revealed (play a free unit ≤3)' },
+  'plasma-cannon': { fmt: 'percent', label: "of the target's current HP removed" },
+  'wave-skip': { fmt: 'plus', label: 'Nexus HP healed (skips enemy combat)' },
+  'intro-sprint': { fmt: 'flat', label: 'cards drawn (then discard 1)' },
+  'recovery-package': { fmt: 'plus', label: 'HP over max (heals target to full)' },
+  'death-ray': { fmt: 'flat', label: 'damage to a unit (+2 to neighbours)' },
+  'energy-net': { fmt: 'flat', label: 'turns an enemy unit is frozen' },
+  'second-wind': { fmt: 'flat', label: 'HP revived to if your Nexus would die' },
+  'demon-mode': { fmt: 'plus', label: 'ATK this turn (unit is sacrificed after)' },
+  nuke: { fmt: 'flat', label: 'bonus Nexus damage (destroys all units)' },
+  'ultimate-crit': { fmt: 'flat', label: '× damage straight to the Nexus (bypasses blockers)' },
+}
+
+/** Format a card value for display per its fmt: percent (50%), additive (+2), or plain (5). */
+export function formatCardValue(cardId: string, v: number): string {
+  const fmt = CARD_DISPLAY[cardId]?.fmt ?? 'flat'
+  if (fmt === 'percent') return `${Math.round(v * 100)}%`
+  if (fmt === 'plus') return `+${v}`
+  return `${v}`
+}
+
+export function cardEffectLabel(cardId: string): string {
+  return CARD_DISPLAY[cardId]?.label ?? ''
+}
+
 export function clampLevel(level: number): number {
   return Math.max(1, Math.min(CARD_MAX_LEVEL, Math.floor(level) || 1))
 }

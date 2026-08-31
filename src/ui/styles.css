@@ -1145,72 +1145,140 @@
   font-weight: 800;
 }
 
-/* --- Collection screen -------------------------------------------------- */
+/* --- Collection: a compact grid of faces (no inner scrollbar) ----------- */
 .ttg-collection .modal-card {
-  max-width: 760px;
+  max-width: 720px;
   width: 100%;
+  max-height: none;
+  overflow: visible;
 }
-.coll-grid {
+.coll-faces {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
-  max-height: 62vh;
-  overflow-y: auto;
-  padding: 4px;
   margin-bottom: 12px;
 }
-.coll-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  width: 150px;
-  padding: 8px;
+.coll-faces .ttg-card.mini {
+  cursor: pointer;
+}
+.coll-faces .ttg-card.mini .owned {
+  background: #10131c;
+  color: var(--ttg-gold);
+}
+
+/* --- Card detail (mirrors the in-game card screen) ---------------------- */
+.detail-card {
+  width: 320px;
+  max-width: 100%;
+  text-align: center;
+  background: linear-gradient(180deg, #23131c, #0e080c);
+  border: 1px solid var(--r-common);
+  border-radius: 14px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.detail-card[data-rarity='rare'] {
+  border-color: var(--r-rare);
+}
+.detail-card[data-rarity='epic'] {
+  border-color: var(--r-epic);
+}
+.detail-rarity {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--ttg-dim);
+}
+.detail-card[data-rarity='rare'] .detail-rarity {
+  color: var(--r-rare);
+}
+.detail-card[data-rarity='epic'] .detail-rarity {
+  color: var(--r-epic);
+}
+.detail-name {
+  font-size: 22px;
+  font-weight: 900;
+  margin: 2px 0 8px;
+}
+.detail-art {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 8px;
   border-radius: 10px;
-  background: rgba(20, 14, 20, 0.6);
+  background-size: cover;
+  background-position: center 25%;
   border: 1px solid var(--ttg-line);
 }
-.coll-info {
-  text-align: center;
-  width: 100%;
-}
-.coll-name {
-  font-size: 12px;
-  font-weight: 700;
-}
-.coll-lvl {
+.detail-level {
+  font-weight: 800;
   color: var(--ttg-gold);
+  margin-bottom: 8px;
+}
+.detail-effect {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #e6ecf8;
+  margin-bottom: 10px;
+}
+.detail-effect b {
+  color: var(--ttg-accent);
+  font-size: 15px;
+}
+.detail-levels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 16px;
+  margin: 0 auto 12px;
+  max-width: 240px;
+}
+.dl-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ttg-dim);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.dl-row.cur {
+  background: rgba(91, 140, 255, 0.16);
+  color: var(--ttg-text);
   font-weight: 800;
 }
-.coll-effect {
-  font-size: 11px;
+.dl-row.cur span:last-child {
   color: var(--ttg-accent);
-  font-weight: 700;
-  margin: 2px 0;
 }
-.coll-mastery {
-  font-size: 9px;
-  line-height: 1.3;
-  color: var(--ttg-dim);
-  opacity: 0.7;
+.detail-mastery {
+  border-top: 1px solid var(--ttg-line);
+  padding-top: 10px;
+  margin-bottom: 12px;
+  opacity: 0.75;
 }
-.coll-mastery.on {
-  color: var(--ttg-gold);
+.detail-mastery.on {
   opacity: 1;
 }
-.coll-buy {
-  width: 100%;
+.dm-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ttg-gold);
+}
+.dm-text {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ttg-dim);
+  margin-top: 2px;
+}
+.detail-mastery.on .dm-text {
+  color: #e6ecf8;
+}
+.detail-btns {
+  display: flex;
+  gap: 8px;
   justify-content: center;
 }
-.coll-buy.mastery:not(:disabled) {
-  border-color: var(--ttg-gold);
-  color: var(--ttg-gold);
-}
-.coll-buy.maxed {
-  border-color: var(--ttg-gold);
-  color: var(--ttg-gold);
-  opacity: 0.9;
+.detail-btns .ttg-btn {
+  margin: 0;
 }
 .deck-curve {
   display: flex;

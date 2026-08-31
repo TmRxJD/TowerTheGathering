@@ -19,8 +19,10 @@ import {
   CARD_PROG,
   MAX_TIER,
   STARTER_DECK,
+  cardEffectLabel,
   cardLevelValue,
   clampTier,
+  formatCardValue,
   createEngine,
   getCard,
   rewardCandidates,
@@ -1225,16 +1227,23 @@ export class GameApp {
   }
   private static readonly MASTERY_COST = 30
 
+  /** Collection: a compact grid of card faces (no scroll) — click one for its full detail. */
   private showCollection(): void {
     this.root.querySelector('.ttg-collection')?.remove()
     const el = this.div('ttg-modal ttg-collection')
     const card = this.div('modal-card')
     card.innerHTML =
-      `<h3>Collection</h3>` +
-      `<div class="modal-sub">💠 ${this.save.shards} shards · level cards to grow their effect; max level unlocks a Mastery.</div>`
-    const grid = this.div('coll-grid')
-    const ids = [...ALL_CARD_IDS].sort((a, b) => getCard(a).cost - getCard(b).cost || getCard(a).name.localeCompare(getCard(b).name))
-    for (const id of ids) grid.appendChild(this.collCard(id, () => this.showCollection()))
+      `<h3>Collection · 💠 ${this.save.shards}</h3>` +
+      `<div class="modal-sub">Tap a card to level it up and unlock its Mastery.</div>`
+    const grid = this.div('coll-faces')
+    const ids = [...ALL_CARD_IDS].sort(
+      (a, b) => getCard(a).cost - getCard(b).cost || getCard(a).name.localeCompare(getCard(b).name),
+    )
+    for (const id of ids) {
+      const { level, mastery } = this.collEntry(id)
+      const face = this.cardFace(id, 'mini', () => this.showCardDetail(id), `${mastery ? '★' : ''}L${level}`)
+      grid.appendChild(face)
+    }
     const close = document.createElement('button')
     close.className = 'ttg-mini'
     close.textContent = 'Close'
@@ -1247,61 +1256,84 @@ export class GameApp {
     this.root.appendChild(el)
   }
 
-  private collCard(cardId: string, refresh: () => void): HTMLElement {
+  /** Full card detail (mirrors the game): rarity, art, per-level table, and the Mastery ability. */
+  private showCardDetail(cardId: string): void {
+    this.root.querySelector('.ttg-detail')?.remove()
     const def = getCard(cardId)
     const prog = CARD_PROG[cardId]
     const { level, mastery } = this.collEntry(cardId)
-    const wrap = this.div('coll-item')
-    const face = this.cardFace(cardId, 'mini', () => {}, `L${level}${mastery ? '★' : ''}`)
-    face.style.cursor = 'default' // hover shows the preview; no click action here
+    const max = level >= CARD_MAX_LEVEL
 
-    const val = cardLevelValue(cardId, level, mastery)
-    const info = this.div('coll-info')
-    const nextVal = level < CARD_MAX_LEVEL ? cardLevelValue(cardId, level + 1, mastery) : val
-    info.innerHTML =
-      `<div class="coll-name">${def.name} <span class="coll-lvl">L${level}/${CARD_MAX_LEVEL}</span></div>` +
-      `<div class="coll-effect">${this.fmtVal(cardId, val)}${level < CARD_MAX_LEVEL ? ` → ${this.fmtVal(cardId, nextVal)}` : ''}</div>` +
-      (prog ? `<div class="coll-mastery${mastery ? ' on' : ''}">★ ${prog.masteryName}: ${prog.masteryText}</div>` : '')
+    const el = this.div('ttg-modal ttg-detail')
+    el.dataset.rarity = def.rarity
+    const rows = (prog?.levels ?? [])
+      .map((v, i) => {
+        const lv = i + 1
+        const here = lv === level ? ' cur' : ''
+        return `<div class="dl-row${here}"><span>Lv ${lv}</span><span>${formatCardValue(cardId, v)}</span></div>`
+      })
+      .join('')
+    const cur = formatCardValue(cardId, cardLevelValue(cardId, level, false))
+    const masteryBenefit = prog?.masterySpecial ? '' : prog?.masteryBonus ? ` (${formatCardValue(cardId, prog.masteryBonus)})` : ''
 
-    const btn = document.createElement('button')
-    btn.className = 'ttg-mini coll-buy'
-    if (level < CARD_MAX_LEVEL) {
+    el.innerHTML =
+      `<div class="detail-card" data-rarity="${def.rarity}">` +
+      `<div class="detail-rarity">${def.rarity.toUpperCase()}</div>` +
+      `<div class="detail-name">${def.name}</div>` +
+      `<div class="detail-art" style="background-image:url('${cardArtUrl(cardId) ?? ''}')"></div>` +
+      `<div class="detail-level">${max ? '★ MAX LEVEL' : `Lv ${level} / ${CARD_MAX_LEVEL}`}</div>` +
+      `<div class="detail-effect"><b>${cur}</b> ${cardEffectLabel(cardId)}</div>` +
+      `<div class="detail-levels">${rows}</div>` +
+      (prog
+        ? `<div class="detail-mastery${mastery ? ' on' : ''}"><div class="dm-title">★ Mastery — ${prog.masteryName}${masteryBenefit}${mastery ? '' : max ? ' (ready)' : ' (at max level)'}</div><div class="dm-text">${prog.masteryText}</div></div>`
+        : '') +
+      `<div class="detail-btns"></div>` +
+      `</div>`
+
+    const btns = el.querySelector('.detail-btns')!
+    const back = document.createElement('button')
+    back.className = 'ttg-mini'
+    back.textContent = '← Back'
+    back.addEventListener('click', () => {
+      el.remove()
+      this.showCollection()
+    })
+    const action = document.createElement('button')
+    action.className = 'ttg-btn ready'
+    if (!max) {
       const cost = this.levelCost(level)
-      btn.textContent = `Level up · ${cost}💠`
-      btn.disabled = this.save.shards < cost
-      btn.addEventListener('click', () => {
+      action.textContent = `Level Up · ${cost}💠`
+      action.disabled = this.save.shards < cost
+      action.addEventListener('click', () => {
         if (this.save.shards < cost) return
         this.save.shards -= cost
         this.save.collection[cardId] = { level: level + 1, mastery }
         writeSave(this.save)
-        refresh()
+        this.showCardDetail(cardId)
       })
     } else if (!mastery) {
       const cost = GameApp.MASTERY_COST
-      btn.textContent = `Unlock Mastery · ${cost}💠`
-      btn.classList.add('mastery')
-      btn.disabled = this.save.shards < cost
-      btn.addEventListener('click', () => {
+      action.textContent = `Unlock Mastery · ${cost}💠`
+      action.disabled = this.save.shards < cost
+      action.addEventListener('click', () => {
         if (this.save.shards < cost) return
         this.save.shards -= cost
         this.save.collection[cardId] = { level, mastery: true }
         writeSave(this.save)
-        refresh()
+        this.showCardDetail(cardId)
       })
     } else {
-      btn.textContent = 'MAX ★'
-      btn.disabled = true
-      btn.classList.add('maxed')
+      action.textContent = 'Fully mastered ★'
+      action.disabled = true
     }
-    wrap.append(face, info, btn)
-    return wrap
-  }
-
-  /** Format a card's numeric value for display (percent cards as %, others as +N). */
-  private fmtVal(cardId: string, v: number): string {
-    const pct = cardId === 'critical-chance' || cardId === 'plasma-cannon' || cardId === 'land-mine-chance'
-    if (pct) return `${Math.round(v * 100)}%`
-    return `${v}`
+    btns.append(back, action)
+    el.addEventListener('click', e => {
+      if (e.target === el) {
+        el.remove()
+        this.showCollection()
+      }
+    })
+    this.root.appendChild(el)
   }
 
   // -------------------------------------------------------------------------
