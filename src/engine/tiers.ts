@@ -48,17 +48,18 @@ export function tierAiDepth(level: number): number {
  */
 export function tierBossHandicap(level: number, index: number): { bonusLife: number; bonusStartMana: number } {
   const t = clampTier(level)
-  const base = Math.round(Math.max(0, t - 2) * 1.4) // gentle ramp from Tier 3
+  const base = Math.round(Math.max(0, t - 1) * 2.2) // a clear step every tier from Tier 2
   const hard = Math.max(0, t - 13) * 3 // the mid-late squeeze, from Tier 14
   const brutal = Math.max(0, t - 20) * 6 // Tiers 21-24 spike hard
   const backHalf = index >= 8 ? Math.max(0, t - 4) : 0 // bosses 8-10 get extra, from Tier 5
-  const capstone = index === 10 ? Math.round(Math.max(0, t - 3) * 1.8) : 0 // the tier boss grows fastest
+  const capstone = index === 10 ? Math.round(Math.max(0, t - 2) * 2) : 0 // the tier boss grows fastest
   const bonusStartMana = t >= 22 ? 2 : t >= 16 ? 1 : 0 // a tempo edge only near the top
   return { bonusLife: base + hard + brutal + backHalf + capstone, bonusStartMana }
 }
 
-/** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20. */
+/** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —
+ *  but tempered so the very top isn't a one-hit coin-flip (the boss's huge HP carries the wall). */
 export function tierPlayerLifePenalty(level: number): number {
   const t = clampTier(level)
-  return Math.max(0, t - (BATTLE_CONDITION_TIER - 1)) + Math.max(0, t - 20) * 2 // T14 -1 … T20 -7 … T24 -19
+  return Math.max(0, t - (BATTLE_CONDITION_TIER - 1)) + Math.max(0, t - 20) // T14 -1 … T20 -7 … T24 -11
 }
