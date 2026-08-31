@@ -1122,7 +1122,27 @@
   color: var(--ttg-gold);
   font-size: 12px;
   font-weight: 700;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+}
+.menu-tier {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--ttg-dim);
+}
+.menu-tier .ttg-select {
+  max-width: 150px;
+}
+.tier-locked {
+  color: #7a6a70;
+  font-size: 11px;
+}
+.ttg-ladder .cond {
+  color: var(--ttg-danger);
+  font-weight: 800;
 }
 .deck-curve {
   display: flex;

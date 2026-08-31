@@ -16,11 +16,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   BOSS_DECKS,
   STARTER_DECK,
-  bossHandicap,
+  clampTier,
   createEngine,
   createEngineFromState,
   getCard,
   rewardCandidates,
+  tierAiDepth,
+  tierBossHandicap,
+  tierName,
+  tierPlayerLifePenalty,
   weakestIndex,
   type Action,
   type Engine,
@@ -37,6 +41,7 @@ const STATE_FILE = `${STATE_DIR}/ttg-cli.json`
 type Mode = 'single' | 'run'
 interface Saved {
   mode: Mode
+  tier: number
   boss: number
   deck: string[]
   engine: EngineState
@@ -44,6 +49,7 @@ interface Saved {
 }
 interface GameCtx {
   mode: Mode
+  tier: number
   boss: number
   deck: string[]
   engine: Engine
@@ -52,19 +58,20 @@ interface GameCtx {
 
 function save(ctx: GameCtx): void {
   if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true })
-  const saved: Saved = { mode: ctx.mode, boss: ctx.boss, deck: ctx.deck, engine: ctx.engine.serialize() }
+  const saved: Saved = { mode: ctx.mode, tier: ctx.tier, boss: ctx.boss, deck: ctx.deck, engine: ctx.engine.serialize() }
   if (ctx.pendingReward) saved.pendingReward = ctx.pendingReward
   writeFileSync(STATE_FILE, JSON.stringify(saved))
 }
 
 function load(): GameCtx {
   if (!existsSync(STATE_FILE)) {
-    console.error('No game in progress. Run: pnpm ttg run   (or: pnpm ttg new <boss>)')
+    console.error('No game in progress. Run: pnpm ttg run [tier]   (or: pnpm ttg new <boss> [tier])')
     process.exit(1)
   }
   const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as Saved
   return {
     mode: raw.mode,
+    tier: clampTier(raw.tier ?? 2),
     boss: raw.boss,
     deck: raw.deck,
     engine: createEngineFromState(raw.engine),
@@ -72,13 +79,13 @@ function load(): GameCtx {
   }
 }
 
-function startMatch(boss: number, deck: string[], seed: string): Engine {
-  const hc = bossHandicap(boss)
+function startMatch(tier: number, boss: number, deck: string[], seed: string): Engine {
+  const hc = tierBossHandicap(tier, boss)
   const { engine } = createEngine({
     humanDeck: deck,
     aiDeck: BOSS_DECKS[boss - 1]!.cards,
     seed,
-    bonusLife: { AI: hc.bonusLife },
+    bonusLife: { AI: hc.bonusLife, HUMAN: -tierPlayerLifePenalty(tier) },
     bonusStartMana: { AI: hc.bonusStartMana },
   })
   return engine
@@ -112,7 +119,7 @@ function render(ctx: GameCtx): void {
   const line = '─'.repeat(62)
   console.log(line)
   console.log(
-    `Boss ${boss}/10: ${bossName(boss)}  ·  Turn ${s.turn}  ·  ${engine.isOver() ? 'OVER' : s.activeSide + ' to act'}${ctx.mode === 'run' ? '  · [RUN]' : ''}`,
+    `${tierName(ctx.tier)} · Boss ${boss}/10: ${bossName(boss)}  ·  Turn ${s.turn}  ·  ${engine.isOver() ? 'OVER' : s.activeSide + ' to act'}${ctx.mode === 'run' ? '  · [RUN]' : ''}`,
   )
   console.log(
     `ENEMY  ♥ ${ai.life}/${ai.maxLife}   mana ${ai.manaPool}/${ai.manaMax}   deck ${ai.deckCount}   hand ${ai.handCount}   modules: ${ai.modules.map(m => getCard(m.cardId).name).join(', ') || '—'}`,
@@ -206,11 +213,12 @@ function printReward(ctx: GameCtx): void {
 }
 
 function main(): void {
-  const [cmd, arg1, arg2] = process.argv.slice(2)
+  const [cmd, arg1, arg2, arg3] = process.argv.slice(2)
 
   if (cmd === 'run') {
+    const tier = clampTier(Number(arg1 ?? 2))
     const deck = [...STARTER_DECK]
-    const ctx: GameCtx = { mode: 'run', boss: 1, deck, engine: startMatch(1, deck, arg1 ?? 'run') }
+    const ctx: GameCtx = { mode: 'run', tier, boss: 1, deck, engine: startMatch(tier, 1, deck, arg2 ?? `run-t${tier}`) }
     save(ctx)
     render(ctx)
     printMenu(ctx.engine)
@@ -218,8 +226,9 @@ function main(): void {
   }
   if (cmd === 'new') {
     const boss = Math.min(Math.max(1, Number(arg1 ?? 1)), BOSS_DECKS.length)
+    const tier = clampTier(Number(arg2 ?? 2))
     const deck = [...STARTER_DECK]
-    const ctx: GameCtx = { mode: 'single', boss, deck, engine: startMatch(boss, deck, arg2 ?? `cli-${boss}`) }
+    const ctx: GameCtx = { mode: 'single', tier, boss, deck, engine: startMatch(tier, boss, deck, arg3 ?? `cli-t${tier}-${boss}`) }
     save(ctx)
     render(ctx)
     printMenu(ctx.engine)
@@ -253,7 +262,7 @@ function main(): void {
       console.log(`Added ${getCard(pick).name}; trimmed ${getCard(trimmed!).name}. Deck ${ctx.deck.length}.`)
     }
     ctx.boss += 1
-    ctx.engine = startMatch(ctx.boss, ctx.deck, `run-b${ctx.boss}`)
+    ctx.engine = startMatch(ctx.tier, ctx.boss, ctx.deck, `run-t${ctx.tier}-b${ctx.boss}`)
     delete ctx.pendingReward
     save(ctx)
     render(ctx)
@@ -274,7 +283,7 @@ function main(): void {
     }
     summarize(ctx.engine.apply(action))
     if (action.kind === 'endTurn' && !ctx.engine.isOver()) {
-      const ai = new SearchAI(ctx.engine, 'AI', BOSS_DECKS[ctx.boss - 1]!.archetype, 2)
+      const ai = new SearchAI(ctx.engine, 'AI', BOSS_DECKS[ctx.boss - 1]!.archetype, tierAiDepth(ctx.tier))
       let guard = 0
       while (!ctx.engine.isOver() && ctx.engine.snapshot().activeSide === 'AI' && guard++ < 4) {
         summarize(ai.takeTurn())

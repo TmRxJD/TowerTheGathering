@@ -13,16 +13,21 @@
 import {
   BOSS_DECKS,
   STARTER_DECK,
-  bossHandicap,
+  clampTier,
   createRng,
   rewardCandidates,
   cardValue,
+  tierAiDepth,
+  tierBossHandicap,
+  tierName,
+  tierPlayerLifePenalty,
   weakestIndex,
 } from '../engine'
 import { playMatch } from './match'
 
 const RUNS = Number(process.env.TTG_RUNS ?? 400)
 const PLAYER_AI = (process.env.TTG_PLAYER === 'heuristic' ? 'heuristic' : 'search') as 'heuristic' | 'search'
+const TIER = clampTier(Number(process.env.TTG_TIER ?? 2))
 
 /** Offer 3 legal candidates and take the highest-value one — the modelled player's reward pick. */
 function pickReward(deck: string[], rng: { next(): number }): string | null {
@@ -41,7 +46,7 @@ function playLadder(seed: string): LadderResult {
   const deck = [...STARTER_DECK]
   let cleared = 0
   for (const boss of BOSS_DECKS) {
-    const hc = bossHandicap(boss.index)
+    const hc = tierBossHandicap(TIER, boss.index)
     const out = playMatch({
       humanDeck: deck,
       aiDeck: boss.cards,
@@ -50,6 +55,8 @@ function playLadder(seed: string): LadderResult {
       aiArchetype: boss.archetype,
       aiBonusLife: hc.bonusLife,
       aiBonusStartMana: hc.bonusStartMana,
+      humanBonusLife: -tierPlayerLifePenalty(TIER),
+      aiDepth: tierAiDepth(TIER),
       humanAi: PLAYER_AI,
       aiAi: 'search',
     })
@@ -80,7 +87,9 @@ function main(): void {
     if (r.cleared === BOSS_DECKS.length) fullClears++
   }
 
-  console.log(`Ladder runs (deck grows each win) — ${RUNS} runs · player=${PLAYER_AI} vs boss=search\n`)
+  console.log(
+    `Ladder runs (deck grows each win) — ${RUNS} runs · Tier ${TIER} (${tierName(TIER)}) · player=${PLAYER_AI} vs boss=search(d${tierAiDepth(TIER)})\n`,
+  )
   console.log('Boss                    Arch          Faced   Won@Boss   Clear%(of those who faced)')
   console.log('─'.repeat(84))
   for (const boss of BOSS_DECKS) {

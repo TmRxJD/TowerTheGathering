@@ -1,26 +1,25 @@
 /**
- * Ladder persistence. Stored in localStorage under one key so a run survives reloads and — once
- * embedded — page navigations on the host site (the game is served same-origin from the host's
- * public/, so its localStorage is private to the game and persists). Every access is wrapped in
- * try/catch: storage can be unavailable (private windows, blocked site data) and must never crash
- * the game — we just fall back to a fresh save.
+ * Ladder persistence (localStorage). Stores the highest tier cleared (for gated progression — you
+ * can play tiers 1..highestTierCleared+1) and the in-progress run (tier + boss + built deck) so it
+ * survives reloads. Every access is try/catch-guarded: storage can be unavailable (private windows,
+ * blocked site data) and must never crash the game — we fall back to a fresh save.
  */
 
-import { ALL_CARD_IDS, TUNING, getCard } from '../engine'
+import { ALL_CARD_IDS, TUNING, clampTier, getCard } from '../engine'
 
-const KEY = 'ttg.save.v1'
+const KEY = 'ttg.save.v2'
 
 export interface SaveState {
-  /** Highest boss index the player has ever cleared (0 = none). */
-  highestCleared: number
-  /** The in-progress run to resume, or null if there is none. */
-  run: { bossIndex: number; deck: string[] } | null
+  /** Highest tier whose 10-boss ladder has been fully cleared (0 = none). Unlocks tier+1. */
+  highestTierCleared: number
+  /** The in-progress run to resume, or null. */
+  run: { tier: number; bossIndex: number; deck: string[] } | null
 }
 
 const VALID_IDS = new Set(ALL_CARD_IDS)
 
 function fresh(): SaveState {
-  return { highestCleared: 0, run: null }
+  return { highestTierCleared: 0, run: null }
 }
 
 export function loadSave(): SaveState {
@@ -28,16 +27,15 @@ export function loadSave(): SaveState {
     const raw = globalThis.localStorage?.getItem(KEY)
     if (!raw) return fresh()
     const parsed = JSON.parse(raw) as Partial<SaveState>
-    const highestCleared = clampInt(parsed.highestCleared, 0, 10, 0)
+    const highestTierCleared = clampInt(parsed.highestTierCleared, 0, 24, 0)
     let run: SaveState['run'] = null
     if (parsed.run && Array.isArray(parsed.run.deck)) {
       const deck = parsed.run.deck.filter(id => typeof id === 'string' && VALID_IDS.has(id))
-      // Only trust a run whose deck is the right size and whose copies are legal.
       if (deck.length === TUNING.DECK_SIZE && copiesLegal(deck)) {
-        run = { bossIndex: clampInt(parsed.run.bossIndex, 1, 10, 1), deck }
+        run = { tier: clampTier(parsed.run.tier ?? 1), bossIndex: clampInt(parsed.run.bossIndex, 1, 10, 1), deck }
       }
     }
-    return { highestCleared, run }
+    return { highestTierCleared, run }
   } catch {
     return fresh()
   }

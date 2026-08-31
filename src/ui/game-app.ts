@@ -12,12 +12,18 @@
  */
 
 import {
+  BATTLE_CONDITION_TIER,
   BOSS_DECKS,
+  MAX_TIER,
   STARTER_DECK,
-  bossHandicap,
+  clampTier,
   createEngine,
   getCard,
   rewardCandidates,
+  tierAiDepth,
+  tierBossHandicap,
+  tierName,
+  tierPlayerLifePenalty,
   TUNING,
   type Action,
   type Engine,
@@ -88,6 +94,7 @@ export class GameApp {
   private ai!: SearchAI
   private humanAi!: SearchAI
   private bossIndex: number
+  private tier = 1
   private selection: Selection | null = null
   private busy = false
   private hint = ''
@@ -96,10 +103,13 @@ export class GameApp {
   private watchTimer: ReturnType<typeof setTimeout> | null = null
   /** The player's deck for the current ladder run; grows/trims via the reward step between bosses. */
   private playerDeck: string[] = [...STARTER_DECK]
-  private save: SaveState = { highestCleared: 0, run: null }
+  private save: SaveState = { highestTierCleared: 0, run: null }
   private toastEl!: HTMLElement
   /** True during a menu "Watch Demo" run — a throwaway ladder that never touches the saved run. */
   private demo = false
+  /** The constructor sets up a backdrop match behind the menu; don't persist it as a real run until
+   *  the player actually starts one from the menu. */
+  private started = false
 
   // persistent skeleton refs
   private ladderEl!: HTMLElement
@@ -137,6 +147,7 @@ export class GameApp {
     if (this.save.run) {
       this.playerDeck = [...this.save.run.deck]
       this.bossIndex = this.save.run.bossIndex
+      this.tier = this.save.run.tier
     }
     this.buildSkeleton()
     this.fx = new FxLayer(this.root)
@@ -147,8 +158,8 @@ export class GameApp {
 
   /** Persist the current run + best progress. A demo run never persists. */
   private persist(): void {
-    if (this.demo) return
-    this.save.run = { bossIndex: this.bossIndex, deck: [...this.playerDeck] }
+    if (this.demo || !this.started) return
+    this.save.run = { tier: this.tier, bossIndex: this.bossIndex, deck: [...this.playerDeck] }
     writeSave(this.save)
   }
 
@@ -293,17 +304,18 @@ export class GameApp {
   private startMatch(bossIndex: number): void {
     this.bossIndex = bossIndex
     const boss = BOSS_DECKS[bossIndex - 1]!
-    const hc = bossHandicap(bossIndex)
+    const hc = tierBossHandicap(this.tier, bossIndex)
+    const depth = tierAiDepth(this.tier)
     const { engine } = createEngine({
       humanDeck: this.playerDeck,
       aiDeck: boss.cards,
-      seed: `${this.seed}-b${bossIndex}`,
-      bonusLife: { AI: hc.bonusLife },
+      seed: `${this.seed}-t${this.tier}-b${bossIndex}`,
+      bonusLife: { AI: hc.bonusLife, HUMAN: -tierPlayerLifePenalty(this.tier) },
       bonusStartMana: { AI: hc.bonusStartMana },
     })
     this.engine = engine
-    this.ai = new SearchAI(engine, 'AI', boss.archetype, 2)
-    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced', 2)
+    this.ai = new SearchAI(engine, 'AI', boss.archetype, depth)
+    this.humanAi = new SearchAI(engine, 'HUMAN', 'balanced', depth)
     this.selection = null
     this.busy = false
     this.hint = ''
@@ -349,8 +361,9 @@ export class GameApp {
       this.showMenu()
       return
     }
-    if (res.winner === 'HUMAN') {
-      this.save.highestCleared = Math.max(this.save.highestCleared, this.bossIndex)
+    // Clearing the final boss clears the tier and unlocks the next.
+    if (res.winner === 'HUMAN' && this.bossIndex >= BOSS_DECKS.length) {
+      this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
       writeSave(this.save)
     }
     const boss = BOSS_DECKS[this.bossIndex - 1]!
@@ -574,7 +587,8 @@ export class GameApp {
       const cls = i < this.bossIndex ? 'done' : i === this.bossIndex ? 'cur' : ''
       dots += `<span class="dot ${cls}"></span>`
     }
-    this.ladderEl.innerHTML = `<b>Boss ${this.bossIndex}</b>/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>`
+    const cond = this.tier >= BATTLE_CONDITION_TIER ? ' <span class="cond">⚠ conditions</span>' : ''
+    this.ladderEl.innerHTML = `<b>${tierName(this.tier)}</b> · Boss ${this.bossIndex}/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>${cond}`
     this.watchBtn.classList.toggle('active', this.watching)
     this.watchBtn.textContent = this.watching ? '⏸ Autoplay' : '▶ Autoplay'
 
@@ -1055,18 +1069,25 @@ export class GameApp {
     const overlay = this.div('ttg-over')
     const h2 = document.createElement('h2')
     h2.className = won ? 'win' : 'lose'
-    h2.textContent = won ? (last ? 'Ladder Cleared!' : 'Victory') : 'Defeated'
+    h2.textContent = won ? (last ? `${tierName(this.tier)} Cleared!` : 'Victory') : 'Defeated'
     const p = document.createElement('p')
-    p.textContent = `Boss ${this.bossIndex}: ${boss.name} · ${res.turns} turns`
+    if (won && last) {
+      p.textContent =
+        this.tier < MAX_TIER
+          ? `${tierName(this.tier)} conquered — ${tierName(this.tier + 1)} unlocked!`
+          : `You conquered all ${MAX_TIER} tiers. Legendary.`
+    } else {
+      p.textContent = `${tierName(this.tier)} · Boss ${this.bossIndex}: ${boss.name} · ${res.turns} turns`
+    }
     const btn = document.createElement('button')
     btn.className = 'ttg-btn ready'
-    btn.textContent = won ? (last ? 'Play Again' : 'Choose Reward →') : 'Retry'
+    btn.textContent = won ? (last ? 'Menu →' : 'Choose Reward →') : 'Retry'
     btn.addEventListener('click', () => {
       overlay.remove()
       this.overlay = null
       if (won && last) {
-        this.resetLadder()
-        this.startMatch(1)
+        this.save.run = null // run finished; the menu lets you pick a tier for a fresh run
+        writeSave(this.save)
         this.showMenu()
       } else if (won) {
         this.showReward() // pick a card, trim, then advance
@@ -1079,8 +1100,9 @@ export class GameApp {
     this.overlay = overlay
   }
 
-  private resetLadder(): void {
+  private resetLadder(tier = this.tier): void {
     this.demo = false
+    this.tier = clampTier(tier)
     this.playerDeck = [...STARTER_DECK]
     this.bossIndex = 1
   }
@@ -1099,25 +1121,40 @@ export class GameApp {
     this.watching = false
     this.demo = false
     const run = this.save.run
+    const unlockedMax = clampTier(this.save.highestTierCleared + 1) // gate: play up to the next tier
     const best =
-      this.save.highestCleared > 0
-        ? `<div class="menu-best">Best: cleared Boss ${this.save.highestCleared} / ${BOSS_DECKS.length}</div>`
-        : ''
+      this.save.highestTierCleared > 0
+        ? `<div class="menu-best">Highest tier cleared: ${tierName(this.save.highestTierCleared)}${this.save.highestTierCleared >= MAX_TIER ? ' — all tiers!' : ''}</div>`
+        : `<div class="menu-best">Clear a tier's 10 bosses to unlock the next.</div>`
+
+    // Tier picker (only unlocked tiers). Defaults to the run's tier, else the newest unlocked.
+    let opts = ''
+    for (let t = 1; t <= unlockedMax; t++) {
+      const sel = t === (run?.tier ?? unlockedMax) ? ' selected' : ''
+      const cond = t >= BATTLE_CONDITION_TIER ? ' ⚠' : ''
+      opts += `<option value="${t}"${sel}>${tierName(t)}${cond}</option>`
+    }
+    const locked = unlockedMax < MAX_TIER ? ` <span class="tier-locked">🔒 ${tierName(unlockedMax + 1)}+</span>` : ''
+    const tierRow = `<div class="menu-tier">Tier: <select class="ttg-select" id="ttg-tiersel">${opts}</select>${locked}</div>`
+
     const primary = run
-      ? `<button class="ttg-btn ready" data-m="continue">▶ Continue — Boss ${run.bossIndex}</button>` +
-        `<button class="ttg-mini" data-m="new">↺ New Run</button>`
-      : `<button class="ttg-btn ready" data-m="new">▶ Start Ladder</button>`
+      ? `<button class="ttg-btn ready" data-m="continue">▶ Continue — ${tierName(run.tier)}, Boss ${run.bossIndex}</button>` +
+        `<button class="ttg-mini" data-m="new">↺ New Run (selected tier)</button>`
+      : `<button class="ttg-btn ready" data-m="new">▶ Start Run</button>`
+
     const el = this.div('ttg-menu')
     el.innerHTML =
       `<div class="menu-card">` +
       `<div class="menu-logo">Tower: The Gathering</div>` +
-      `<div class="menu-sub">A 1v1 mana lane battler — climb the 10-boss ladder.</div>` +
+      `<div class="menu-sub">A 1v1 mana lane battler — climb the 10-boss ladder across ${MAX_TIER} tiers.</div>` +
       best +
+      tierRow +
       `<div class="menu-btns">` +
       primary +
       `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
       `<button class="ttg-mini" data-m="help">? How to Play</button>` +
       `</div></div>`
+    const tierSel = () => Number((el.querySelector('#ttg-tiersel') as HTMLSelectElement | null)?.value) || 1
     el.querySelectorAll<HTMLElement>('[data-m]').forEach(b =>
       b.addEventListener('click', () => {
         const m = b.dataset.m
@@ -1127,16 +1164,20 @@ export class GameApp {
         }
         el.remove()
         if (m === 'continue' && this.save.run) {
+          this.started = true
           this.demo = false
+          this.tier = this.save.run.tier
           this.playerDeck = [...this.save.run.deck]
           this.startMatch(this.save.run.bossIndex)
         } else if (m === 'watch') {
           this.demo = true
+          this.tier = tierSel()
           this.playerDeck = [...STARTER_DECK]
           this.startMatch(1)
           this.toggleWatch()
         } else {
-          this.resetLadder()
+          this.started = true
+          this.resetLadder(tierSel())
           this.startMatch(1)
         }
       }),

@@ -13,9 +13,8 @@ export type AiKind = 'search' | 'heuristic'
 interface Bot {
   takeTurn(): GameEvent[]
 }
-function makeBot(kind: AiKind, engine: Engine, side: Side, archetype: Archetype): Bot {
-  // Search bosses look two plies ahead (their turn + your best reply) — the anti-cheese default.
-  return kind === 'heuristic' ? new HeuristicAI(engine, side, archetype) : new SearchAI(engine, side, archetype, 2)
+function makeBot(kind: AiKind, engine: Engine, side: Side, archetype: Archetype, depth: number): Bot {
+  return kind === 'heuristic' ? new HeuristicAI(engine, side, archetype) : new SearchAI(engine, side, archetype, depth)
 }
 
 export interface MatchOptions {
@@ -27,6 +26,10 @@ export interface MatchOptions {
   /** Ladder handicap applied to the AI side (see bossHandicap). */
   readonly aiBonusLife?: number
   readonly aiBonusStartMana?: number
+  readonly humanBonusLife?: number
+  /** Search depth per side (default 2 = anti-cheese; 1 = the beatable intro-tier AI). */
+  readonly aiDepth?: number
+  readonly humanDepth?: number
   /** Which AI drives each side (default 'search' both). Use 'heuristic' for a weaker, more
    *  human-like player to gauge real difficulty against the smart bosses. */
   readonly humanAi?: AiKind
@@ -46,12 +49,12 @@ export function playMatch(opts: MatchOptions): MatchOutcome {
     humanDeck: opts.humanDeck,
     aiDeck: opts.aiDeck,
     seed: opts.seed,
-    bonusLife: { AI: opts.aiBonusLife ?? 0 },
+    bonusLife: { AI: opts.aiBonusLife ?? 0, HUMAN: opts.humanBonusLife ?? 0 },
     bonusStartMana: { AI: opts.aiBonusStartMana ?? 0 },
   })
   const ai: Record<Side, Bot> = {
-    HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced'),
-    AI: makeBot(opts.aiAi ?? 'search', engine, 'AI', opts.aiArchetype ?? 'balanced'),
+    HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced', opts.humanDepth ?? 2),
+    AI: makeBot(opts.aiAi ?? 'search', engine, 'AI', opts.aiArchetype ?? 'balanced', opts.aiDepth ?? 2),
   }
   const cap = opts.turnCap ?? 300
   let guard = 0
