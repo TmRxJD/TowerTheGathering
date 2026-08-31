@@ -1543,10 +1543,11 @@ export class GameApp {
     const def = getCard(cardId)
     const url = cardArtUrl(cardId) ?? ''
     if (def.art.endsWith('.webp')) {
-      node.style.backgroundImage = `url('${url}'), radial-gradient(120% 120% at 50% 30%, #1b2947, #0a0f1c)`
+      // Transparent art sits on a blue tile that mirrors the base .jpg cards, shown large but whole.
+      node.style.backgroundImage = `url('${url}'), radial-gradient(circle at 50% 38%, #24467a 0%, #0c1830 100%)`
       node.style.backgroundSize = 'contain, cover'
       node.style.backgroundRepeat = 'no-repeat, no-repeat'
-      node.style.backgroundPosition = 'center 40%, center'
+      node.style.backgroundPosition = 'center 36%, center'
     } else {
       node.style.backgroundImage = `url('${url}')`
     }
