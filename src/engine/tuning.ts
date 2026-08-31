@@ -11,7 +11,8 @@ export const TUNING = {
   MANA_CAP: 10,
   HAND_LIMIT: 7,
   OPENING_HAND: 3,
-  DECK_SIZE: 20,
+  DECK_SIZE: 20, // the size decks are AUTHORED at (starter + every boss)
+  MAX_DECK: 26, // the player's deck may grow to this via rewards (tested balanced; 20 felt limiting)
   BACKLINE_SLOTS: 5,
   LANE_STACK_CAP: 4,
 

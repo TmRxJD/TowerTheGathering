@@ -109,7 +109,7 @@ function cleanSave(raw: unknown): SaveState {
   let run: SaveState['run'] = null
   if (s.run && Array.isArray(s.run.deck)) {
     const deck = s.run.deck.filter(id => typeof id === 'string' && VALID_IDS.has(id))
-    if (deck.length === TUNING.DECK_SIZE && copiesLegal(deck)) {
+    if (deck.length >= TUNING.DECK_SIZE && deck.length <= TUNING.MAX_DECK && copiesLegal(deck)) {
       run = { tier: clampTier(s.run.tier ?? 1), bossIndex: clampInt(s.run.bossIndex, 1, 10, 1), deck }
     }
   }

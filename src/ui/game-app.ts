@@ -122,6 +122,9 @@ export class GameApp {
   private save: SaveState = this.saves.slots[0]!
   private collSort: 'cost' | 'rarity' | 'type' = 'cost'
   private demoStuck = 0
+  /** True once Autoplay has taken a turn in a REAL (non-demo) battle — that battle then awards no
+   *  progress, so you can never use Autoplay to advance your own save. */
+  private autoAssisted = false
   private matchCount = 0
   private matchStartMs = 0
   private tierStartMs = 0
@@ -269,7 +272,12 @@ export class GameApp {
     helpBtn.textContent = '?'
     helpBtn.title = 'How to play'
     helpBtn.addEventListener('click', () => this.showHelp())
-    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, deckBtn, restartBtn, helpBtn)
+    const menuBtn = document.createElement('button')
+    menuBtn.className = 'ttg-mini'
+    menuBtn.textContent = '☰ Menu'
+    menuBtn.title = 'Back to the main menu (your run is saved)'
+    menuBtn.addEventListener('click', () => this.showMenu())
+    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, deckBtn, restartBtn, menuBtn, helpBtn)
 
     this.banner = this.div('ttg-banner')
     this.banner.appendChild(document.createElement('span'))
@@ -403,6 +411,7 @@ export class GameApp {
     }
     this.bossSelect.value = String(this.bossIndex)
     this.matchStartMs = this.now()
+    this.autoAssisted = false
     if (bossIndex === 1) this.tierStartMs = this.matchStartMs
     if (this.started || this.demo) this.save.meta.matches++ // not the menu-backdrop match on load
     if (this.demo) {
@@ -433,6 +442,13 @@ export class GameApp {
     const res = this.engine.result()
     if (!res) return
     if (this.demo) return // demos resolve through onWatchGameOver
+    if (this.autoAssisted) {
+      // You let Autoplay play this battle — it can't progress your save.
+      this.watching = false
+      this.showToast('Autoplay battle — did not count')
+      globalThis.setTimeout(() => this.showMenu(), 1300)
+      return
+    }
     this.recordMatchTime()
     // Winning a boss earns shards. Income scales with tier² so higher tiers are the real source and
     // maxing the whole collection is a long, climb-the-ladder grind — not something tier 1 can do.
@@ -585,6 +601,7 @@ export class GameApp {
     const active = this.engine.snapshot().activeSide
     const bot = active === 'AI' ? this.ai : this.humanAi
     if (this.demo && active === 'HUMAN') this.save.meta.moves++ // the Autoplay player's moves
+    if (!this.demo && active === 'HUMAN') this.autoAssisted = true // AI played YOUR turn → no reward
     const events = bot.takeTurn()
     this.renderAndAnimate(events)
     if (this.engine.isOver()) return this.onWatchGameOver()
@@ -1711,7 +1728,9 @@ export class GameApp {
         this.cardFace(id, '', () => {
           this.playerDeck.push(id)
           el.remove()
-          this.showTrim()
+          // Grow the deck toward the cap; only force a trim once it's over.
+          if (this.playerDeck.length > TUNING.MAX_DECK) this.showTrim()
+          else this.advanceBoss()
         }, badge),
       )
     }
@@ -1732,7 +1751,7 @@ export class GameApp {
     const card = this.div('modal-card')
     card.innerHTML =
       `<h3>Trim your deck</h3>` +
-      `<div class="modal-sub">Your deck has ${this.playerDeck.length}. Remove one to return to ${TUNING.DECK_SIZE}.</div>`
+      `<div class="modal-sub">Your deck has ${this.playerDeck.length} (cap ${TUNING.MAX_DECK}). Remove one.</div>`
     const grid = this.div('modal-grid')
     this.playerDeck.forEach((id, idx) =>
       grid.appendChild(

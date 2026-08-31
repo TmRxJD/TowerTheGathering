@@ -10,6 +10,7 @@
 import { cardValue, weakestIndex, rewardCandidates } from './deckbuild'
 import { cardLevelValue, CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
 import { levelUpCost, masteryUpCost } from './economy'
+import { TUNING } from './tuning'
 import type { CardLevels } from './types'
 
 const uniq = (deck: readonly string[]): string[] => [...new Set(deck)]
@@ -62,11 +63,11 @@ export function spendShards(coll: CardLevels, deck: readonly string[], bank: num
   return { bank, bought }
 }
 
-/** Take a reward card into the deck and trim the weakest, keeping the deck legal and improving. */
+/** Take a reward card into the deck; grow toward the cap, trimming the weakest only once over it. */
 export function takeRewardAndTrim(deck: string[], rand: () => number): void {
   const offered = rewardCandidates(deck, rand)
   if (offered.length === 0) return
   const pick = offered.sort((a, b) => cardValue(b) - cardValue(a))[0]!
   deck.push(pick)
-  deck.splice(weakestIndex(deck), 1)
+  if (deck.length > TUNING.MAX_DECK) deck.splice(weakestIndex(deck), 1)
 }
