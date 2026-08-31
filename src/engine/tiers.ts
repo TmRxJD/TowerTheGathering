@@ -35,9 +35,12 @@ export function tierName(level: number): string {
   return `Tier ${clampTier(level)}`
 }
 
-/** 1-ply for the intro tier, 2-ply (anti-cheese) from Tier 2 up. */
+/** Search depth by tier: a beatable 1-ply intro, 2-ply anti-cheese through the mid tiers, and a
+ *  3-ply searcher from Tier 14 (battle conditions) up — it reads two of your turns ahead, so it holds
+ *  removal, avoids overcommitting, and sets up lethal far better. (3-ply ≈ 31ms/turn, imperceptible.) */
 export function tierAiDepth(level: number): number {
-  return clampTier(level) <= 1 ? 1 : 2
+  const t = clampTier(level)
+  return t <= 1 ? 1 : t < 14 ? 2 : 3
 }
 
 /**

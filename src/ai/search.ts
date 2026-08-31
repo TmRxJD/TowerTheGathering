@@ -54,7 +54,7 @@ export class SearchAI {
 
       const baseline = this.lineValue(this.engine)
       let best: Action | null = null
-      let bestVal = baseline + 0.4 // a play must beat "just end the turn" by a small margin
+      let bestVal = baseline + 0.15 // a play need only modestly beat "just end the turn" — develop the board
       for (const a of plays) {
         const c = this.engine.clone()
         c.apply(a)
