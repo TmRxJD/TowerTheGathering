@@ -24,6 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "harness": "tsx src/harness/run.ts",
+    "harness:ladder": "tsx src/harness/ladder.ts",
     "play": "tsx src/cli/play.ts"
   },
   "devDependencies": {

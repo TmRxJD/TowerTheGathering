@@ -50,15 +50,15 @@ export const BOSS_DECKS: readonly BossDeck[] = [
     archetype: 'balanced',
     cards: deck([
       ['fortress', 3],
-      ['extra-orbs', 2],
-      ['berserker', 1],
-      ['damage', 3],
+      ['extra-orbs', 1],
+      ['land-mine-stun', 2],
+      ['damage', 2],
       ['health', 2],
+      ['health-regen', 2],
       ['range', 1],
-      ['cash', 2],
-      ['plasma-cannon', 2],
-      ['recovery-package', 1],
+      ['cash', 3],
       ['coins', 2],
+      ['plasma-cannon', 1],
       ['intro-sprint', 1],
     ]),
   },
@@ -233,9 +233,12 @@ export const BOSS_DECKS: readonly BossDeck[] = [
  * tempo lead. Tuned via the harness (pnpm harness) to a rising win curve.
  */
 export function bossHandicap(index: number): { bonusLife: number; bonusStartMana: number } {
+  // Gentle early (a forgiving intro), steeper late (a real finale) — a power curve reads better than
+  // a flat slope, which made the mid-ladder a wall and crushed full-clear rates. Tuned via
+  // `pnpm harness:ladder`.
   return {
-    bonusLife: Math.round((index - 1) * 3),
-    bonusStartMana: index >= 8 ? 1 : 0,
+    bonusLife: Math.round(Math.pow(index - 1, 1.35)),
+    bonusStartMana: index >= 9 ? 1 : 0,
   }
 }
 
