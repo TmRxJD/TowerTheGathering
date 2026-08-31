@@ -23,6 +23,9 @@ import {
   cardEffectLabel,
   cardLevelValue,
   clampTier,
+  levelUpCost,
+  masteryUpCost,
+  shardReward,
   formatCardValue,
   createEngine,
   getCard,
@@ -375,7 +378,7 @@ export class GameApp {
     // Winning a boss earns shards. Income scales with tier² so higher tiers are the real source and
     // maxing the whole collection is a long, climb-the-ladder grind — not something tier 1 can do.
     if (res.winner === 'HUMAN') {
-      const gained = this.tier * this.tier * 2 + this.bossIndex
+      const gained = shardReward(this.tier, this.bossIndex)
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
@@ -1285,16 +1288,8 @@ export class GameApp {
     return this.save.collection[cardId] ?? { level: 1, mastery: 0 }
   }
 
-  /** Escalating level cost — early levels are affordable, maxing a card is a real investment.
-   *  L1→2: 6 · 2→3: 24 · 3→4: 54 · 4→5: 96 · 5→6: 150 · 6→7: 216  (546 to max one card's levels). */
-  private levelCost(level: number): number {
-    return level * level * 6
-  }
-  /** Mastery is the long-term sink: unlock 60, then +60 per level (2700 for a full 0→9).
-   *  A single card fully maxed ≈ 3246; the whole 62-card collection ≈ 200k shards. */
-  private masteryCost(mastery: number): number {
-    return 60 * (mastery + 1)
-  }
+  private levelCost = levelUpCost // shared with the progression simulator (engine/economy.ts)
+  private masteryCost = masteryUpCost
 
   /** Shard total display — compact for large balances (12345 → "12.3k"). */
   private fmtShards(n: number): string {

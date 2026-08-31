@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "harness": "tsx src/harness/run.ts",
     "harness:ladder": "tsx src/harness/ladder.ts",
+    "progression": "tsx src/harness/progression.ts",
     "play": "tsx src/cli/play.ts",
     "ttg": "tsx src/cli/ttg.ts"
   },

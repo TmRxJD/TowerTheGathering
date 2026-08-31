@@ -4,7 +4,7 @@
  * thousands of these to settle balance and to prove games terminate.
  */
 
-import { createEngine, type Engine, type GameEvent, type GameResult, type Side } from '../engine'
+import { createEngine, type CardLevels, type Engine, type GameEvent, type GameResult, type Side } from '../engine'
 import type { Archetype } from '../engine'
 import { HeuristicAI, SearchAI } from '../ai'
 
@@ -34,6 +34,9 @@ export interface MatchOptions {
    *  human-like player to gauge real difficulty against the smart bosses. */
   readonly humanAi?: AiKind
   readonly aiAi?: AiKind
+  /** Per-side card levels/masteries (the player's upgraded collection, the boss's tier scaling). */
+  readonly humanCardLevels?: CardLevels
+  readonly aiCardLevels?: CardLevels
   /** Safety cap; a game that exceeds it is reported as a timeout (never expected). */
   readonly turnCap?: number
 }
@@ -51,6 +54,7 @@ export function playMatch(opts: MatchOptions): MatchOutcome {
     seed: opts.seed,
     bonusLife: { AI: opts.aiBonusLife ?? 0, HUMAN: opts.humanBonusLife ?? 0 },
     bonusStartMana: { AI: opts.aiBonusStartMana ?? 0 },
+    cardLevels: { HUMAN: opts.humanCardLevels ?? {}, AI: opts.aiCardLevels ?? {} },
   })
   const ai: Record<Side, Bot> = {
     HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced', opts.humanDepth ?? 2),
