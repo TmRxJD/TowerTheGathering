@@ -372,9 +372,9 @@ export class GameApp {
       this.showMenu()
       return
     }
-    // Winning any boss earns shards (scaling with tier + boss); the final boss also unlocks the tier.
+    // Winning a boss earns shards, weighted toward higher tiers so grinding tier 1 stays slow.
     if (res.winner === 'HUMAN') {
-      const gained = 4 + this.tier + this.bossIndex
+      const gained = this.tier * 2 + this.bossIndex
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
@@ -1275,12 +1275,14 @@ export class GameApp {
     return this.save.collection[cardId] ?? { level: 1, mastery: 0 }
   }
 
+  /** Steep, escalating level cost — early levels are cheap, maxing a card is a real investment.
+   *  L1→2: 2 · 2→3: 8 · 3→4: 18 · 4→5: 32 · 5→6: 50 · 6→7: 72  (total 182 to max one card). */
   private levelCost(level: number): number {
-    return level * 4 // L1→2: 4 … L6→7: 24
+    return level * level * 2
   }
-  /** Mastery unlock (m 0→1) and each subsequent mastery level get pricier than base levels. */
+  /** Mastery is the endgame sink: unlock 20, then +15 per level (total 720 for a full 0→9). */
   private masteryCost(mastery: number): number {
-    return 30 + mastery * 8 // unlock: 30, then 38, 46 … up to mastery 9
+    return 20 + mastery * 15
   }
 
   /** Order the collection by the active sort key. */

@@ -1206,18 +1206,24 @@
   border-color: var(--ttg-accent);
   font-weight: 800;
 }
-/* The collection can be taller than the viewport; anchor it to the top so the header stays visible,
-   and keep the whole thing on screen (the ✕ is fixed to the overlay corner regardless). */
+/* The collection can be taller than the viewport. The card fills the height; its header stays put
+   and ONLY the grid scrolls — a single scroll region, never a nested parent+child scroll. The ✕
+   lives on the overlay so it's always reachable. */
 .ttg-collection {
+  position: fixed; /* confine to the viewport, not the (often taller) game root, so nothing clips */
+  inset: 0;
   align-items: flex-start;
   padding: 8px;
+  overflow: hidden;
 }
 .ttg-collection .modal-card {
   max-width: 720px;
   width: 100%;
-  max-height: none;
-  overflow: visible;
-  padding: 12px 16px 14px;
+  max-height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 12px;
 }
 .ttg-collection .modal-card h3 {
   font-size: 17px;
@@ -1231,7 +1237,12 @@
   flex-wrap: wrap;
   gap: 7px;
   justify-content: center;
-  margin-bottom: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: flex-start;
+  padding: 2px;
 }
 .coll-faces .ttg-card.mini {
   cursor: pointer;
