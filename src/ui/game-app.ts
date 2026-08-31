@@ -372,9 +372,10 @@ export class GameApp {
       this.showMenu()
       return
     }
-    // Winning a boss earns shards, weighted toward higher tiers so grinding tier 1 stays slow.
+    // Winning a boss earns shards. Income scales with tier² so higher tiers are the real source and
+    // maxing the whole collection is a long, climb-the-ladder grind — not something tier 1 can do.
     if (res.winner === 'HUMAN') {
-      const gained = this.tier * 2 + this.bossIndex
+      const gained = this.tier * this.tier * 2 + this.bossIndex
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
@@ -1232,9 +1233,10 @@ export class GameApp {
       tierRow +
       `<div class="menu-btns">` +
       primary +
-      `<button class="ttg-mini" data-m="collection">🃏 Collection (💠 ${this.save.shards})</button>` +
+      `<button class="ttg-mini" data-m="collection">🃏 Collection (💠 ${this.fmtShards(this.save.shards)})</button>` +
       `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
       `<button class="ttg-mini" data-m="help">? How to Play</button>` +
+      `<button class="ttg-mini menu-reset" data-m="reset">♻ Reset Progress</button>` +
       `</div></div>`
     const tierSel = () => Number((el.querySelector('#ttg-tiersel') as HTMLSelectElement | null)?.value) || 1
     el.querySelectorAll<HTMLElement>('[data-m]').forEach(b =>
@@ -1246,6 +1248,10 @@ export class GameApp {
         }
         if (m === 'collection') {
           this.showCollection()
+          return
+        }
+        if (m === 'reset') {
+          this.confirmResetProgress()
           return
         }
         el.remove()
@@ -1279,14 +1285,51 @@ export class GameApp {
     return this.save.collection[cardId] ?? { level: 1, mastery: 0 }
   }
 
-  /** Steep, escalating level cost — early levels are cheap, maxing a card is a real investment.
-   *  L1→2: 2 · 2→3: 8 · 3→4: 18 · 4→5: 32 · 5→6: 50 · 6→7: 72  (total 182 to max one card). */
+  /** Escalating level cost — early levels are affordable, maxing a card is a real investment.
+   *  L1→2: 6 · 2→3: 24 · 3→4: 54 · 4→5: 96 · 5→6: 150 · 6→7: 216  (546 to max one card's levels). */
   private levelCost(level: number): number {
-    return level * level * 2
+    return level * level * 6
   }
-  /** Mastery is the endgame sink: unlock 20, then +15 per level (total 720 for a full 0→9). */
+  /** Mastery is the long-term sink: unlock 60, then +60 per level (2700 for a full 0→9).
+   *  A single card fully maxed ≈ 3246; the whole 62-card collection ≈ 200k shards. */
   private masteryCost(mastery: number): number {
-    return 20 + mastery * 15
+    return 60 * (mastery + 1)
+  }
+
+  /** Shard total display — compact for large balances (12345 → "12.3k"). */
+  private fmtShards(n: number): string {
+    if (n >= 100000) return `${Math.floor(n / 1000)}k`
+    if (n >= 10000) return `${(Math.floor(n / 100) / 10).toFixed(1)}k`
+    return String(n)
+  }
+
+  /** Wipe all saved progress (tiers, collection, shards, run) after confirmation, then reset to a
+   *  fresh menu. Irreversible — hence the explicit confirm step. */
+  private confirmResetProgress(): void {
+    this.root.querySelector('.ttg-confirm')?.remove()
+    const el = this.div('ttg-modal ttg-confirm')
+    el.innerHTML =
+      `<div class="modal-card confirm-card">` +
+      `<h3>Reset all progress?</h3>` +
+      `<div class="modal-sub">This permanently clears every cleared tier, all card levels &amp; masteries, and your ${this.fmtShards(this.save.shards)} 💠. This cannot be undone.</div>` +
+      `<div class="confirm-btns"><button class="ttg-mini" data-c="cancel">Cancel</button><button class="ttg-btn danger" data-c="reset">Reset everything</button></div>` +
+      `</div>`
+    el.querySelectorAll<HTMLElement>('[data-c]').forEach(b =>
+      b.addEventListener('click', () => {
+        if (b.dataset.c === 'reset') {
+          this.save = { highestTierCleared: 0, run: null, collection: {}, shards: 0 }
+          writeSave(this.save)
+          el.remove()
+          this.showMenu()
+        } else {
+          el.remove()
+        }
+      }),
+    )
+    el.addEventListener('click', e => {
+      if (e.target === el) el.remove()
+    })
+    this.root.appendChild(el)
   }
 
   /** Order the collection by the active sort key. */
@@ -1312,7 +1355,7 @@ export class GameApp {
       .map(k => `<button class="coll-sort${this.collSort === k ? ' on' : ''}" data-sort="${k}">${k[0]!.toUpperCase()}${k.slice(1)}</button>`)
       .join('')
     card.innerHTML =
-      `<h3>Collection · 💠 ${this.save.shards}</h3>` +
+      `<h3>Collection · 💠 ${this.fmtShards(this.save.shards)}</h3>` +
       `<div class="modal-sub">Win battles to earn 💠 shards — spend them to level cards (1→7) and their Mastery (1→9). Tap a card.</div>` +
       `<div class="coll-legend"><span class="lg-cost">◆</span> mana cost · <span class="lg-lvl">L1</span> your level · <span class="lg-stat">2 / 4</span> ATK / HP (units)</div>` +
       `<div class="coll-toolbar"><span>Sort:</span> ${sortBtns}</div>`

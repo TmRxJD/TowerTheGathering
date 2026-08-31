@@ -1154,6 +1154,34 @@
 }
 
 /* --- Collection: a compact grid of faces (no inner scrollbar) ----------- */
+.menu-reset {
+  color: var(--ttg-dim);
+  opacity: 0.75;
+}
+.menu-reset:hover {
+  color: var(--ttg-danger);
+  opacity: 1;
+}
+.ttg-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 34; /* above every other modal */
+}
+.confirm-card {
+  max-width: 380px;
+  text-align: center;
+}
+.confirm-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 6px;
+}
+.ttg-btn.danger {
+  background: linear-gradient(180deg, #c53152, #7a1a2f);
+  border-color: #e0596f;
+  color: #fff;
+}
 .modal-x {
   position: absolute;
   top: 14px;
