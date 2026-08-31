@@ -18,8 +18,7 @@ the deltas are recorded in [§ Card catalog](#card-catalog).
   pool only and does not raise the cap.
 - **Lanes:** three — `LEFT`, `CENTER`, `RIGHT`. Combat is resolved lane-by-lane, simultaneously.
 - **Hand limit:** 7. Drawing past 7 discards the excess (drawn card is discarded, oldest-first is not
-  touched — see `tuning.HAND_LIMIT`). Deck-out: drawing from an empty deck deals no damage and simply
-  draws nothing (no fatigue in v1).
+  touched — see `tuning.HAND_LIMIT`). Deck-out: see § Fatigue.
 - **Deck:** **20 cards** built from the 31-card pool (see [§ Deckbuilding](#deckbuilding)).
 
 ## The lane stack (core combat model)
@@ -164,6 +163,13 @@ The authoritative numbers live in `src/engine/cards.ts` (`CARD_CATALOG`), which 
 
 ---
 
+## Fatigue
+
+Each draw from an **empty deck** deals escalating **unpreventable** damage to that player (1, then 2,
+then 3, …). It bypasses Extra Defense and Energy Shield, but Second Wind still saves once. This
+guarantees stalls resolve: two defensive boards that can never break each other will still deck out
+and lose, so a game always ends (important for autoplay/demo mode and for a clean result).
+
 ## Determinism
 
 Same seed + same deck orders + same inputs ⇒ identical game. All randomness (shuffles, Crit 30%,
@@ -183,4 +189,3 @@ against the harness bots. A search/expectimax AI is a deliberate v2.
 - Animations/VFX polish (canvas layer exists; particle content is minimal in v1).
 - More than 31 cards; the archetype depth the pitch describes grows with the pool.
 - Multiplayer. This is single-player vs AI by design.
-- Fatigue/deck-out damage.

@@ -5,7 +5,7 @@
  * rounding error.
  */
 
-import { BOSS_DECKS, STARTER_DECK, validateDeck } from '../engine'
+import { BOSS_DECKS, STARTER_DECK, bossHandicap, validateDeck } from '../engine'
 import { playMatch } from './match'
 
 const GAMES_PER_BOSS = Number(process.env.TTG_GAMES ?? 200)
@@ -37,12 +37,15 @@ function main(): void {
     let turnSum = 0
     let timeouts = 0
     for (let i = 0; i < GAMES_PER_BOSS; i++) {
+      const hc = bossHandicap(boss.index)
       const out = playMatch({
         humanDeck: STARTER_DECK,
         aiDeck: boss.cards,
         seed: `boss${boss.index}-${i}`,
         humanArchetype: 'balanced',
         aiArchetype: boss.archetype,
+        aiBonusLife: hc.bonusLife,
+        aiBonusStartMana: hc.bonusStartMana,
       })
       if (out.timedOut) timeouts++
       else if (out.result!.winner === 'HUMAN') wins++

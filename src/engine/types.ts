@@ -119,6 +119,9 @@ export interface PlayerState {
   turnCount: number
   /** Set by Wave Skip on the opponent: their next combat phase is skipped. */
   skipNextCombat: boolean
+  /** Deck-out counter: each draw from an empty deck deals this many (escalating) unpreventable
+   *  damage — guarantees stalls resolve. See docs/GAME_DESIGN.md § Fatigue. */
+  fatigue: number
 }
 
 // ---------------------------------------------------------------------------
@@ -241,6 +244,10 @@ export interface EngineOptions {
   readonly firstPlayer?: Side
   /** Test seam: skip the opening shuffle so deck order is deterministic (draw from the end). */
   readonly shuffle?: boolean
+  /** Extra starting (and max) life per side — the ladder handicap that scales boss difficulty. */
+  readonly bonusLife?: Partial<Record<Side, number>>
+  /** Extra starting max mana per side (a small tempo edge for the top bosses). */
+  readonly bonusStartMana?: Partial<Record<Side, number>>
 }
 
 export interface Engine {

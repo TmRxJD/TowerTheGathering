@@ -81,11 +81,15 @@ class TowerEngine implements Engine {
   /** Bonus mana to grant a side at the start of its next turn (Critical Coin). */
   private readonly pendingMana: Record<Side, number> = { HUMAN: 0, AI: 0 }
   private readonly shuffleDecks: boolean
+  private readonly bonusLife: Partial<Record<Side, number>>
+  private readonly bonusStartMana: Partial<Record<Side, number>>
 
   constructor(opts: EngineOptions) {
     this.rng = createRng(opts.seed ?? 'ttg-default')
     this.activeSide = opts.firstPlayer ?? 'HUMAN'
     this.shuffleDecks = opts.shuffle !== false
+    this.bonusLife = opts.bonusLife ?? {}
+    this.bonusStartMana = opts.bonusStartMana ?? {}
     this.lanes = {
       LEFT: { HUMAN: [], AI: [] },
       CENTER: { HUMAN: [], AI: [] },
@@ -107,11 +111,12 @@ class TowerEngine implements Engine {
   private newPlayer(side: Side, deckIds: readonly string[]): PlayerState {
     const deck: CardRef[] = deckIds.map(cardId => ({ uid: this.uidSeq++, cardId }))
     if (this.shuffleDecks) this.rng.shuffle(deck)
+    const life = TUNING.START_LIFE + (this.bonusLife[side] ?? 0)
     return {
       side,
-      life: TUNING.START_LIFE,
-      maxLife: TUNING.START_LIFE,
-      manaMax: 0, // raised to START_MANA_MAX by the first startTurn
+      life,
+      maxLife: life,
+      manaMax: this.bonusStartMana[side] ?? 0, // raised to START_MANA_MAX+ by the first startTurn
       manaPool: 0,
       deck,
       hand: [],
@@ -120,6 +125,7 @@ class TowerEngine implements Engine {
       secrets: [],
       turnCount: 0,
       skipNextCombat: false,
+      fatigue: 0,
     }
   }
 
@@ -729,21 +735,23 @@ class TowerEngine implements Engine {
     events.push({ type: 'heal', targetUid: null, side, amount: p.life - before })
   }
 
-  private damageNexus(side: Side, amount: number, events: GameEvent[]): void {
+  private damageNexus(side: Side, amount: number, events: GameEvent[], bypass = false): void {
     if (amount <= 0) return
     const p = this.players[side]
 
-    // Energy Shield: negate the whole next instance, then destroy the shield.
-    const shield = p.modules.find(m => m.cardId === 'energy-shield')
-    if (shield) {
-      this.destroyModule(side, shield.uid, events)
-      events.push({ type: 'nexusDamage', side, amount: 0, life: p.life })
-      return
+    let applied = amount
+    if (!bypass) {
+      // Energy Shield: negate the whole next instance, then destroy the shield.
+      const shield = p.modules.find(m => m.cardId === 'energy-shield')
+      if (shield) {
+        this.destroyModule(side, shield.uid, events)
+        events.push({ type: 'nexusDamage', side, amount: 0, life: p.life })
+        return
+      }
+      // Extra Defense: reduce by 1 per copy, but a hit never drops below 1.
+      const reduction = TUNING.EXTRA_DEFENSE_REDUCTION * this.countModule(side, 'extra-defense')
+      applied = Math.max(1, amount - reduction)
     }
-
-    // Extra Defense: reduce by 1 per copy, but a hit never drops below 1.
-    const reduction = TUNING.EXTRA_DEFENSE_REDUCTION * this.countModule(side, 'extra-defense')
-    const applied = Math.max(1, amount - reduction)
 
     p.life -= applied
     events.push({ type: 'nexusDamage', side, amount: applied, life: Math.max(0, p.life) })
@@ -782,7 +790,10 @@ class TowerEngine implements Engine {
 
   private drawCard(p: PlayerState, events: GameEvent[]): void {
     if (p.deck.length === 0) {
+      // Deck-out: escalating unpreventable damage so two stalling boards can't draw forever.
+      p.fatigue++
       events.push({ type: 'cardDrawn', side: p.side, card: null })
+      this.damageNexus(p.side, p.fatigue, events, true)
       return
     }
     const card = p.deck.pop() as CardRef

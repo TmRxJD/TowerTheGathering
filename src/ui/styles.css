@@ -27,19 +27,25 @@
   width: 100%;
   max-width: 780px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 14px 16px 16px;
+  /* Crimson Horror looming behind a dark veil. The source thumbnail is only 170px wide, so
+     stretching it to cover naturally softens it into an ominous blur — no filter needed. Layer
+     order (top→bottom): crimson vignette glow, dark reddened veil, then the horror image. */
   background:
-    radial-gradient(140% 60% at 50% -10%, rgba(91, 140, 255, 0.14), transparent 60%),
-    radial-gradient(120% 90% at 50% 108%, rgba(255, 91, 110, 0.08), transparent 55%),
-    linear-gradient(180deg, #171c2b 0%, var(--ttg-bg) 60%);
-  border: 1px solid var(--ttg-line);
+    radial-gradient(120% 80% at 50% -12%, rgba(255, 40, 70, 0.26), transparent 58%),
+    radial-gradient(120% 90% at 50% 112%, rgba(140, 8, 22, 0.4), transparent 60%),
+    linear-gradient(180deg, rgba(26, 8, 12, 0.62) 0%, rgba(10, 4, 6, 0.8) 52%, rgba(6, 3, 4, 0.9) 100%),
+    url('./assets/bg/crimson-horror.webp') center 20% / cover no-repeat,
+    #0a0304;
+  border: 1px solid #4a1620;
   border-radius: var(--ttg-radius);
   color: var(--ttg-text);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   user-select: none;
   overflow: hidden;
-  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 24px 70px -20px rgba(90, 0, 15, 0.6), 0 0 0 1px rgba(255, 60, 90, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .ttg-root *,
 .ttg-root *::before,
@@ -90,6 +96,98 @@
   100% {
     opacity: 0;
   }
+}
+
+/* --- In-panel header ---------------------------------------------------- */
+.ttg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ttg-logo {
+  flex: 0 0 auto;
+  font-weight: 900;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #ffd0d6, #ff5b6e 60%, #b21230);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 18px rgba(255, 60, 90, 0.35);
+  white-space: nowrap;
+}
+.ttg-ladder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ttg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ttg-ladder b {
+  color: var(--ttg-text);
+}
+.ttg-ladder .pipline {
+  display: inline-flex;
+  gap: 3px;
+}
+.ttg-ladder .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3a1c24;
+  border: 1px solid #5a2530;
+}
+.ttg-ladder .dot.cur {
+  background: var(--ttg-danger);
+  border-color: var(--ttg-danger);
+  box-shadow: 0 0 7px rgba(255, 91, 110, 0.8);
+}
+.ttg-ladder .dot.done {
+  background: #43e08a;
+  border-color: #43e08a;
+}
+.ttg-header .spacer {
+  flex: 1;
+}
+.ttg-select,
+.ttg-mini {
+  flex: 0 0 auto;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: rgba(30, 18, 22, 0.8);
+  color: var(--ttg-text);
+  border: 1px solid #5a2530;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: filter 0.14s, border-color 0.14s;
+}
+.ttg-select {
+  max-width: 190px;
+}
+.ttg-mini {
+  min-width: 40px;
+}
+.ttg-select:hover,
+.ttg-mini:hover {
+  filter: brightness(1.15);
+}
+.ttg-mini.active {
+  border-color: var(--ttg-gold);
+  color: var(--ttg-gold);
+  box-shadow: 0 0 10px -2px rgba(255, 210, 87, 0.6);
 }
 
 /* --- Turn banner -------------------------------------------------------- */
@@ -148,10 +246,11 @@
   align-items: center;
   gap: 12px;
   padding: 9px 13px;
-  background: linear-gradient(180deg, var(--ttg-panel), var(--ttg-bg-2));
+  background: linear-gradient(180deg, rgba(28, 20, 26, 0.82), rgba(14, 10, 14, 0.88));
   border: 1px solid var(--ttg-line);
   border-radius: 12px;
   position: relative;
+  backdrop-filter: blur(2px);
 }
 .ttg-nexus.ai {
   border-color: #5a2c37;
@@ -363,6 +462,17 @@
 }
 .ttg-unit.front {
   box-shadow: inset 0 -22px 20px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--ttg-accent), 0 3px 10px rgba(0, 0, 0, 0.5);
+  animation: ttg-breath 3.2s ease-in-out infinite;
+}
+/* Front-line units idle-breathe so the board feels alive; suppressed while acting. */
+@keyframes ttg-breath {
+  50% {
+    transform: translateY(-1.5px) scale(1.012);
+  }
+}
+.ttg-unit.front.tapped,
+.ttg-unit.front.frozen {
+  animation: none;
 }
 .ttg-unit.reserve {
   height: 34px;

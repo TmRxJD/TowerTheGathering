@@ -14,6 +14,7 @@
 import {
   BOSS_DECKS,
   STARTER_DECK,
+  bossHandicap,
   createEngine,
   getCard,
   type Action,
@@ -72,13 +73,19 @@ export class GameApp {
 
   private engine!: Engine
   private ai!: HeuristicAI
+  private humanAi!: HeuristicAI
   private bossIndex: number
   private selection: Selection | null = null
   private busy = false
   private hint = ''
   private prevActive: Side | null = null
+  private watching = false
+  private watchTimer: ReturnType<typeof setTimeout> | null = null
 
   // persistent skeleton refs
+  private ladderEl!: HTMLElement
+  private bossSelect!: HTMLSelectElement
+  private watchBtn!: HTMLButtonElement
   private banner!: HTMLElement
   private vignette!: HTMLElement
   private nexus!: Record<Side, NexusRefs>
@@ -118,6 +125,33 @@ export class GameApp {
 
   private buildSkeleton(): void {
     this.root.innerHTML = ''
+
+    const header = this.div('ttg-header')
+    const logo = this.div('ttg-logo')
+    logo.textContent = 'Tower: The Gathering'
+    this.ladderEl = this.div('ttg-ladder')
+    const spacer = this.div('spacer')
+    this.bossSelect = document.createElement('select')
+    this.bossSelect.className = 'ttg-select'
+    for (const b of BOSS_DECKS) {
+      const opt = document.createElement('option')
+      opt.value = String(b.index)
+      opt.textContent = `Boss ${b.index} · ${b.name}`
+      this.bossSelect.appendChild(opt)
+    }
+    this.bossSelect.addEventListener('change', () => this.startMatch(Number(this.bossSelect.value) || 1))
+    this.watchBtn = document.createElement('button')
+    this.watchBtn.className = 'ttg-mini'
+    this.watchBtn.textContent = '▶ Autoplay'
+    this.watchBtn.title = 'Autoplay — watch the AI play both sides'
+    this.watchBtn.addEventListener('click', () => this.toggleWatch())
+    const restartBtn = document.createElement('button')
+    restartBtn.className = 'ttg-mini'
+    restartBtn.textContent = '↻'
+    restartBtn.title = 'Restart this match'
+    restartBtn.addEventListener('click', () => this.startMatch(this.bossIndex))
+    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, restartBtn)
+
     this.banner = this.div('ttg-banner')
     this.banner.appendChild(document.createElement('span'))
     this.vignette = this.div('ttg-vignette')
@@ -155,6 +189,7 @@ export class GameApp {
     this.handEl = this.div('ttg-hand')
 
     this.root.append(
+      header,
       this.banner,
       this.nexus.AI.el,
       board,
@@ -201,21 +236,28 @@ export class GameApp {
   private startMatch(bossIndex: number): void {
     this.bossIndex = bossIndex
     const boss = BOSS_DECKS[bossIndex - 1]!
+    const hc = bossHandicap(bossIndex)
     const { engine } = createEngine({
       humanDeck: STARTER_DECK,
       aiDeck: boss.cards,
       seed: `${this.seed}-b${bossIndex}`,
+      bonusLife: { AI: hc.bonusLife },
+      bonusStartMana: { AI: hc.bonusStartMana },
     })
     this.engine = engine
     this.ai = new HeuristicAI(engine, 'AI', boss.archetype)
+    this.humanAi = new HeuristicAI(engine, 'HUMAN', 'balanced')
     this.selection = null
     this.busy = false
     this.hint = ''
     this.prevActive = null
+    if (this.watchTimer) clearTimeout(this.watchTimer)
     this.resetBoard()
     const sub = this.nexus.AI.el.querySelector('.who small')
     if (sub) sub.textContent = boss.name
+    this.bossSelect.value = String(this.bossIndex)
     this.render()
+    if (this.watching) this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 700)
   }
 
   private resetBoard(): void {
@@ -274,7 +316,8 @@ export class GameApp {
   }
 
   private onCardClick(uid: number): void {
-    if (this.busy || this.engine.snapshot().activeSide !== 'HUMAN' || this.engine.isOver()) return
+    if (this.watching || this.busy || this.engine.snapshot().activeSide !== 'HUMAN' || this.engine.isOver())
+      return
     if (this.selection?.uid === uid) {
       this.selection = null
       this.hint = ''
@@ -346,8 +389,43 @@ export class GameApp {
     if (this.engine.isOver()) this.finishMatch()
   }
 
+  private toggleWatch(): void {
+    this.watching = !this.watching
+    if (this.watching) {
+      this.selection = null
+      this.hint = ''
+      this.render()
+      if (!this.engine.isOver()) this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 400)
+    } else {
+      if (this.watchTimer) clearTimeout(this.watchTimer)
+      this.watchTimer = null
+      this.render()
+    }
+  }
+
+  /** One autoplay step = one full turn by whichever side is active, then a beat before the next. */
+  private autoStep(): void {
+    if (!this.watching) return
+    if (this.engine.isOver()) {
+      this.watching = false
+      this.finishMatch()
+      return
+    }
+    const active = this.engine.snapshot().activeSide
+    const bot = active === 'AI' ? this.ai : this.humanAi
+    const events = bot.takeTurn()
+    this.renderAndAnimate(events)
+    if (this.engine.isOver()) {
+      this.watching = false
+      this.finishMatch()
+      return
+    }
+    this.watchTimer = globalThis.setTimeout(() => this.autoStep(), 1000)
+  }
+
   private onEndTurn(): void {
-    if (this.busy || this.engine.isOver() || this.engine.snapshot().activeSide !== 'HUMAN') return
+    if (this.watching || this.busy || this.engine.isOver() || this.engine.snapshot().activeSide !== 'HUMAN')
+      return
     this.selection = null
     this.busy = true
     this.hint = 'Opponent is planning…'
@@ -397,9 +475,20 @@ export class GameApp {
       this.laneEls[lane].classList.toggle('droppable', !!drop)
     }
 
+    // Ladder header
+    const boss = BOSS_DECKS[this.bossIndex - 1]!
+    let dots = ''
+    for (let i = 1; i <= BOSS_DECKS.length; i++) {
+      const cls = i < this.bossIndex ? 'done' : i === this.bossIndex ? 'cur' : ''
+      dots += `<span class="dot ${cls}"></span>`
+    }
+    this.ladderEl.innerHTML = `<b>Boss ${this.bossIndex}</b>/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>`
+    this.watchBtn.classList.toggle('active', this.watching)
+    this.watchBtn.textContent = this.watching ? '⏸ Autoplay' : '▶ Autoplay'
+
     this.turnEl.innerHTML = `Turn <b>${snap.turn}</b>`
     this.hintEl.textContent = this.hint
-    const myTurn = !this.busy && !this.engine.isOver() && snap.activeSide === 'HUMAN'
+    const myTurn = !this.busy && !this.watching && !this.engine.isOver() && snap.activeSide === 'HUMAN'
     this.endBtn.disabled = !myTurn
     this.endBtn.classList.toggle('ready', myTurn)
 
@@ -602,7 +691,10 @@ export class GameApp {
           void tgt.offsetWidth
           tgt.classList.add('hit')
           const c = this.centerIn(tgt.getBoundingClientRect())
-          if (c) this.fx.floatText(c.x, c.y, `-${ev.amount}`, ev.crit ? '#ffd257' : '#ff9550', ev.crit ? 27 : 20)
+          if (c) {
+            this.fx.floatText(c.x, c.y, `-${ev.amount}`, ev.crit ? '#ffd257' : '#ff9550', ev.crit ? 27 : 20)
+            this.fx.burst(c.x, c.y, ev.crit ? '#ffd257' : '#ffa060', ev.crit ? 12 : 7, 0.32)
+          }
         }
       } else if (ev.type === 'nexusDamage' && ev.amount > 0) {
         const c = this.centerIn(this.nexus[ev.side].el.getBoundingClientRect())
@@ -618,6 +710,10 @@ export class GameApp {
         const c = this.centerIn(box)
         if (c) this.fx.floatText(c.x, c.y, `+${ev.amount}`, '#43e08a', 20)
         if (ev.targetUid == null) this.flashVignette('heal')
+      } else if (ev.type === 'unitDied') {
+        const node = this.unitNodes.get(ev.uid)
+        const c = node ? this.centerIn(node.getBoundingClientRect()) : null
+        if (c) this.fx.burst(c.x, c.y, ev.side === 'AI' ? '#ff6b7e' : '#7fb0ff', 18, 0.5)
       } else if (ev.type === 'ultimateCast' && ev.target && ev.target.kind === 'unit') {
         const from = this.centerIn(this.nexus[ev.side].el.getBoundingClientRect())
         const to = this.centerIn(this.unitNodes.get(ev.target.uid)?.getBoundingClientRect())
@@ -728,6 +824,7 @@ export class GameApp {
   }
 
   destroy(): void {
+    if (this.watchTimer) clearTimeout(this.watchTimer)
     this.fx.destroy()
     this.root.innerHTML = ''
   }

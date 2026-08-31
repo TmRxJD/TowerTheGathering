@@ -14,6 +14,9 @@ export interface MatchOptions {
   readonly seed: string
   readonly humanArchetype?: Archetype
   readonly aiArchetype?: Archetype
+  /** Ladder handicap applied to the AI side (see bossHandicap). */
+  readonly aiBonusLife?: number
+  readonly aiBonusStartMana?: number
   /** Safety cap; a game that exceeds it is reported as a timeout (never expected). */
   readonly turnCap?: number
 }
@@ -25,7 +28,13 @@ export interface MatchOutcome {
 }
 
 export function playMatch(opts: MatchOptions): MatchOutcome {
-  const { engine } = createEngine({ humanDeck: opts.humanDeck, aiDeck: opts.aiDeck, seed: opts.seed })
+  const { engine } = createEngine({
+    humanDeck: opts.humanDeck,
+    aiDeck: opts.aiDeck,
+    seed: opts.seed,
+    bonusLife: { AI: opts.aiBonusLife ?? 0 },
+    bonusStartMana: { AI: opts.aiBonusStartMana ?? 0 },
+  })
   const ai: Record<Side, HeuristicAI> = {
     HUMAN: new HeuristicAI(engine, 'HUMAN', opts.humanArchetype ?? 'balanced'),
     AI: new HeuristicAI(engine, 'AI', opts.aiArchetype ?? 'balanced'),

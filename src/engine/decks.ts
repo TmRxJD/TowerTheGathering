@@ -46,7 +46,7 @@ export const STARTER_DECK: readonly string[] = deck([
 export const BOSS_DECKS: readonly BossDeck[] = [
   {
     index: 1,
-    name: 'Recruit Sentinel',
+    name: 'Basic',
     archetype: 'balanced',
     cards: deck([
       ['fortress', 3],
@@ -64,7 +64,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 2,
-    name: 'Aggro Vanguard',
+    name: 'Fast',
     archetype: 'aggro',
     cards: deck([
       ['extra-orbs', 2],
@@ -81,7 +81,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 3,
-    name: 'Bastion Warden',
+    name: 'Tank',
     archetype: 'turtle',
     cards: deck([
       ['fortress', 3],
@@ -98,7 +98,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 4,
-    name: 'Orbital Barrage',
+    name: 'Ranged',
     archetype: 'orbs-burst',
     cards: deck([
       ['extra-orbs', 2],
@@ -114,16 +114,17 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 5,
-    name: 'Coin Magnate',
+    name: 'Vampire',
     archetype: 'ramp',
     cards: deck([
       ['coins', 3],
       ['critical-coin', 2],
       ['cash', 3],
-      ['enemy-balance', 3],
+      ['enemy-balance', 1],
       ['wave-accelerator', 1],
-      ['fortress', 2],
+      ['fortress', 3],
       ['extra-orbs', 2],
+      ['berserker', 1],
       ['death-ray', 1],
       ['plasma-cannon', 2],
       ['intro-sprint', 1],
@@ -131,7 +132,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 6,
-    name: 'Frost Saboteur',
+    name: 'Protector',
     archetype: 'turtle',
     cards: deck([
       ['slow-aura', 2],
@@ -149,7 +150,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 7,
-    name: 'Nuke Controller',
+    name: 'Saboteur',
     archetype: 'nuke-control',
     cards: deck([
       ['fortress', 3],
@@ -167,7 +168,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 8,
-    name: 'Berserk Legion',
+    name: 'Scatter',
     archetype: 'aggro',
     cards: deck([
       ['berserker', 1],
@@ -184,7 +185,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 9,
-    name: 'Ascendant Ramp',
+    name: 'Overcharge',
     archetype: 'ramp',
     cards: deck([
       ['coins', 3],
@@ -203,7 +204,7 @@ export const BOSS_DECKS: readonly BossDeck[] = [
   },
   {
     index: 10,
-    name: 'The Apex Nexus',
+    name: 'Commander',
     archetype: 'balanced',
     cards: deck([
       ['fortress', 3],
@@ -222,6 +223,18 @@ export const BOSS_DECKS: readonly BossDeck[] = [
     ]),
   },
 ]
+
+/**
+ * Ladder handicap for a boss. Both sides run the same AI and card pool, so difficulty comes from
+ * the boss's deck AND an escalating edge: later bosses start with more life, and the top tier with a
+ * tempo lead. Tuned via the harness (pnpm harness) to a rising win curve.
+ */
+export function bossHandicap(index: number): { bonusLife: number; bonusStartMana: number } {
+  return {
+    bonusLife: Math.round((index - 1) * 3),
+    bonusStartMana: index >= 8 ? 1 : 0,
+  }
+}
 
 export interface DeckValidation {
   readonly ok: boolean

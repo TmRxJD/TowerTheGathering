@@ -26,7 +26,18 @@ interface Beam {
   max: number
   color: string
 }
-type Effect = FloatNum | Beam
+interface Particle {
+  kind: 'particle'
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  max: number
+  color: string
+  size: number
+}
+type Effect = FloatNum | Beam | Particle
 
 export class FxLayer {
   private readonly canvas: HTMLCanvasElement
@@ -63,6 +74,27 @@ export class FxLayer {
     this.wake()
   }
 
+  /** A short particle burst — used for unit deaths and combat impacts. Visual only (Math.random is
+   *  fine here; it never touches game state). */
+  burst(x: number, y: number, color: string, count = 14, power = 0.4): void {
+    for (let i = 0; i < count; i++) {
+      const a = (Math.PI * 2 * i) / count + Math.random() * 0.5
+      const sp = power * (0.4 + Math.random())
+      this.effects.push({
+        kind: 'particle',
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 0.1,
+        life: 520 + Math.random() * 260,
+        max: 780,
+        color,
+        size: 2 + Math.random() * 3,
+      })
+    }
+    this.wake()
+  }
+
   private wake(): void {
     if (this.raf) return
     this.last = 0
@@ -90,7 +122,7 @@ export class FxLayer {
         ctx.strokeText(e.text, e.x, e.y)
         ctx.fillStyle = e.color
         ctx.fillText(e.text, e.x, e.y)
-      } else {
+      } else if (e.kind === 'beam') {
         ctx.globalAlpha = Math.min(1, k * 2)
         ctx.strokeStyle = e.color
         ctx.lineWidth = 3 + 3 * k
@@ -100,6 +132,18 @@ export class FxLayer {
         ctx.moveTo(e.x1, e.y1)
         ctx.lineTo(e.x2, e.y2)
         ctx.stroke()
+        ctx.shadowBlur = 0
+      } else {
+        e.vy += 0.0006 * dt // gravity
+        e.x += e.vx * dt
+        e.y += e.vy * dt
+        ctx.globalAlpha = Math.min(1, k * 1.4)
+        ctx.fillStyle = e.color
+        ctx.shadowColor = e.color
+        ctx.shadowBlur = 8
+        ctx.beginPath()
+        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2)
+        ctx.fill()
         ctx.shadowBlur = 0
       }
     }

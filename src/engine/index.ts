@@ -10,6 +10,7 @@ export {
   STARTER_DECK,
   BOSS_DECKS,
   validateDeck,
+  bossHandicap,
   type Archetype,
   type BossDeck,
   type DeckValidation,
