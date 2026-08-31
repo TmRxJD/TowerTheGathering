@@ -807,20 +807,31 @@ export class GameApp {
     }
   }
 
+  /** The card collection in force right now — the autoplay run's, or your saved one. */
+  private activeCollection(): CardLevels {
+    return this.demo ? this.demoCollection : this.save.collection
+  }
+
   private createCardNode(uid: number, cardId: string): HTMLElement {
     const def = getCard(cardId)
     const node = this.div('ttg-card enter')
     node.dataset.card = String(uid)
     node.dataset.rarity = def.rarity
     node.title = def.text
+    const { level, mastery } = this.activeCollection()[cardId] ?? { level: 1, mastery: 0 }
     const stats =
       def.type === 'UNIT'
         ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`
         : ''
+    // A level badge (like the collection), and the current effect value in the name bar so you can
+    // read what a card does at a glance without hovering.
+    const lvl = `<div class="owned">${mastery > 0 ? '★' + mastery : 'L' + level}</div>`
+    const val = def.type === 'UNIT' ? '' : `<span class="cn-val">${formatCardValue(cardId, cardLevelValue(cardId, level, mastery))}</span>`
     node.innerHTML =
       `<div class="cost">${def.cost}</div>` +
+      lvl +
       `<div class="card-art">${stats}</div>` +
-      `<div class="cn">${def.name}</div><div class="ct">${def.type}</div>`
+      `<div class="cn"><span class="cn-name">${def.name}</span>${val}</div><div class="ct">${def.type}</div>`
     this.applyArt(node.querySelector('.card-art') as HTMLElement, cardId)
     node.addEventListener('click', () => this.onCardClick(uid))
     node.addEventListener('mouseenter', () => this.showPreview(cardId, node.getBoundingClientRect()))

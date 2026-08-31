@@ -748,12 +748,14 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
   z-index: 3;
 }
-/* Name in its own bar below the art — never overlapping the illustration. */
+/* Name (and, in the hand, the current effect value) in a bar below the art. */
 .ttg-card .cn {
   flex: 1 0 auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   text-align: center;
   padding: 2px 3px;
   font-size: 10px;
@@ -763,6 +765,11 @@
   background: linear-gradient(180deg, #161d2e, #0c1120);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0 0 9px 9px;
+}
+.ttg-card .cn-val {
+  color: var(--ttg-accent);
+  font-weight: 900;
+  font-size: 11px;
 }
 .ttg-card .ct {
   display: none;
