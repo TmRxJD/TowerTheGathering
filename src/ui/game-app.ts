@@ -1309,8 +1309,10 @@ export class GameApp {
    *  through smarter/stronger cards, not just raw life. */
   private aiCardLevels(): CardLevels {
     const level = Math.min(CARD_MAX_LEVEL, 1 + Math.floor((this.tier - 1) / 3))
-    // From tier 13 the bosses' masteries come online and level up with the tier (13→1 … 21→9).
-    const mastery = this.tier >= 13 ? Math.min(MASTERY_MAX_LEVEL, this.tier - 12) : 0
+    // Bosses' masteries come online at tier 13 and climb, but cap at 6 — roughly what a diligent
+    // player can field by the top tiers on the lean economy, so the endgame is a hard fight, not an
+    // unbeatable card gap. (MASTERY_MAX_LEVEL kept imported for the collection UI.)
+    const mastery = this.tier >= 13 ? Math.min(6, this.tier - 12) : 0
     const out: CardLevels = {}
     for (const id of ALL_CARD_IDS) out[id] = { level, mastery }
     return out
