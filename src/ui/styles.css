@@ -668,23 +668,32 @@
   position: relative;
   flex: 0 0 auto;
   width: 90px;
-  height: 120px;
   border-radius: 10px;
   border: 1px solid var(--r-common);
   background: var(--ttg-panel-2);
-  background-size: cover;
-  background-position: center 28%;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
   transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s;
-  box-shadow: inset 0 -44px 34px -22px rgba(0, 0, 0, 0.92), 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+/* The art box carries the illustration; its 4:3 aspect matches the art so `cover` fills it with
+   no side-crop and no letterbox gaps. It clips/rounds the art; the card itself stays overflow-
+   visible so the cost/level badges can sit proud of the corners. The name is its own bar below. */
+.ttg-card .card-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background-color: #0c1830;
+  border-radius: 9px 9px 0 0;
+  overflow: hidden;
 }
 .ttg-card[data-rarity='rare'] {
   border-color: var(--r-rare);
 }
 .ttg-card[data-rarity='epic'] {
   border-color: var(--r-epic);
-  box-shadow: inset 0 -44px 34px -22px rgba(0, 0, 0, 0.92), 0 4px 10px rgba(0, 0, 0, 0.5),
-    0 0 14px -2px rgba(199, 139, 255, 0.5);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 14px -2px rgba(199, 139, 255, 0.5);
 }
 .ttg-card:hover {
   transform: translateY(-12px) scale(1.04);
@@ -737,31 +746,34 @@
   text-align: center;
   border: 2px solid #0b0e14;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  z-index: 2;
 }
+/* Name in its own bar below the art — never overlapping the illustration. */
 .ttg-card .cn {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 22px;
+  flex: 1 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2px 3px;
   font-size: 10px;
   font-weight: 800;
-  text-shadow: 0 1px 3px #000;
+  line-height: 1.05;
+  color: var(--ttg-text);
+  background: linear-gradient(180deg, #161d2e, #0c1120);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0 0 9px 9px;
 }
 .ttg-card .ct {
-  position: absolute;
-  left: 4px;
-  bottom: 5px;
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  color: var(--ttg-dim);
-  text-transform: uppercase;
+  display: none;
 }
 .ttg-card .stat-row {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
+  bottom: 3px;
+  right: 3px;
   display: flex;
   gap: 3px;
+  z-index: 2;
 }
 .ttg-card .stat-row b {
   font-size: 12px;
@@ -875,10 +887,11 @@
   border-color: var(--r-epic);
 }
 .pv-art {
-  height: 116px;
+  width: 100%;
+  aspect-ratio: 4 / 3; /* fills with cover — no gaps, no side crop */
   border-radius: 8px;
-  background-size: cover;
-  background-position: center 22%;
+  overflow: hidden;
+  background-color: #0c1830;
   margin-bottom: 8px;
   border: 1px solid var(--ttg-line);
 }
@@ -1092,23 +1105,14 @@
   max-width: 540px;
 }
 .ttg-card.mini {
-  width: 60px;
-  height: 82px;
-  box-shadow: inset 0 -30px 22px -16px rgba(0, 0, 0, 0.92);
+  width: 74px; /* wider + auto height: art box is 74×55 (4:3), name bar below */
 }
 .ttg-card.mini:hover {
   transform: translateY(-6px) scale(1.06);
 }
 .ttg-card.mini .cn {
-  font-size: 7.5px;
-  line-height: 1.05;
-  bottom: 14px;
-  white-space: normal; /* let long names (Negative Mass Projector) wrap instead of clipping */
-  max-height: 2.2em;
-  overflow: hidden;
-}
-.ttg-card.mini .ct {
-  display: none;
+  font-size: 8px;
+  min-height: 2.1em;
 }
 .ttg-card.mini .cost {
   width: 18px;
@@ -1287,14 +1291,13 @@
   margin: 2px 0 8px;
 }
 .detail-art {
-  width: 132px;
-  height: 132px;
+  width: 208px;
+  max-width: 100%;
+  aspect-ratio: 4 / 3; /* matches the art so cover fills it — no gaps above/below, no side crop */
   margin: 0 auto 10px;
   border-radius: 10px;
-  background-size: contain; /* show the whole illustration — never crop it */
-  background-repeat: no-repeat;
-  background-position: center;
-  background-color: #0c0710;
+  overflow: hidden;
+  background-color: #0c1830;
   border: 1px solid var(--ttg-line);
 }
 .detail-level {

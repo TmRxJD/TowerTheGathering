@@ -206,7 +206,7 @@ describe('card levels + mastery', () => {
       seed: 'lvl',
       shuffle: false,
       firstPlayer: 'HUMAN',
-      // Damage level 6 (value 3) + mastery level 1 (+1) => +4 ATK.
+      // Damage level 6 (value 6) + mastery level 1 (+1) => +7 ATK.
       cardLevels: { HUMAN: { damage: { level: 6, mastery: 1 } } },
     })
     pass(e) // t1 → AI
@@ -215,8 +215,8 @@ describe('card levels + mastery', () => {
     pass(e) // AI → t3 (mana 3)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
-    pass(e) // combat: land-mine base 1 ATK + Damage(+4) = 5 to AI face
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 5)
+    pass(e) // combat: land-mine base 1 ATK + Damage(+7) = 8 to AI face
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 8)
   })
 })
 

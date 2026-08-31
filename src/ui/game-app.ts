@@ -769,13 +769,16 @@ export class GameApp {
     const node = this.div('ttg-card enter')
     node.dataset.card = String(uid)
     node.dataset.rarity = def.rarity
-    this.applyArt(node, cardId)
     node.title = def.text
     const stats =
       def.type === 'UNIT'
         ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`
         : ''
-    node.innerHTML = `<div class="cost">${def.cost}</div><div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
+    node.innerHTML =
+      `<div class="cost">${def.cost}</div>` +
+      `<div class="card-art">${stats}</div>` +
+      `<div class="cn">${def.name}</div><div class="ct">${def.type}</div>`
+    this.applyArt(node.querySelector('.card-art') as HTMLElement, cardId)
     node.addEventListener('click', () => this.onCardClick(uid))
     node.addEventListener('mouseenter', () => this.showPreview(cardId, node.getBoundingClientRect()))
     node.addEventListener('mouseleave', () => this.hidePreview())
@@ -1075,12 +1078,13 @@ export class GameApp {
       .join('')
     this.previewEl.dataset.rarity = def.rarity
     this.previewEl.innerHTML =
-      `<div class="pv-art" style="background-image:url('${cardArtUrl(cardId) ?? ''}')"></div>` +
+      `<div class="pv-art"></div>` +
       `<div class="pv-head"><span class="pv-cost">${def.cost}</span><span class="pv-name">${def.name}</span></div>` +
       `<div class="pv-meta">${def.type} · ${def.rarity}</div>` +
       (stats ? `<div class="pv-stats">${stats}</div>` : '') +
       `<div class="pv-text">${def.text}</div>` +
       (kw ? `<div class="pv-kw">${kw}</div>` : '')
+    this.applyArt(this.previewEl.querySelector('.pv-art') as HTMLElement, cardId)
     this.previewEl.style.display = 'block'
     const r = this.rootRect()
     const pw = this.previewEl.offsetWidth
@@ -1373,13 +1377,14 @@ export class GameApp {
       `<div class="detail-card" data-rarity="${def.rarity}">` +
       `<div class="detail-rarity">${def.rarity.toUpperCase()} · ${def.type}${def.cost != null ? ` · ${def.cost}◆` : ''}</div>` +
       `<div class="detail-name">${def.name}</div>` +
-      `<div class="detail-art" style="background-image:url('${cardArtUrl(cardId) ?? ''}')"></div>` +
+      `<div class="detail-art"></div>` +
       `<div class="detail-effect"><b>${cur}</b> ${cardEffectLabel(cardId)}</div>` +
       `<div class="dtrack-label">Base Lv ${level}/${CARD_MAX_LEVEL}${mastery > 0 ? ` · ★ Mastery ${mastery}/${MASTERY_MAX_LEVEL}` : ''}</div>` +
       `<div class="detail-levels">${levelChips}</div>` +
       masterySection +
       `<div class="detail-btns"></div>` +
       `</div>`
+    this.applyArt(el.querySelector('.detail-art') as HTMLElement, cardId)
 
     const btns = el.querySelector('.detail-btns')!
     const back = document.createElement('button')
@@ -1539,27 +1544,21 @@ export class GameApp {
 
   /** A non-interactive card face (for reward/trim screens), with hover preview, an optional click,
    *  and an optional corner badge (e.g. how many copies you already run). */
-  /** Paint a card's art. Full-bleed tiles (.jpg base cards) fill via cover; transparent illustrations
-   *  (.webp UW/module art) are shown whole (contain) on a tile background so nothing is cropped. */
+  /** Paint card art onto `node` (a card's art box, or a board token). The art fills via `cover`; a
+   *  blue tile sits behind it so transparent .webp illustrations read on the same ground as the base
+   *  .jpg tiles. The art box shares the art's ~4:3 aspect, so cover neither crops sides nor gaps. */
   private applyArt(node: HTMLElement, cardId: string): void {
-    const def = getCard(cardId)
     const url = cardArtUrl(cardId) ?? ''
-    if (def.art.endsWith('.webp')) {
-      // Transparent art sits on a blue tile that mirrors the base .jpg cards, shown large but whole.
-      node.style.backgroundImage = `url('${url}'), radial-gradient(circle at 50% 38%, #24467a 0%, #0c1830 100%)`
-      node.style.backgroundSize = 'contain, cover'
-      node.style.backgroundRepeat = 'no-repeat, no-repeat'
-      node.style.backgroundPosition = 'center 36%, center'
-    } else {
-      node.style.backgroundImage = `url('${url}')`
-    }
+    node.style.backgroundImage = `url('${url}'), radial-gradient(circle at 50% 42%, #24467a 0%, #0c1830 100%)`
+    node.style.backgroundSize = 'cover, cover'
+    node.style.backgroundRepeat = 'no-repeat, no-repeat'
+    node.style.backgroundPosition = 'center, center'
   }
 
   private cardFace(cardId: string, extraCls: string, onClick: () => void, badge?: string): HTMLElement {
     const def = getCard(cardId)
     const node = this.div(`ttg-card ${extraCls}`.trim())
     node.dataset.rarity = def.rarity
-    this.applyArt(node, cardId)
     const stats =
       def.type === 'UNIT'
         ? `<div class="stat-row"><b class="a">${def.atk ?? 0}</b><b class="h">${def.hp ?? 0}</b></div>`
@@ -1567,7 +1566,9 @@ export class GameApp {
     node.innerHTML =
       `<div class="cost">${def.cost}</div>` +
       (badge ? `<div class="owned">${badge}</div>` : '') +
-      `<div class="cn">${def.name}</div><div class="ct">${def.type}</div>${stats}`
+      `<div class="card-art">${stats}</div>` +
+      `<div class="cn">${def.name}</div>`
+    this.applyArt(node.querySelector('.card-art') as HTMLElement, cardId)
     node.addEventListener('click', onClick)
     node.addEventListener('mouseenter', () => this.showPreview(cardId, node.getBoundingClientRect()))
     node.addEventListener('mouseleave', () => this.hidePreview())
