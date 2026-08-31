@@ -73,6 +73,18 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'demon-mode': { levels: [5, 5, 6, 7, 8, 9, 10], masteryName: 'Demon Revenge', masteryText: '+2 more ATK.', masteryBonus: 2 },
   nuke: { levels: [0, 0, 2, 2, 4, 4, 6], masteryName: 'Radiation', masteryText: 'Also deals 6 damage to the enemy Nexus.', masterySpecial: 'radiation' },
   'ultimate-crit': { levels: [3, 3, 3, 4, 4, 4, 5], masteryName: 'Ultimate Crit+', masteryText: '+1 more damage multiplier.', masteryBonus: 1 },
+
+  // --- Expansion cards ---
+  'chain-lightning': { levels: [3, 3, 4, 4, 5, 5, 6], masteryName: 'Overload', masteryText: '+1 more to every bolt.', masteryBonus: 1 },
+  'smart-missiles': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Cluster Warheads', masteryText: '+1 more damage per lane.', masteryBonus: 1 },
+  'black-hole': { levels: [3, 3, 4, 4, 5, 5, 6], masteryName: 'Singularity', masteryText: 'Destroys tougher units (+1 HP).', masteryBonus: 1 },
+  'chrono-field': { levels: [2, 2, 2, 3, 3, 3, 4], masteryName: 'Time Stop', masteryText: 'Freeze +1 more turn.', masteryBonus: 1 },
+  spotlight: { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Overexpose', masteryText: '+1 more ATK.', masteryBonus: 1 },
+  'death-wave': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Tsunami', masteryText: '+1 more damage each turn.', masteryBonus: 1 },
+  'golden-tower': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Gilded', masteryText: '+1 more temporary mana each turn.', masteryBonus: 1 },
+  'death-penalty': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Vengeance', masteryText: '+1 more Nexus damage per death.', masteryBonus: 1 },
+  'havoc-bringer': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Havoc+', masteryText: '+1 more ATK to your units.', masteryBonus: 1 },
+  'multiverse-nexus': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Wormhole', masteryText: 'The spawned token has +1 more HP.', masteryBonus: 1 },
 }
 
 /** How a card's numeric value is shown, and what the number MEANS (so the UI reads like the game). */
@@ -117,6 +129,16 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'demon-mode': { fmt: 'plus', label: 'ATK this turn (unit is sacrificed after)' },
   nuke: { fmt: 'flat', label: 'bonus Nexus damage (destroys all units)' },
   'ultimate-crit': { fmt: 'flat', label: '× damage straight to the Nexus (bypasses blockers)' },
+  'chain-lightning': { fmt: 'flat', label: 'damage to a target, then −1 to two more enemies' },
+  'smart-missiles': { fmt: 'flat', label: "damage to each lane's front enemy" },
+  'black-hole': { fmt: 'flat', label: 'max HP of the enemy destroyed in each lane' },
+  'chrono-field': { fmt: 'flat', label: 'turns all enemy units are frozen' },
+  spotlight: { fmt: 'plus', label: 'ATK to a friendly unit (permanent)' },
+  'death-wave': { fmt: 'flat', label: 'damage to every enemy unit each turn' },
+  'golden-tower': { fmt: 'plus', label: 'temporary mana each turn' },
+  'death-penalty': { fmt: 'flat', label: 'Nexus damage when a friendly unit dies' },
+  'havoc-bringer': { fmt: 'plus', label: 'ATK to all friendly units' },
+  'multiverse-nexus': { fmt: 'flat', label: 'HP of the Defender token spawned each turn' },
 }
 
 /** Format a card value for display per its fmt: percent (50%), additive (+2), or plain (5). */

@@ -72,6 +72,8 @@ const ULTIMATE_TARGET: Readonly<Record<string, TargetType>> = {
   'demon-mode': 'friendlyUnit',
   'recovery-package': 'friendlyUnit',
   'ultimate-crit': 'friendlyUnit',
+  'chain-lightning': 'enemyUnit',
+  spotlight: 'friendlyUnit',
 }
 
 class TowerEngine implements Engine {
@@ -399,6 +401,31 @@ class TowerEngine implements Engine {
       this.countModule(side, 'enemy-balance') * this.cardVal(side, 'enemy-balance')
     for (let i = 0; i < draws; i++) this.drawCard(p, events)
 
+    // Golden Tower: temporary mana at the start of each turn.
+    if (this.countModule(side, 'golden-tower') > 0) {
+      p.manaPool += this.cardVal(side, 'golden-tower') * this.countModule(side, 'golden-tower')
+      events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
+    }
+    // Death Wave: damage every enemy unit.
+    if (this.countModule(side, 'death-wave') > 0) {
+      const dmg = this.cardVal(side, 'death-wave') * this.countModule(side, 'death-wave')
+      const opp = this.opponent(side)
+      for (const lane of LANES) for (const u of [...this.lanes[lane][opp]]) this.damageUnit(u, dmg, null, false, events)
+      if (this.winner !== null) return
+    }
+    // Multiverse Nexus: spawn a Defender token in a random empty lane.
+    if (this.countModule(side, 'multiverse-nexus') > 0) {
+      const empty = LANES.filter(l => this.lanes[l][side].length === 0)
+      if (empty.length > 0) {
+        const lane = empty[this.rng.int(empty.length)] as Lane
+        const token = this.makeUnit(side, MINE_TOKEN.id, lane)
+        token.hp = this.cardVal(side, 'multiverse-nexus')
+        token.maxHp = token.hp
+        this.lanes[lane][side].unshift(token)
+        events.push({ type: 'unitPlaced', unit: token, index: 0 })
+      }
+    }
+
     this.phase = 'MAIN'
     events.push({ type: 'phaseChanged', phase: 'MAIN', side })
   }
@@ -688,7 +715,70 @@ class TowerEngine implements Engine {
         if (dmg > 0) this.damageNexus(this.opponent(side), dmg, events)
         break
       }
+      case 'chain-lightning': {
+        const first = this.unitByTarget(target)
+        if (first) {
+          const hit = new Set<number>()
+          let bolt = this.cardVal(side, 'chain-lightning')
+          let u: UnitInstance | undefined = first
+          while (u && bolt > 0) {
+            hit.add(u.uid)
+            this.damageUnit(u, bolt, null, false, events)
+            bolt -= 1
+            u = bolt > 0 ? this.biggestEnemyUnitExcept(side, hit) : undefined
+          }
+        }
+        break
+      }
+      case 'smart-missiles': {
+        const dmg = this.cardVal(side, 'smart-missiles')
+        for (const lane of LANES) {
+          const front = this.frontUnit(lane, this.opponent(side))
+          if (front) this.damageUnit(front, dmg, null, false, events)
+        }
+        break
+      }
+      case 'black-hole': {
+        const threshold = this.cardVal(side, 'black-hole')
+        const opp = this.opponent(side)
+        for (const lane of LANES) {
+          let weakest: UnitInstance | undefined
+          for (const u of this.lanes[lane][opp]) if (!weakest || u.hp < weakest.hp) weakest = u
+          if (weakest && weakest.hp <= threshold) this.killUnit(weakest, events)
+        }
+        break
+      }
+      case 'chrono-field': {
+        const turns = this.cardVal(side, 'chrono-field')
+        const opp = this.opponent(side)
+        for (const lane of LANES) {
+          for (const u of this.lanes[lane][opp]) {
+            u.frozenTurns = Math.max(u.frozenTurns, turns)
+            events.push({ type: 'unitFrozen', uid: u.uid, turns: u.frozenTurns })
+          }
+        }
+        break
+      }
+      case 'spotlight': {
+        const u = this.unitByTarget(target)
+        if (u) {
+          u.atk += this.cardVal(side, 'spotlight')
+          events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
+        }
+        break
+      }
     }
+  }
+
+  /** Highest-HP enemy unit of `side`'s foe not already in `exclude`. For Chain Lightning. */
+  private biggestEnemyUnitExcept(side: Side, exclude: Set<number>): UnitInstance | undefined {
+    const opp = this.opponent(side)
+    let best: UnitInstance | undefined
+    for (const lane of LANES) for (const u of this.lanes[lane][opp]) {
+      if (exclude.has(u.uid)) continue
+      if (!best || u.hp > best.hp) best = u
+    }
+    return best
   }
 
   /** The enemy unit (of `side`'s foe) with the most HP, excluding `excludeUid`. For Elite Cannon. */
@@ -904,6 +994,10 @@ class TowerEngine implements Engine {
     if (unit.atk > 0 && this.hasMasterySpecial(unit.owner, unit.cardId, 'viking-funeral')) {
       this.damageNexus(this.opponent(unit.owner), unit.atk, events)
     }
+    // Death Penalty module: a friendly death punishes the enemy Nexus.
+    if (this.countModule(unit.owner, 'death-penalty') > 0) {
+      this.damageNexus(this.opponent(unit.owner), this.cardVal(unit.owner, 'death-penalty'), events)
+    }
     // Fortress Walls mastery: rebuild a small wall in the lane once (the token can't re-trigger).
     if (this.hasMasterySpecial(unit.owner, unit.cardId, 'fortress-walls')) {
       const wall = this.makeUnit(unit.owner, MINE_TOKEN.id, unit.lane)
@@ -1073,6 +1167,7 @@ class TowerEngine implements Engine {
     atk += this.countModule(side, 'damage') * this.cardVal(side, 'damage')
     atk += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
     atk += this.countModule(side, 'range') * this.cardVal(side, 'range')
+    atk += this.countModule(side, 'havoc-bringer') * this.cardVal(side, 'havoc-bringer')
     if (unit.cardId === 'extra-orbs') atk += this.countModule(side, 'orbs-speed') * this.cardVal(side, 'orbs-speed')
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy).
     atk += this.countModule(this.opponent(side), 'enemy-balance')

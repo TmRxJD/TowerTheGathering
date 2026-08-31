@@ -239,6 +239,21 @@ describe('ultimates', () => {
     expect(stack(e, 'CENTER', 'AI')[0]?.hp).toBe(2) // ceil(4/2) = 2 removed
   })
 
+  it('Smart Missiles hits the front enemy unit in every lane', () => {
+    const e = build(['smart-missiles'], ['berserker']) // berserker 2/4
+    for (let i = 0; i < 3; i++) {
+      pass(e)
+      pass(e)
+    } // → HUMAN t4; AI had t1..t3
+    pass(e) // HUMAN t4 → AI t4 (mana 4)
+    e.apply({ kind: 'playUnit', uid: uidOf(e, 'AI', 'berserker'), lane: 'CENTER' })
+    pass(e) // AI combat → HUMAN t5 (mana 5)
+    const zerk = stack(e, 'CENTER', 'AI')[0]!
+    expect(zerk.hp).toBe(4)
+    e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'smart-missiles') })
+    expect(stack(e, 'CENTER', 'AI')[0]?.hp).toBe(2) // took 2
+  })
+
   it('Nuke clears every unit on both sides', () => {
     const e = build(['nuke', 'land-mine-stun'], ['fortress'])
     // HUMAN drops a unit, AI drops one (both need mana 2), then HUMAN nukes at mana 8.
