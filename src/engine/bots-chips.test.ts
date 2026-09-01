@@ -116,7 +116,8 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(3 * COMBAT_SCALE)
     toHumanMana(e, 2)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'guardian-scout') })
-    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(2 * COMBAT_SCALE) // 3 − 1
+    const orbAtk = 3 * COMBAT_SCALE
+    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(orbAtk - Math.round(orbAtk * 0.1)) // −10% of ATK at L1
   })
 
   it('Flame Bot weakens an enemy unit’s ATK immediately (−1)', () => {

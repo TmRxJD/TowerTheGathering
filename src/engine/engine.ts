@@ -422,7 +422,8 @@ class TowerEngine implements Engine {
     const regenDisabled = this.skillOf(this.opponent(side)) === 'vampire'
     // Start-of-turn: Health Regen (per copy, scaled by level).
     if (!regenDisabled && this.countModule(side, 'health-regen') > 0) {
-      const amt = this.cardVal(side, 'health-regen') * this.countModule(side, 'health-regen')
+      // Copy scaling capped at 2 — ×3 stacked to +210/turn healing the Tower AND every unit (unkillable).
+      const amt = this.cardVal(side, 'health-regen') * Math.min(2, this.countModule(side, 'health-regen'))
       this.healNexus(side, amt, events)
       for (const lane of LANES) {
         for (const u of this.lanes[lane][side]) this.healUnit(u, amt, events)
@@ -459,11 +460,12 @@ class TowerEngine implements Engine {
       if (target) this.damageUnit(target, hook, null, false, events)
       if (this.winner !== null) return
     }
-    // Om Chip: focus fire — your strongest unit gains ATK each turn.
+    // Om Chip: focus fire — your strongest unit gains a % of its own ATK each turn (was a flat +ATK/turn
+    // that snowballed one unit into the hundreds; a % compounds gently and scales with the unit).
     if (this.countModule(side, 'om-chip') > 0) {
       const focus = this.strongestOwnUnit(side)
       if (focus) {
-        focus.atk += this.cardVal(side, 'om-chip') * this.countModule(side, 'om-chip')
+        focus.atk += Math.round(focus.atk * this.cardVal(side, 'om-chip') * this.countModule(side, 'om-chip'))
         events.push({ type: 'unitBuffed', uid: focus.uid, atk: focus.atk, hp: focus.hp })
       }
     }
@@ -1234,12 +1236,13 @@ class TowerEngine implements Engine {
     u.hp -= amount
     events.push({ type: 'damage', targetUid: u.uid, amount, sourceUid: plan.attackerUid, crit: plan.crit })
     damaged.set(u.uid, plan.attackerUid)
-    // Pulsar Harvester: the attacker's side saps a surviving enemy's ATK.
+    // Pulsar Harvester: the attacker's side saps a % of a surviving enemy's ATK (permanent decay). Was
+    // a flat −70/hit that quickly zeroed anything it touched.
     const attacker = this.findUnit(plan.attackerUid)
     if (attacker && u.hp > 0 && u.owner === this.opponent(attacker.owner)) {
-      const sap = this.countModule(attacker.owner, 'pulsar-harvester') * this.cardVal(attacker.owner, 'pulsar-harvester')
-      if (sap > 0) {
-        u.atk = Math.max(0, u.atk - sap)
+      const sapPct = this.countModule(attacker.owner, 'pulsar-harvester') * this.cardVal(attacker.owner, 'pulsar-harvester')
+      if (sapPct > 0) {
+        u.atk = Math.max(0, u.atk - Math.round(u.atk * Math.min(1, sapPct)))
         events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
       }
     }
@@ -1501,32 +1504,33 @@ class TowerEngine implements Engine {
     let atk = unit.atk
     // Army-wide % ATK buffs (a fraction of the unit's OWN base ATK, so they scale your attackers and
     // leave 0-ATK walls as walls). Additive across copies/cards, then applied to the base once.
+    const opp = this.opponent(side)
     let pct = 0
     pct += this.countModule(side, 'damage') * this.cardVal(side, 'damage')
     pct += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
     pct += this.countModule(side, 'amplify-bot') * this.cardVal(side, 'amplify-bot') * this.botAmp(side)
     pct += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
+    // Range grants Reach; its ATK bump is a % too (a flat army-wide add is the OP shape we removed).
+    pct += this.countModule(side, 'range') * this.cardVal(side, 'range')
     // Project Funding: a % ATK buff that scales with your banked mana (per 3 in pool). Was flat ×scale
     // (up to +210/unit army-wide) — the same OP shape as Damage, so it is a percent now too.
     pct += this.countModule(side, 'project-funding') * this.cardVal(side, 'project-funding') * Math.floor(this.players[side].manaPool / 3)
     if (pct > 0) atk += Math.round(unit.atk * pct)
-    // Flat ATK auras (Range grants Reach; its ATK bump stays flat).
-    atk += this.countModule(side, 'range') * this.cardVal(side, 'range')
     if (unit.cardId === 'extra-orbs') atk += this.countModule(side, 'orbs-speed') * this.cardVal(side, 'orbs-speed')
     // Singularity Harness: supercharges your "bots" — Mine/Wall tokens gain ATK.
     if (unit.cardId === MINE_TOKEN.id)
       atk += this.countModule(side, 'singularity-harness') * this.cardVal(side, 'singularity-harness')
-    // (Amplify Bot / Bot Bot / Project Funding are % ATK buffs — applied with the army-wide percents.)
     // Commander enemy skill: it buffs its whole army with bonus ATK.
     if (this.skillOf(side) === 'commander') atk += ENEMY_SKILL.commanderAtk
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy, ×scale).
-    atk += this.countModule(this.opponent(side), 'enemy-balance') * COMBAT_SCALE
-    // Negative Mass Projector: the enemy's projector saps this unit's ATK.
-    atk -= this.countModule(this.opponent(side), 'negative-mass-projector') * this.cardVal(this.opponent(side), 'negative-mass-projector')
-    // Scout Chip / Flame Bot: the enemy's recon and burn sap this unit's ATK (Scout by level, burn −1).
-    const opp = this.opponent(side)
-    atk -= this.countModule(opp, 'guardian-scout') * this.cardVal(opp, 'guardian-scout')
-    atk -= this.countModule(opp, 'flame-bot') * COMBAT_SCALE // burned units deal less per Flame Bot
+    atk += this.countModule(opp, 'enemy-balance') * COMBAT_SCALE
+    // Enemy ATK-sap auras are a % of this unit's ATK now — a flat −70 zeroed the whole enemy board.
+    let redPct = 0
+    redPct += this.countModule(opp, 'negative-mass-projector') * this.cardVal(opp, 'negative-mass-projector')
+    redPct += this.countModule(opp, 'guardian-scout') * this.cardVal(opp, 'guardian-scout') // Scout Chip
+    if (redPct > 0) atk -= Math.round(atk * Math.min(1, redPct))
+    // Flame Bot: burned units deal a flat bit less per Flame Bot.
+    atk -= this.countModule(opp, 'flame-bot') * COMBAT_SCALE
     if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
     return Math.max(0, atk)
   }

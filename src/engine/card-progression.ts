@@ -29,9 +29,9 @@ export const MASTERY_MAX_LEVEL = 9
 export const COMBAT_CARDS: ReadonlySet<string> = new Set([
   // units
   'fortress', 'extra-orbs', 'berserker', 'land-mine-stun',
-  // flat ATK buffs / army (the % army buffs — damage/attack-speed/amplify-bot/bot-bot/project-funding
-  // — are excluded; project-funding is now a % of ATK per 3 mana)
-  'range', 'om-chip', 'super-tower', 'orbs-speed',
+  // flat ATK buffs / army — the % buffs (damage/attack-speed/amplify-bot/bot-bot/project-funding/range/
+  // om-chip) are excluded and scale off the unit's own ATK instead.
+  'super-tower', 'orbs-speed',
   'singularity-harness', 'guardian-ally',
   // HP / heal / defense
   'health', 'health-regen', 'sharp-fortitude', 'wormhole-redirector', 'recovery-package', 'package-chance',
@@ -40,8 +40,9 @@ export const COMBAT_CARDS: ReadonlySet<string> = new Set([
   'death-ray', 'nuke', 'chain-lightning', 'smart-missiles', 'death-wave', 'inner-land-mines', 'poison-swamp',
   'black-hole', 'magnetic-hook', 'demon-mode', 'astral-deliverance', 'anti-cube-portal', 'havoc-bringer',
   'dimension-core', 'flame-bot', 'guardian-attack', 'guardian-summon', 'guardian-fetch', 'spotlight',
-  // ATK reduction
-  'shrink-ray', 'negative-mass-projector', 'pulsar-harvester', 'guardian-scout',
+  // ATK reduction — Shrink Ray stays flat (a one-shot targeted ultimate); the persistent −ATK auras
+  // (negative-mass-projector/pulsar-harvester/guardian-scout) are % of the enemy's ATK, not flat.
+  'shrink-ray',
 ])
 
 export type MasterySpecial =
@@ -77,7 +78,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'attack-speed': { levels: [0.15, 0.25, 0.35, 0.45, 0.55, 0.7, 0.85], masteryName: 'Attack Speed+', masteryText: 'Your units deal +5% more, per level.', masteryBonus: 0.05 },
   health: { levels: [5, 7, 9, 11, 13, 15, 18], masteryName: 'Health+', masteryText: '+2 more max Tower HP per level.', masteryBonus: 2 },
   'health-regen': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Health Regen+', masteryText: '+1 more healing each turn, per level.', masteryBonus: 1 },
-  range: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Long Shot', masteryText: 'Reaching units deal +1 more, per level.', masteryBonus: 1 },
+  range: { levels: [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5], masteryName: 'Long Shot', masteryText: '+5% ATK per mastery level.', masteryBonus: 0.05 },
   coins: { levels: [10, 15, 20, 25, 30, 40, 50], masteryName: 'Interest', masteryText: '+10 more bonus coins per level.', masteryBonus: 10 },
   // Duration (turns tapped): a small integer — a 7-turn lock on every entering enemy is a soft stun-lock.
   'slow-aura': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Slow Attack', masteryText: 'Control card — duration caps low by design (a long tap is a lock).', masteryBonus: 0 },
@@ -131,7 +132,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
 
   // --- Armor modules (defense) ---
   'anti-cube-portal': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Aftershock', masteryText: '+1 shockwave damage per level.', masteryBonus: 1 },
-  'negative-mass-projector': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Heavy', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
+  // % of every enemy unit's ATK removed — was flat −70 (zeroed the whole enemy board at max).
+  'negative-mass-projector': { levels: [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5], masteryName: 'Heavy', masteryText: '−5% more enemy ATK per mastery level.', masteryBonus: 0.05 },
   'sharp-fortitude': { levels: [4, 6, 8, 10, 12, 14, 16], masteryName: 'Barbed', masteryText: '+1 max Tower HP per level.', masteryBonus: 1 },
   'wormhole-redirector': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Conduit', masteryText: '+1 Tower recovery each turn, per level.', masteryBonus: 1 },
   'space-displacer': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Organize', masteryText: '+1 mine HP per level.', masteryBonus: 1 },
@@ -142,7 +144,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'galaxy-compressor': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Recover', masteryText: 'Cost card — reduction caps low by design (min cost is always 1).', masteryBonus: 0 },
   // % army ATK per 3 mana (was flat ×scale = up to +210/unit army-wide, the same OP shape as Damage).
   'project-funding': { levels: [0.05, 0.07, 0.09, 0.11, 0.14, 0.18, 0.22], masteryName: 'Investment', masteryText: '+2% ATK per 3 mana, per mastery level.', masteryBonus: 0.02 },
-  'pulsar-harvester': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Decay', masteryText: '−1 more enemy ATK on hit per level.', masteryBonus: 1 },
+  // % of the enemy's ATK sapped on hit (stacks over repeated hits) — was flat −70/hit.
+  'pulsar-harvester': { levels: [0.05, 0.08, 0.11, 0.14, 0.17, 0.21, 0.25], masteryName: 'Decay', masteryText: '−2% more enemy ATK on hit per mastery level.', masteryBonus: 0.02 },
   'singularity-harness': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Bot Boost', masteryText: '+1 more token ATK per level.', masteryBonus: 1 },
 
   // --- Core modules (ultimate weapons) ---
@@ -152,7 +155,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'magnetic-hook': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Reel', masteryText: '+1 hook damage per level.', masteryBonus: 1 },
   // Free Ultimates after a paid one: 7 free casts empties your hand for free — cap the count low.
   'multiverse-nexus': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Synchrony', masteryText: 'Combo card — free-cast count caps low by design.', masteryBonus: 0 },
-  'om-chip': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Focus', masteryText: '+1 focus ATK per level.', masteryBonus: 1 },
+  // % of the focused unit's own ATK added each turn (compounds gently) — was a flat +70/turn snowball.
+  'om-chip': { levels: [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5], masteryName: 'Focus', masteryText: '+5% more focus ATK per mastery level.', masteryBonus: 0.05 },
 
   // --- Bots ---
   'flame-bot': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
@@ -169,7 +173,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'guardian-bounty': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Jackpot', masteryText: '+1 card drawn per level.', masteryBonus: 1 },
   'guardian-fetch': { levels: [3, 4, 5, 6, 7, 8, 10], masteryName: 'Big Haul', masteryText: '+1 HP stolen per level.', masteryBonus: 1 },
   'guardian-summon': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Swarm', masteryText: '+1 token ATK/HP per level.', masteryBonus: 1 },
-  'guardian-scout': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Recon', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
+  // Scout Chip: % of every enemy unit's ATK removed — was flat −70 (×2 copies zeroed the board).
+  'guardian-scout': { levels: [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5], masteryName: 'Recon', masteryText: '−5% more enemy ATK per mastery level.', masteryBonus: 0.05 },
 }
 
 /** How a card's numeric value is shown, and what the number MEANS (so the UI reads like the game). */
@@ -189,7 +194,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'attack-speed': { fmt: 'percent', label: 'more ATK for your units (grants First Strike)' },
   health: { fmt: 'plus', label: 'max Tower HP (healed on play)' },
   'health-regen': { fmt: 'plus', label: 'HP healed to Tower & units each turn' },
-  range: { fmt: 'plus', label: 'ATK to units (grants Reach)' },
+  range: { fmt: 'percent', label: 'more unit ATK (grants Reach)' },
   coins: { fmt: 'flat', label: 'bonus coins on a win (per copy in play)' },
   'slow-aura': { fmt: 'flat', label: 'turns enemy units enter tapped' },
   'critical-chance': { fmt: 'percent', label: 'chance on hit to deal 2× damage' },
@@ -232,7 +237,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'shrink-ray': { fmt: 'flat', label: 'ATK shrunk off an enemy unit (permanent)' },
   // Armor modules
   'anti-cube-portal': { fmt: 'flat', label: "shockwave damage to neighboring lanes' enemy fronts" },
-  'negative-mass-projector': { fmt: 'flat', label: 'ATK removed from all enemy units' },
+  'negative-mass-projector': { fmt: 'percent', label: 'ATK removed from all enemy units' },
   'sharp-fortitude': { fmt: 'plus', label: 'max Tower HP (healed); attackers take 1 thorns' },
   'wormhole-redirector': { fmt: 'flat', label: 'Tower HP recovered at the start of each turn' },
   'space-displacer': { fmt: 'flat', label: 'HP of a Mine spawned in each empty lane each turn' },
@@ -240,14 +245,14 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'black-hole-digestor': { fmt: 'flat', label: 'temporary mana each turn per Module you control' },
   'galaxy-compressor': { fmt: 'flat', label: 'less Ultimate cost on turns you heal your Tower' },
   'project-funding': { fmt: 'percent', label: 'more unit ATK per 3 mana in your pool' },
-  'pulsar-harvester': { fmt: 'flat', label: 'ATK removed from an enemy your unit damages' },
+  'pulsar-harvester': { fmt: 'percent', label: "ATK sapped from an enemy your unit damages" },
   'singularity-harness': { fmt: 'plus', label: 'ATK to your Mine & Wall tokens (your "bots")' },
   // Core modules
   'dimension-core': { fmt: 'plus', label: 'damage to your damage-dealing Ultimates' },
   'harmony-conductor': { fmt: 'flat', label: 'enemy front units that miss their attack each turn' },
   'magnetic-hook': { fmt: 'flat', label: 'damage to the strongest enemy unit each turn' },
   'multiverse-nexus': { fmt: 'flat', label: 'synced free Ultimate(s) after you play one (they fire together)' },
-  'om-chip': { fmt: 'plus', label: 'ATK to your strongest unit each turn' },
+  'om-chip': { fmt: 'percent', label: "more ATK for your strongest unit each turn" },
   // Bots
   'flame-bot': { fmt: 'flat', label: 'burn damage to all enemy units each turn (they get −1 ATK)' },
   'thunder-bot': { fmt: 'flat', label: 'turns the strongest enemy unit is stunned each turn' },
@@ -260,7 +265,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'guardian-bounty': { fmt: 'flat', label: 'cards drawn' },
   'guardian-fetch': { fmt: 'flat', label: 'HP stolen from the enemy Tower (then draw 1)' },
   'guardian-summon': { fmt: 'flat', label: 'ATK/HP of an Ally summoned in each empty lane' },
-  'guardian-scout': { fmt: 'flat', label: 'ATK removed from all enemy units' },
+  'guardian-scout': { fmt: 'percent', label: 'ATK removed from all enemy units' },
 }
 
 /** Format a card value for display per its fmt: percent (50%), additive (+2), or plain (5). */

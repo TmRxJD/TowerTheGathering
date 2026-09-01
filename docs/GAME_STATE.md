@@ -270,8 +270,9 @@ Combat constants are shown at their real ×10 value (`COMBAT_SCALE = 10`).
 
 Format: **Name** (unit stats) · rarity · mana cost · L1→L7 (the levelled value, as displayed) · mastery
 name · effect. Numbers are the real in‑engine values from `card-progression.ts` (combat values ×10).
-The four **% army buffs** (Damage, Attack Speed, Amplify Bot, Bot Bot) add a percentage of each unit's
-own ATK, so they scale your attackers gradually and leave 0‑ATK walls as walls.
+**% ATK cards** (Damage, Attack Speed, Amplify Bot, Bot Bot, Range, Project Funding, Om Chip — and the
+enemy‑sapping Negative Mass Projector, Scout Chip, Pulsar Harvester) work off a percentage of a unit's
+own ATK, so they scale gradually, leave 0‑ATK walls as walls, and never zero the board with a flat number.
 
 ### UNITS
 
@@ -288,9 +289,9 @@ own ATK, so they scale your attackers gradually and leave 0‑ATK walls as walls
 |---|---|---|---|---|---|
 | **Damage** | common | 1 | 20%→90% | Damage+ | All your units deal +% of their own ATK. (+5%/mastery.) |
 | **Attack Speed** | common | 2 | 15%→85% | Attack Speed+ | Your units gain First Strike and deal +% of their own ATK. |
-| **Range** | common | 1 | +10→+70 ATK | Long Shot | Your units gain Reach and +ATK. |
+| **Range** | common | 1 | 10%→50% | Long Shot | Your units gain Reach and +% of their own ATK. |
 | **Health** | common | 2 | +50→+180 HP | Health+ | +max Tower HP immediately (and heal that much). |
-| **Health Regen** | common | 2 | +10→+70 HP | Health Regen+ | Start of turn: heal your Tower and all units. |
+| **Health Regen** | common | 2 | +10→+70 HP | Health Regen+ | Start of turn: heal your Tower and all units (copy scaling caps at 2). |
 | **Coins** | common | 1 | 10→50 | Interest | Bonus coins on a win, per copy in play. (Economy.) |
 | **Critical Chance** | common | 2 | 30%→60% | Super Crit | Your units have a % chance on hit to deal 2× damage. |
 | **Enemy Balance** | common | 1 | 1→3 | Elite Balance | Draw +N cards each turn, but all enemy units get +10 ATK. (Count capped — extra draws compound fast.) |
@@ -302,7 +303,7 @@ own ATK, so they scale your attackers gradually and leave 0‑ATK walls as walls
 | **Orbs Speed** | rare | 2 | +20→+80 ATK | Orbs Speed+ | +ATK to your Extra Orbs units. |
 | **Golden Bot** | rare | 2 | 2→10 | Gold Rush | Coins farmed each turn (banked on a win). |
 | **Amplify Bot** | rare | 3 | 10%→50% | Overdrive | Amplify: all your units deal +% of their own ATK. |
-| **Scout Chip** | rare | 2 | 10→70 | Recon | All enemy units have −ATK. |
+| **Scout Chip** | rare | 2 | 10%→50% | Recon | Removes % of every enemy unit’s ATK. |
 | **Thunder Bot** | rare | 3 | 1→3 | Linger | Start of turn: stun the strongest enemy N turns (×Bot Bot). Duration capped. |
 | **Inner Land Mines** | rare | 3 | 20→80 | Charged Mines | Damage to each enemy unit as it enters a lane. |
 | **Golden Tower** | rare | 3 | 2→10 | Golden Combo | Coins farmed per enemy killed (banked on a win). |
@@ -317,20 +318,20 @@ own ATK, so they scale your attackers gradually and leave 0‑ATK walls as walls
 | **Havoc Bringer** | epic | 4 | +10→+70 | Rend Max | Enemy units take +N damage from your attacks. |
 | **Astral Deliverance** | epic | 4 | 10→70 | Ricochet | Bounce damage to the enemy behind your target. |
 | **Anti‑Cube Portal** | epic | 4 | 10→70 | Aftershock | Shockwave damage to neighboring lanes' enemy fronts. |
-| **Negative Mass Projector** | epic | 3 | 10→70 | Heavy | −ATK from all enemy units. |
+| **Negative Mass Projector** | epic | 3 | 10%→50% | Heavy | Removes % of every enemy unit’s ATK. |
 | **Sharp Fortitude** | epic | 4 | +40→+160 HP | Barbed | +max Tower HP (healed); attackers take thorns. |
 | **Wormhole Redirector** | epic | 3 | 10→70 | Conduit | Tower HP recovered at the start of each turn. |
 | **Space Displacer** | epic | 4 | 10→70 | Organize | HP of a Mine spawned in each empty lane each turn. |
 | **Black Hole Digestor** | epic | 3 | 1→7 | Digest | +temp mana each turn (× copies, NOT × module count). |
 | **Galaxy Compressor** | epic | 3 | 1→3 | Recover | Less Ultimate cost on turns you heal your Tower. Reduction capped. |
 | **Project Funding** | epic | 4 | 5%→22% | Investment | +% of unit ATK per 3 mana in your pool (was flat; now a % army buff). |
-| **Pulsar Harvester** | epic | 4 | 10→70 | Decay | −ATK from an enemy your unit damages. |
+| **Pulsar Harvester** | epic | 4 | 5%→25% | Decay | Saps % of the ATK of an enemy your unit damages (stacks per hit). |
 | **Singularity Harness** | epic | 3 | +10→+70 ATK | Bot Boost | +ATK to your Mine & Wall tokens. |
 | **Dimension Core** | epic | 4 | +10→+70 | Overcharge | +damage to your damage‑dealing Ultimates. |
 | **Harmony Conductor** | epic | 4 | 1→3 | Discord | N enemy fronts miss their attack each turn (caps at 3 = the board). |
 | **Magnetic Hook** | epic | 4 | 20→80 | Reel | Damage to the strongest enemy unit each turn. |
 | **Multiverse Nexus** | epic | 4 | 1→4 | Synchrony | After you play an Ultimate, sync N free ones (fire together). Count capped. |
-| **Om Chip** | epic | 3 | +10→+70 ATK | Focus | Start of turn: your strongest unit gains +ATK. |
+| **Om Chip** | epic | 3 | 10%→50% | Focus | Start of turn: your strongest unit gains +% of its own ATK (compounds). |
 | **Flame Bot** | epic | 3 | 20→80 | Burn Stack | Burn all enemy units each turn (they also get −10 ATK). |
 | **Bot Bot** | epic | 3 | 15%→55% | Maximum Power | Your units deal +% ATK; doubles your other Bots. |
 
