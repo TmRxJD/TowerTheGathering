@@ -746,7 +746,9 @@ export class GameApp {
       dots += `<span class="dot ${cls}"></span>`
     }
     const cond = this.tier >= BATTLE_CONDITION_TIER ? ' <span class="cond">⚠ conditions</span>' : ''
-    this.ladderEl.innerHTML = `<b>${tierName(this.tier)}</b> · Enemy ${this.bossIndex}/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>${cond}`
+    this.ladderEl.innerHTML =
+      `<div class="lad-l1"><b>${tierName(this.tier)}</b> · Enemy ${this.bossIndex}/${BOSS_DECKS.length}</div>` +
+      `<div class="lad-l2">${boss.name} <span class="pipline">${dots}</span>${cond}</div>`
     this.updateBossSelectGating()
     // The Autoplay button only exists while a demo is running (pause/resume). Real runs never show it.
     this.watchBtn.style.display = this.demo ? '' : 'none'
@@ -1665,7 +1667,8 @@ export class GameApp {
 
   /** Full card detail (mirrors the game): rarity, art, one effect line, a level strip, and the
    *  Mastery track. One number, one place — the current value already folds in the mastery bonus. */
-  private showCardDetail(cardId: string): void {
+  private showCardDetail(cardId: string, opts: { returnTo?: () => void; viewOnly?: boolean } = {}): void {
+    const returnTo = opts.returnTo ?? (() => this.showCollection())
     this.root.querySelector('.ttg-detail')?.remove()
     const def = getCard(cardId)
     const prog = CARD_PROG[cardId]
@@ -1710,41 +1713,46 @@ export class GameApp {
     back.textContent = '← Back'
     back.addEventListener('click', () => {
       el.remove()
-      this.showCollection()
+      returnTo()
     })
-    const action = document.createElement('button')
-    action.className = 'ttg-btn ready'
-    if (!max) {
-      const cost = this.levelCost(level)
-      action.textContent = `Level Up · ${cost}💠`
-      action.disabled = this.save.shards < cost
-      action.addEventListener('click', () => {
-        if (this.save.shards < cost) return
-        this.save.shards -= cost
-        this.save.collection[cardId] = { level: level + 1, mastery }
-        this.persistSaves()
-        this.showCardDetail(cardId)
-      })
-    } else if (!masteryMaxed) {
-      const cost = this.masteryCost(mastery)
-      action.textContent = `${mastery === 0 ? 'Unlock' : 'Level Up'} Mastery · ${cost}💠`
-      action.disabled = this.save.shards < cost
-      action.addEventListener('click', () => {
-        if (this.save.shards < cost) return
-        this.save.shards -= cost
-        this.save.collection[cardId] = { level, mastery: mastery + 1 }
-        this.persistSaves()
-        this.showCardDetail(cardId)
-      })
-    } else {
-      action.textContent = 'Fully mastered ★'
-      action.disabled = true
+    btns.append(back)
+    // Level-up / mastery buttons only in the Collection (spending shards mid-match, from the deck
+    // view, wouldn't affect the current game and would just confuse). The deck view is read-only.
+    if (!opts.viewOnly) {
+      const action = document.createElement('button')
+      action.className = 'ttg-btn ready'
+      if (!max) {
+        const cost = this.levelCost(level)
+        action.textContent = `Level Up · ${cost}💠`
+        action.disabled = this.save.shards < cost
+        action.addEventListener('click', () => {
+          if (this.save.shards < cost) return
+          this.save.shards -= cost
+          this.save.collection[cardId] = { level: level + 1, mastery }
+          this.persistSaves()
+          this.showCardDetail(cardId, opts)
+        })
+      } else if (!masteryMaxed) {
+        const cost = this.masteryCost(mastery)
+        action.textContent = `${mastery === 0 ? 'Unlock' : 'Level Up'} Mastery · ${cost}💠`
+        action.disabled = this.save.shards < cost
+        action.addEventListener('click', () => {
+          if (this.save.shards < cost) return
+          this.save.shards -= cost
+          this.save.collection[cardId] = { level, mastery: mastery + 1 }
+          this.persistSaves()
+          this.showCardDetail(cardId, opts)
+        })
+      } else {
+        action.textContent = 'Fully mastered ★'
+        action.disabled = true
+      }
+      btns.append(action)
     }
-    btns.append(back, action)
     el.addEventListener('click', e => {
       if (e.target === el) {
         el.remove()
-        this.showCollection()
+        returnTo()
       }
     })
     this.root.appendChild(el)
@@ -1785,7 +1793,10 @@ export class GameApp {
       curveHtml
     const grid = this.div('modal-grid')
     for (const e of entries) {
-      grid.appendChild(this.cardFace(e.id, 'mini', () => {}, e.n > 1 ? `×${e.n}` : undefined))
+      // Click a deck card to see its full detail (read-only; returns to the deck view).
+      grid.appendChild(
+        this.cardFace(e.id, 'mini', () => this.showCardDetail(e.id, { returnTo: () => this.showDeck(), viewOnly: true }), e.n > 1 ? `×${e.n}` : undefined),
+      )
     }
     const close = document.createElement('button')
     close.className = 'ttg-mini'

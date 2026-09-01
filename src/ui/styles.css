@@ -121,21 +121,30 @@
 }
 .ttg-ladder {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
   font-size: 12px;
   color: var(--ttg-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
   min-width: 0;
 }
 .ttg-ladder b {
   color: var(--ttg-text);
 }
+.ttg-ladder .lad-l1 {
+  white-space: nowrap;
+}
+.ttg-ladder .lad-l2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .ttg-ladder .pipline {
   display: inline-flex;
   gap: 3px;
+  flex-wrap: wrap;
 }
 .ttg-ladder .dot {
   width: 7px;
