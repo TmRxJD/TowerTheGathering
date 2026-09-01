@@ -21,6 +21,7 @@ import {
   BOSS_DECKS,
   bossSkill,
   CARD_MAX_LEVEL,
+  MASTERY_MAX_LEVEL,
   clampTier,
   createRng,
   maxDeckForTier,
@@ -47,7 +48,7 @@ const SEED = process.env.TTG_SEED ?? 'winrate'
 
 function bossLevels(tier: number): CardLevels {
   const level = Math.min(CARD_MAX_LEVEL, 1 + Math.floor((tier - 1) / 3))
-  const mastery = tier >= 13 ? Math.min(6, tier - 12) : 0
+  const mastery = tier >= 13 ? Math.min(MASTERY_MAX_LEVEL, tier - 12) : 0
   const out: CardLevels = {}
   for (const id of ALL_CARD_IDS) out[id] = { level, mastery }
   return out

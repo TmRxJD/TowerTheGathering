@@ -143,11 +143,12 @@ tierPlayerLifePenalty(t) = 0     // was max(0,t-13)*5 (up to -55); a shrinking l
 
 ### 4.5 Boss card levels (mirrors `aiCardLevels` / `bossLevels`)
 ```
-level   = min(7, 1 + floor((tier-1)/3))          // rises every 3 tiers
-mastery = tier >= 13 ? min(6, tier-12) : 0        // masteries come online at T13, capped at 6
+level   = min(7, 1 + floor((tier-1)/3))          // rises every 3 tiers → 7 by T19
+mastery = tier >= 13 ? min(9, tier-12) : 0        // T13 +1 … T21+ maxed (9)
 ```
-Boss mastery is **capped at 6** on purpose: a diligent player fields ~6.7 average by the top tiers on
-the lean economy, so the endgame is a hard fight, not an unbeatable card gap.
+Boss offense is the top‑tier difficulty lever (HP is held flat): masteries come online at T13 and, at
+the **top tiers (19+), climb to near‑maxed** so the boss out‑cards you at the climax through smarter/
+stronger cards rather than more life. (Was capped at 6; raised for a fair‑but‑real top end.)
 
 ---
 
@@ -382,13 +383,12 @@ covered by `enemy-skills.test.ts` (each skill flipped on and proven to move stat
 The TCG retune landed a smooth, fun curve (win % · avg turns):
 | Tier | 1 | 5 | 10 | 15 | 18 | 20 | 24 |
 |---|---|---|---|---|---|---|---|
-| Win % | 95 | 90 | 93 | 79 | 66 | 56 | 55 |
-| Turns | 9.5 | 15 | 11 | 11 | 12 | 13 | 12 |
-- Monotonic‑ish descent from ~95% to ~55%, battles ~10–15 turns — matches the fun‑curve intent.
-- Slightly **easier than spec at the very top** (T24 ~55% vs the 35–50% target) and T24 battles a
-  touch short (~12 vs 14–18). Deliberate: pushing the top to 35–50% for a depth‑2 player edges back
-  toward "punishing," which the direction rejects. The rung‑11 **final Boss** itself runs harder
-  (~25–42%), giving each tier its climax spike.
+| Win % | 95 | 90 | 93 | 79 | 66 | 51 | 48 |
+| Turns | 9.5 | 15 | 11 | 11 | 12 | 14 | 14 |
+- Smooth descent from ~95% to ~48%, battles ~10–15 turns — matches the fun‑curve intent and lands
+  inside every target band, including T24 (48%, target 35–50%).
+- The rung‑11 **final Boss** runs harder still (~33% at T24), giving each tier a climax spike.
+- Top‑tier difficulty comes from **boss offense** (near‑maxed masteries at T19+), not more HP.
 - Clears cleanly for the search player and the Autoplay demo (no walls).
 
 ---
@@ -403,10 +403,9 @@ The TCG retune landed a smooth, fun curve (win % · avg turns):
   (§10). See §4 for the new formulas.
 
 **Open design questions worth an outside opinion:**
-- **The top is ~5–10 pts easier than the spec's 35–50% at T24** (currently ~55% for a depth‑2 player).
-  I judged that closer to "fun, not punishing" than forcing it lower — but do you want the climax
-  harder? The lever would be more boss offense (stronger enemy‑skill magnitudes / letting mastery
-  climb past 6), not more HP.
+- **Top‑tier difficulty is now in‑band** (T24 48%, final Boss ~33%) via near‑maxed boss masteries at
+  T19+ — a bit more punishing but not excessive, HP untouched. Feel is the open question now: does the
+  climax feel fair, or should enemy‑skill magnitudes also scale for more variety in the threat?
 - **Yardstick.** Difficulty is tuned against a depth‑2 search player. A real human varies; a weaker
   player will find it harder, a stronger one easier. Is depth‑2 the right "typical player" center?
 - **Battle length.** Now ~9–15 turns (≈1–3 min for a human). Early tiers run ~14 turns at T3–5,
