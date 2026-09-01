@@ -48,6 +48,7 @@ export {
   tierAiDepth,
   tierBossHandicap,
   tierEnemyPowerMult,
+  tierGameVariance,
   tierPlayerLifePenalty,
   bossCardLevel,
   bossCardMastery,

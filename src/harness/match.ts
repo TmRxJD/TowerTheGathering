@@ -42,6 +42,8 @@ export interface MatchOptions {
   readonly aiSkill?: EnemySkill
   /** Enemy offense multiplier — the primary smooth ladder-difficulty lever (default 1). */
   readonly aiPowerMult?: number
+  /** Per-game draw-luck variance magnitude (tapered by tier — see tierGameVariance). */
+  readonly gameVariance?: number
   /** Safety cap; a game that exceeds it is reported as a timeout (never expected). */
   readonly turnCap?: number
 }
@@ -62,6 +64,7 @@ export function playMatch(opts: MatchOptions): MatchOutcome {
     cardLevels: { HUMAN: opts.humanCardLevels ?? {}, AI: opts.aiCardLevels ?? {} },
     skills: { HUMAN: opts.humanSkill ?? 'none', AI: opts.aiSkill ?? 'none' },
     powerMult: { AI: opts.aiPowerMult ?? 1 },
+    ...(opts.gameVariance !== undefined ? { gameVariance: opts.gameVariance } : {}),
   })
   const ai: Record<Side, Bot> = {
     HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced', opts.humanDepth ?? 2),

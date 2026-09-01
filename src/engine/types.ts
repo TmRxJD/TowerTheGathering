@@ -271,6 +271,9 @@ export interface EngineOptions {
   /** Turn OFF combat variance (per-attack damage roll + base crit). Deterministic combat for unit tests
    *  that assert exact damage numbers; the real game and win-rate harness leave it on. Default false. */
   readonly deterministicCombat?: boolean
+  /** Per-game enemy draw-luck swing magnitude (overrides TUNING.GAME_VARIANCE). Tapered by tier: wide in
+   *  the mid (a gradual win curve), narrow at the top (so the hardest tiers stay strictly ordered). */
+  readonly gameVariance?: number
 }
 
 /**

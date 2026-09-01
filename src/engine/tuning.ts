@@ -39,7 +39,7 @@ export const TUNING = {
   // others). Unlike per-attack variance, this PERSISTS through the game, so near the difficulty edge some
   // games the player wins and some it loses — that is what actually spreads the win curve into a smooth,
   // sub-100% decline instead of the AI's near-certain step. The mean is unchanged, only the spread widens.
-  GAME_VARIANCE: 0.24,
+  GAME_VARIANCE: 0.2,
 
   HEALTH_MODULE_BONUS: 5 * COMBAT_SCALE,
   REGEN_PER_TURN: 1 * COMBAT_SCALE,

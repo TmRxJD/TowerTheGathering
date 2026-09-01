@@ -142,7 +142,10 @@ class TowerEngine implements Engine {
     this.powerMult = opts.powerMult ?? {}
     this.deterministicCombat = opts.deterministicCombat ?? false
     // Per-game enemy draw-luck swing (spreads the win curve). Rolled from the seed; 1 when deterministic.
-    if (!this.deterministicCombat) this.enemyLuck = 1 + (this.rng.next() * 2 - 1) * TUNING.GAME_VARIANCE
+    if (!this.deterministicCombat) {
+      const v = opts.gameVariance ?? TUNING.GAME_VARIANCE
+      this.enemyLuck = 1 + (this.rng.next() * 2 - 1) * v
+    }
     this.players = {
       HUMAN: this.newPlayer('HUMAN', opts.humanDeck),
       AI: this.newPlayer('AI', opts.aiDeck),

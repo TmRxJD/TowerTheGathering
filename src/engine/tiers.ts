@@ -70,10 +70,12 @@ export function tierName(level: number): string {
 const HP_GROWTH = 1.15 // per-tier HP ratio for BOTH towers (symmetric) — sets battle length, not difficulty
 // The ONE difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
 const R_MIN = 0.85 // T1 easy onboarding win
-const R_MAX = 4.3 // T24 climax (~33% win, skewing lower). The per-game variance keeps the decline GRADUAL
-//                    even at this range, so raising the ceiling steepens the back half without a cliff.
-const R_SHAPE = 1.4 // mildly convex: gentle early (easy onboarding), then a steady climb so the back
-//                     half declines every tier from ~75% (T13) toward ~25% (T24).
+const R_MAX = 5.2 // T24 climax. Steep end-ramp so the LAST tiers keep out-pacing the player's still-growing
+//                    collection at the very top, so T24 stays strictly the hardest tier (measured at N=40:
+//                    T22≈42 > T23≈32 > T24≈31) rather than the player catching up and the order inverting.
+const R_SHAPE = 2.4 // strongly convex: very gentle early (easy onboarding), accelerating so the biggest
+//                     per-tier difficulty jumps land at the very top (where they're needed to keep the
+//                     order strict); the tapered top variance lowers the floor so those jumps register.
 const RUNG_STEP = 0.04 // within a tier, each later rung is a little stronger
 const BOSS_MULT = 1.2 // the final Boss rung's extra power
 
@@ -101,6 +103,14 @@ function tierR(level: number, index: number): number {
 /** The enemy's offense multiplier — the √R half of the difficulty ratio. Applied to unit ATK + skills. */
 export function tierEnemyPowerMult(level: number, index = 1): number {
   return Math.sqrt(tierR(level, index))
+}
+
+/** Per-game draw-luck variance, TAPERED by tier. Wide through the mid so the win curve declines
+ *  gradually (close matchups become coin-flips); narrow at the top so the hardest tiers don't all pile
+ *  up at one lucky-win floor — the win keeps dropping and T22 > T23 > T24 stays strictly ordered. */
+export function tierGameVariance(level: number): number {
+  const t = clampTier(level)
+  return t <= 14 ? 0.28 : Math.max(0.07, 0.28 - (t - 14) * 0.021) // 0.28 → ~0.07 by T24
 }
 
 /** Search depth by tier: a beatable 1-ply intro (T1-5), 2-ply anti-cheese (T6-8), and a 3-ply searcher

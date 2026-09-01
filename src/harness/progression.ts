@@ -34,6 +34,7 @@ import {
   tierAiDepth,
   tierBossHandicap,
   tierEnemyPowerMult,
+  tierGameVariance,
   tierPlayerLifePenalty,
   type CardLevels,
 } from '../engine'
@@ -95,6 +96,7 @@ function run(): void {
           aiCardLevels: bl,
           aiSkill: bossSkill(boss.name),
           aiPowerMult: tierEnemyPowerMult(tier, boss.index),
+          gameVariance: tierGameVariance(tier),
         })
         attempts++
         matches++
