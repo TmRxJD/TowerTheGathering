@@ -51,7 +51,10 @@ export function tierName(level: number): string {
  *  decide it. The boss stacks its difficulty edge (tierBossHandicap) ON TOP of this shared pool. */
 export function tierBaseLife(level: number): number {
   const t = clampTier(level)
-  return 12 + t * 6 // T1 +18 (≈38 HP), T10 +72, T24 +156 — roughly linear growth in battle length
+  // TCG pacing: battles stay SHORT (a fast mini-game, not a roguelike slog). A small, gently-rising
+  // pool means fights run ~8 turns early and ~16 up top — long enough to develop a board, short enough
+  // that the fun resets briskly. (Was 12+6t, which made mid battles ~20 turns and starved small decks.)
+  return Math.round((t - 1) * 0.8) + Math.round(Math.max(0, t - 16) * 1.3) // T1 +0, T12 +9, T24 +28
 }
 
 /** Search depth by tier: a beatable 1-ply intro, 2-ply anti-cheese through the mid tiers, and a
@@ -59,7 +62,10 @@ export function tierBaseLife(level: number): number {
  *  removal, avoids overcommitting, and sets up lethal far better. (3-ply ≈ 31ms/turn, imperceptible.) */
 export function tierAiDepth(level: number): number {
   const t = clampTier(level)
-  return t <= 1 ? 1 : t < 14 ? 2 : 3
+  // Depth is the dominant difficulty lever vs a human: a searching boss out-plays you regardless of
+  // HP. So keep bosses SIMPLE (1-ply) through the easy onboarding tiers, step up to the anti-cheese
+  // 2-ply for the mid game, and only bring the 2-turn-lookahead 3-ply out for the top tiers.
+  return t <= 6 ? 1 : t <= 15 ? 2 : 3
 }
 
 /**
@@ -70,32 +76,27 @@ export function tierAiDepth(level: number): number {
  */
 export function tierBossHandicap(level: number, index: number): { bonusLife: number; bonusStartMana: number } {
   const t = clampTier(level)
-  const i = index // 1..10 — position within the tier's ladder
-  // Tuned against a search-vs-search sim so that even OPTIMAL play is walled only near the very top
-  // (a normal player feels it far sooner). Too steep and the optimal Autoplay demo can't reach T24.
-  //
-  // Within-tier ramp: boss 1 is the softest of the tier and boss 10 the hardest, and that gap widens
-  // with the tier — so climbing the ladder always FEELS like it's getting harder, regardless of which
-  // archetype sits at each rung.
-  const bossRamp = Math.round((i - 1) * (0.8 + t * 0.28)) // widening within-tier ramp
-  const tierFloor = Math.round(Math.max(0, t - 2) * 1.8) // a rising floor across tiers (all bosses)
-  const hard = Math.round(Math.max(0, t - 13) * 2.6) // the mid-late squeeze, from Tier 14
-  const brutal = Math.max(0, t - 20) * 8 // Tiers 21-24 spike hard
-  const nightmare = t >= MAX_TIER ? 90 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
-  const capstone = i >= FINAL_BOSS_RUNG ? Math.round(Math.max(0, t - 2) * 2.6) : 0 // final boss grows fastest
-  // The 11th boss is THE Boss (the real Tower boss enemy): a big pile of extra HP on top of all else.
-  // Scales with the tier's HP pool so it's a beatable wall on a fresh T1 deck and a monstrous slog up
-  // top (where your climbed-up deck can actually chew through it).
-  const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(tierBaseLife(t) * 0.7) : 0
-  const bonusStartMana = t >= 23 ? 1 : 0 // a small tempo edge only at the very top
-  return { bonusLife: tierFloor + bossRamp + hard + brutal + nightmare + capstone + finalBoss, bonusStartMana }
+  const i = index // 1..11 — position within the tier's ladder (11 = the final Boss)
+  // TCG difficulty spec (docs/GAME_STATE.md): a SMOOTH, gentle rise — no nightmare walls, no offense
+  // spikes. `climb` is the main knob (harder each tier); `bossRamp` makes later rungs of a tier a bit
+  // tougher than earlier ones. Tuned against the win-rate harness to a fun 95%→40% curve, NOT a
+  // punishing one. (Replaced the old brutal/nightmare/capstone spikes wholesale.)
+  // Across-tier difficulty: starts NEGATIVE so early bosses are genuinely weaker than you (an easy
+  // onboarding win), crosses ~T6, and accelerates in the last third for a fair-but-real top-tier fight.
+  const climb = Math.round((t - 6) * 2.5 + Math.max(0, t - 14) * 3.2) // T1 -13, T6 0, T15 +25, T24 +77
+  const bossRamp = Math.round((i - 1) * (0.4 + t * 0.12)) // within-tier ramp; later rungs a touch harder
+  // The 11th "Boss" rung is the real Tower Boss enemy: its identity is a chunk of extra HP (kept
+  // beatable — scales gently with tier), not an offense spike.
+  const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(tierBaseLife(t) * 0.8) + Math.round(t * 0.6) : 0
+  const bonusStartMana = t >= 23 ? 1 : 0 // a tiny opening tempo edge only at the very top
+  return { bonusLife: climb + bossRamp + finalBoss, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —
  *  but tempered so the very top isn't a one-hit coin-flip (the boss's huge HP carries the wall). */
 export function tierPlayerLifePenalty(level: number): number {
-  const t = clampTier(level)
-  // Scaled against the larger tier HP pool so "battle conditions" stay a real bite at the top: the
-  // boss is a long tanky slog, but you fight it on a shorter life bar the higher you climb.
-  return Math.max(0, t - (BATTLE_CONDITION_TIER - 1)) * 5 // T14 -5 … T24 -55
+  // Removed for the TCG direction — a shrinking life bar is exactly the "punishing" feel we don't
+  // want. Difficulty comes from the boss's gentle handicap + maxed cards, not from gimping the player.
+  void level
+  return 0
 }

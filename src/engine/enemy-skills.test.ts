@@ -144,13 +144,11 @@ describe('the 11th boss (final Boss)', () => {
     expect(BOSS_DECKS[10]!.name).toBe('Boss')
   })
 
-  it('the final boss always has more HP than boss 10, and a huge pile up top', () => {
-    // Modest at T1 (must stay beatable on a fresh starter deck), monstrous at the high tiers.
+  it('the final boss always has more HP than boss 10, with a real pile up top', () => {
+    // TCG tuning: a distinct HP chunk, not a punishing wall — modest early, biggest at the top.
     for (const t of [1, 12, 24]) {
       expect(tierBossHandicap(t, 11).bonusLife).toBeGreaterThan(tierBossHandicap(t, 10).bonusLife)
     }
-    for (const t of [12, 24]) {
-      expect(tierBossHandicap(t, 11).bonusLife).toBeGreaterThan(tierBossHandicap(t, 10).bonusLife + 60)
-    }
+    expect(tierBossHandicap(24, 11).bonusLife).toBeGreaterThan(tierBossHandicap(24, 10).bonusLife + 25)
   })
 })

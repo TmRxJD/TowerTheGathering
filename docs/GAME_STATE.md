@@ -28,8 +28,11 @@ ten‑boss gauntlet, growing a deck and a permanently‑levelled card collection
    scaling below.)
 2. **Climbing pays off, farming does not.** Income scales with tier² so a higher tier is always worth
    more than grinding a cleared one. Deck size grows only by climbing.
-3. **A long difficulty ramp.** Tier 1 is a gentle intro; the mid tiers squeeze; Tiers 21‑24 turn
-   vicious; **Tier 24 is a "nightmare" wall** meant for a ~5‑10% win rate even with optimal play.
+3. **A fun, fast TCG difficulty curve — NOT a roguelike wall.** This is a snappy mini‑game, not a
+   Tower‑accurate ladder. Battles are short (a few turns longer each tier), and the win rate glides
+   from an easy onboarding down to a fair climax — never punishing. Target curve (measured against an
+   engaged player): T1‑5 ~90‑100% · T6‑12 ~75‑90% · T13‑18 ~60‑75% · T19‑23 ~45‑60% · T24 ~35‑50%.
+   (An earlier draft chased a "5‑10% nightmare wall"; that was the wrong genre and has been removed.)
 4. **Faithful to The Tower.** Cards, enemies, bots and guardian chips are adapted from real game
    mechanics, not invented.
 
@@ -97,51 +100,46 @@ archetype bosses + a final **Boss** on rung 11); you must clear all 11 to unlock
 
 Both sides scale up as you climb. The levers, exactly as coded:
 
+All numbers below were tuned against the **win‑rate harness** (§10) to hit the fun curve in pillar 3.
+
 ### 4.1 Shared HP pool — battle length (`tierBaseLife`)
 ```
-tierBaseLife(t) = 12 + t*6      // added to BOTH Nexuses
+tierBaseLife(t) = round((t-1)*0.8) + round(max(0, t-16)*1.3)   // added to BOTH Nexuses
 ```
-Base Nexus HP is `START_LIFE = 20`, so effective starting HP is `20 + tierBaseLife`:
-| Tier | Both sides base HP | +boss edge (see 4.3) |
-|---|---|---|
-| 1 | 20+18 = **38** | small |
-| 10 | 20+72 = **92** | large |
-| 24 | 20+156 = **176** (player, before penalty) | very large |
+Base Nexus HP is `START_LIFE = 20`. Kept deliberately **small** so battles stay snappy (a fast mini‑
+game, not a slog): ~9 turns at T1, ~12–15 up top. `20 + tierBaseLife` = 20 (T1), 29 (T12), 48 (T24).
+Battles still run long enough to reach **fatigue** at the top, where the climbed‑up bigger deck pays off.
 
-This is the main "make battles last longer" lever. Longer games also mean **fatigue** matters, which
-is where the climbed‑up bigger deck pays off.
+### 4.2 AI search depth (`tierAiDepth`) — the dominant difficulty lever vs a human
+```
+t ≤ 6   → 1‑ply   (simple "intro" AI — easy onboarding)
+7..15   → 2‑ply   (anti‑cheese lookahead)
+t ≥ 16  → 3‑ply   (reads two of your turns ahead)
+```
+A searching boss out‑plays a human regardless of HP, so **depth is what actually shapes the curve** —
+kept low for the easy tiers, stepping up only for the mid and top.
 
-### 4.2 AI search depth (`tierAiDepth`)
+### 4.3 Boss life edge (`tierBossHandicap(tier, index)`) — smooth, gentle, no walls
+Added to the boss **on top of** the shared pool. `index` is the rung, 1..11.
 ```
-t == 1      → 1‑ply   (a beatable "intro" AI)
-2 ≤ t ≤ 13  → 2‑ply   (anti‑cheese lookahead)
-t ≥ 14      → 3‑ply   (reads two of your turns ahead)
-```
-
-### 4.3 Boss life edge (`tierBossHandicap(tier, index)`) — the difficulty
-Added to the boss **on top of** the shared pool. `index` is the boss's rung, 1..10.
-```
-bossRamp  = round((index-1) * (0.8 + tier*0.28))   // within-tier ramp; boss 1 softest, boss 10 hardest
-tierFloor = round(max(0, tier-2) * 1.8)            // a rising floor across tiers (all bosses)
-hard      = round(max(0, tier-13) * 2.6)           // the mid-late squeeze, from Tier 14
-brutal    = max(0, tier-20) * 8                    // Tiers 21-24 spike hard
-nightmare = tier >= 24 ? 90 : 0                    // Tier 24 only: a flat wall on every boss
-capstone  = index>=11 ? round(max(0, tier-2) * 2.6) : 0    // the final boss grows fastest
-finalBoss = index>=11 ? round(tierBaseLife(tier) * 0.7) : 0 // rung 11 "Boss": a big HP pile, tier-scaled
-bonusLife = bossRamp + tierFloor + hard + brutal + nightmare + capstone + finalBoss
+climb     = round((tier-6)*2.5 + max(0, tier-14)*3.2)   // across-tier difficulty: PRIMARY lever
+                                                        //   NEGATIVE early (T1 -13 → frail bosses),
+                                                        //   crosses ~T6, accelerates late (T24 +77)
+bossRamp  = round((index-1) * (0.4 + tier*0.12))        // later rungs of a tier a touch harder
+finalBoss = index>=11 ? round(tierBaseLife(tier)*0.8) + round(tier*0.6) : 0   // the "Boss" HP chunk
+bonusLife = climb + bossRamp + finalBoss
 bonusStartMana = tier >= 23 ? 1 : 0
 ```
-The **final Boss (rung 11)** is the real Tower Boss enemy — its whole identity is a **huge HP pile**
-(`finalBoss`), kept modest at T1 (must be beatable on a fresh 10‑card deck) and monstrous up top
-(≈ +170 HP over boss 10 at T24). It has no passive skill.
-Design intent: within any tier, boss 10 is clearly harder than boss 1, and that gap widens with tier,
-so the ladder always *feels* like it's escalating regardless of which archetype sits on each rung.
+The old `brutal`/`nightmare`/`capstone` spikes were **removed** — that is the whole point of the TCG
+retune. The **final Boss (rung 11)** carries a distinct HP chunk (`finalBoss`, ~+2 at T1 → ~+39 at
+T24 over boss 10) as the tier's climax — a real fight, not a wall. No passive skill.
 
-### 4.4 Player "battle conditions" nerf (`tierPlayerLifePenalty`)
+### 4.4 Player "battle conditions" nerf — REMOVED
 ```
-tierPlayerLifePenalty(t) = max(0, t-13) * 5      // T14 -5 … T24 -55
+tierPlayerLifePenalty(t) = 0     // was max(0,t-13)*5 (up to -55); a shrinking life bar is exactly the
+                                 // "punishing" feel the TCG direction rejects. Difficulty now comes
+                                 // from the boss's gentle handicap + maxed cards, not gimping you.
 ```
-From Tier 14 up (as in The Tower's battle conditions) the player fights on a shorter life bar.
 
 ### 4.5 Boss card levels (mirrors `aiCardLevels` / `bossLevels`)
 ```
@@ -370,19 +368,28 @@ covered by `enemy-skills.test.ts` (each skill flipped on and proven to move stat
 - **Saves** (`ttg.saves.v3`): 3 player slots + a dedicated Autoplay slot; each holds
   highestTierCleared, an in‑progress run (tier, bossIndex, deck), the card collection, shards, and
   lifetime stats (time, moves, matches, wins, fastest win, fastest tier).
-- **Simulator** (`TTG_PLAYER=search TTG_BOSS=search pnpm progression`): a full continuous climb that
-  reports matches‑to‑clear, deck size, and average won‑game turns per tier. **Caveat:** it is
-  deterministic per seed, so HP tuning barely flips its outcomes — use it for battle length and
-  clear‑ability, **not** for dialing exact win‑rate percentages.
+- **Progression sim** (`TTG_PLAYER=search TTG_BOSS=search pnpm progression`): a full continuous climb
+  reporting matches‑to‑clear, deck size, and won‑game turns. Deterministic per seed — use it for
+  clear‑ability and battle length, **not** win rate.
+- **Win‑rate harness** (`pnpm winrate`) — the tool that tuned the difficulty. Samples N seeded matches
+  per (tier, boss) and reports the actual win % and average turns, building a representative player
+  deck/collection via a strategic climb. **Yardstick: a depth‑2 SEARCH player** ("an engaged human who
+  thinks a little ahead") vs a full‑strength boss. The HeuristicAI was tried first and rejected — too
+  weak/erratic to be a human proxy (it lost ~35% of even trivially‑favoured games); `TTG_PLAYER=
+  heuristic` still measures that weak‑play floor.
 
-### Current measured balance (strong‑vs‑strong sim, latest)
-- Clears all 24 tiers. Deck grows 10 → 33. Matches‑to‑clear rises T1≈11 → T23≈39 → T24≈74‑110
-  depending on tuning pass.
-- Won‑game length ≈ 19 turns at T10 (up from ~13 pre‑HP‑pool). A human plays slower than the search
-  AI, so real battles are longer than the sim shows.
-- **Known tension:** the large shared HP pool made *optimal* play more survivable, so the old ~9% T24
-  win rate is currently easier. Restoring "long AND nightmare‑hard" needs boss **offense** (levels +
-  the planned enemy skills), not just more boss HP — HP alone can't do both.
+### Current measured balance (win‑rate harness, depth‑2 player, N=12)
+The TCG retune landed a smooth, fun curve (win % · avg turns):
+| Tier | 1 | 5 | 10 | 15 | 18 | 20 | 24 |
+|---|---|---|---|---|---|---|---|
+| Win % | 95 | 90 | 93 | 79 | 66 | 56 | 55 |
+| Turns | 9.5 | 15 | 11 | 11 | 12 | 13 | 12 |
+- Monotonic‑ish descent from ~95% to ~55%, battles ~10–15 turns — matches the fun‑curve intent.
+- Slightly **easier than spec at the very top** (T24 ~55% vs the 35–50% target) and T24 battles a
+  touch short (~12 vs 14–18). Deliberate: pushing the top to 35–50% for a depth‑2 player edges back
+  toward "punishing," which the direction rejects. The rung‑11 **final Boss** itself runs harder
+  (~25–42%), giving each tier its climax spike.
+- Clears cleanly for the search player and the Autoplay demo (no walls).
 
 ---
 
@@ -390,22 +397,23 @@ covered by `enemy-skills.test.ts` (each skill flipped on and proven to move stat
 
 **Done (this session):**
 - ✅ **Per‑archetype enemy skills** — implemented and tested (see §9 table).
-- ✅ **11th "final Boss" per tier** — implemented as a tier‑scaled HP pile (see §4.3).
+- ✅ **11th "final Boss" per tier** — implemented as a tier‑scaled HP chunk (see §4.3).
+- ✅ **TCG difficulty retune** — reframed from a roguelike wall to a fun fast mini‑game: short battles,
+  smooth 95%→55% curve, punishing mechanics removed. Built the **win‑rate harness** to measure it
+  (§10). See §4 for the new formulas.
 
 **Open design questions worth an outside opinion:**
-- **Top‑tier difficulty is currently soft for *optimal* play.** With the big shared HP pool, the
-  search‑vs‑search sim clears T24 in ~14 matches (near‑trivial), well off the "5‑10% nightmare"
-  pillar. A real (sub‑optimal) player faces the enemy skills + the huge final‑boss HP, so their
-  difficulty is much higher than the sim shows — but if we want *optimal* play walled too, the lever
-  is boss offense (higher card levels / stronger enemy‑skill magnitudes / scaling skills with tier),
-  not more HP. Worth deciding: tune for the optimal player, or accept the sim can't see human
-  difficulty and tune by feel?
-- **Battle length target.** Is "T10 ≈ 1 min, T24 ≈ 3‑4 min per boss for a human" the right feel? High‑
-  tier *won* games are still short (~12 turns) because the search AI finds fast lethals; lengthening
-  those may need lower damage output or higher defense scaling, not just HP.
-- **Difficulty vs. length coupling.** With big HP on both sides, difficulty must come from the boss
-  out‑*offending* you (card levels + skills). Is capping boss mastery at 6 the right call, or should
-  the top tiers instead lean on enemy skills for their bite?
+- **The top is ~5–10 pts easier than the spec's 35–50% at T24** (currently ~55% for a depth‑2 player).
+  I judged that closer to "fun, not punishing" than forcing it lower — but do you want the climax
+  harder? The lever would be more boss offense (stronger enemy‑skill magnitudes / letting mastery
+  climb past 6), not more HP.
+- **Yardstick.** Difficulty is tuned against a depth‑2 search player. A real human varies; a weaker
+  player will find it harder, a stronger one easier. Is depth‑2 the right "typical player" center?
+- **Battle length.** Now ~9–15 turns (≈1–3 min for a human). Early tiers run ~14 turns at T3–5,
+  slightly over the "6–10" onboarding target — fine, or trim further for snappier early games?
+- **Enemy‑skill scaling.** Magnitudes are currently flat across tiers (e.g., Vampire always drains 2).
+  The spec suggested light banding at high tiers; skipped for now (small payoff, needs tier→engine
+  plumbing). Worth adding?
 - **Economy pacing.** ~65k shards for a full climb vs ~9.1k to max a single card, 73 cards. Is the
   "levels mid‑game, masteries a long grind" split right, or too slow/too fast?
 - **Deck size ceiling.** 10 → 33/34. Does a 33‑card deck at T24 feel good, or should the cap curve
@@ -428,7 +436,8 @@ covered by `enemy-skills.test.ts` (each skill flipped on and proven to move stat
 | Boss decks & handicap | `src/engine/decks.ts` |
 | Reward / trim / AI card value | `src/engine/deckbuild.ts` |
 | AI | `src/ai/` (heuristic, search) |
-| Simulator | `src/harness/progression.ts` |
+| Progression sim | `src/harness/progression.ts` |
+| Win‑rate harness (difficulty tuning) | `src/harness/winrate.ts` |
 | UI / renderer / menu | `src/ui/game-app.ts` |
 | Saves | `src/ui/save.ts` |
 | Tests | `src/engine/*.test.ts` (engine, expansion, bots‑chips) |
