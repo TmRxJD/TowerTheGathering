@@ -265,6 +265,9 @@ export interface EngineOptions {
   readonly cardLevels?: Partial<Record<Side, CardLevels>>
   /** Per-side innate "enemy skill" — a boss archetype's signature passive (see EnemySkill). */
   readonly skills?: Partial<Record<Side, EnemySkill>>
+  /** Per-side offense multiplier on a unit's effective ATK and this side's skill damage. The primary,
+   *  SMOOTH ladder-difficulty lever: the enemy hits progressively harder each tier (default 1). */
+  readonly powerMult?: Partial<Record<Side, number>>
 }
 
 /**
@@ -343,6 +346,7 @@ export interface EngineState {
   bonusStartMana: Partial<Record<Side, number>>
   cardLevels: Partial<Record<Side, CardLevels>>
   skills: Partial<Record<Side, EnemySkill>>
+  powerMult: Partial<Record<Side, number>>
 }
 
 export interface Engine {

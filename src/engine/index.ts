@@ -47,6 +47,7 @@ export {
   tierName,
   tierAiDepth,
   tierBossHandicap,
+  tierEnemyPowerMult,
   tierPlayerLifePenalty,
   bossCardLevel,
   bossCardMastery,

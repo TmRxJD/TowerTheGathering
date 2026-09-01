@@ -106,6 +106,7 @@ class TowerEngine implements Engine {
   private readonly bonusStartMana: Partial<Record<Side, number>>
   private readonly cardLevels: Partial<Record<Side, CardLevels>>
   private readonly skills: Partial<Record<Side, EnemySkill>>
+  private readonly powerMult: Partial<Record<Side, number>>
 
   constructor(opts: EngineOptions, restore?: EngineState) {
     this.rng = createRng(opts.seed ?? 'ttg-default')
@@ -121,6 +122,7 @@ class TowerEngine implements Engine {
       this.bonusStartMana = restore.bonusStartMana
       this.cardLevels = restore.cardLevels
       this.skills = restore.skills ?? {}
+      this.powerMult = restore.powerMult ?? {}
       this.activeSide = restore.activeSide
       this.players = { HUMAN: this.blankPlayer('HUMAN'), AI: this.blankPlayer('AI') }
       this.loadState(restore)
@@ -132,6 +134,7 @@ class TowerEngine implements Engine {
     this.bonusStartMana = opts.bonusStartMana ?? {}
     this.cardLevels = opts.cardLevels ?? {}
     this.skills = opts.skills ?? {}
+    this.powerMult = opts.powerMult ?? {}
     this.players = {
       HUMAN: this.newPlayer('HUMAN', opts.humanDeck),
       AI: this.newPlayer('AI', opts.aiDeck),
@@ -215,6 +218,7 @@ class TowerEngine implements Engine {
       shuffleDecks: this.shuffleDecks,
       bonusLife: { ...this.bonusLife },
       skills: { ...this.skills },
+      powerMult: { ...this.powerMult },
       bonusStartMana: { ...this.bonusStartMana },
       cardLevels: this.cardLevels,
     }
@@ -496,14 +500,16 @@ class TowerEngine implements Engine {
     // Enemy skills that fire at the start of the skilled side's turn.
     const skill = this.skillOf(side)
     const foe = this.opponent(side)
+    const pMult = this.powerMult[side] ?? 1 // scale this side's skill damage with its ladder offense
     if (skill === 'vampire') {
       // Drain the enemy Nexus into your own (its regen is disabled below while it faces you).
-      this.damageNexus(foe, ENEMY_SKILL.vampireDrain, events)
+      const drain = Math.round(ENEMY_SKILL.vampireDrain * pMult)
+      this.damageNexus(foe, drain, events)
       if (this.winner !== null) return
-      this.healNexus(side, ENEMY_SKILL.vampireDrain, events)
+      this.healNexus(side, drain, events)
     }
     if (skill === 'overcharge' && p.turnCount > 0 && p.turnCount % ENEMY_SKILL.overchargeEvery === 0) {
-      this.damageNexus(foe, ENEMY_SKILL.overchargeBurst, events) // charged ray → burst
+      this.damageNexus(foe, Math.round(ENEMY_SKILL.overchargeBurst * pMult), events) // charged ray → burst
       if (this.winner !== null) return
     }
     if (skill === 'saboteur') {
@@ -1532,7 +1538,8 @@ class TowerEngine implements Engine {
     // Flame Bot: burned units deal a flat bit less per Flame Bot.
     atk -= this.countModule(opp, 'flame-bot') * COMBAT_SCALE
     if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
-    return Math.max(0, atk)
+    // Ladder difficulty: this side's offense multiplier (the enemy hits progressively harder each tier).
+    return Math.round(Math.max(0, atk) * (this.powerMult[side] ?? 1))
   }
 
   private canAct(unit: UnitInstance): boolean {

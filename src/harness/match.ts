@@ -40,6 +40,8 @@ export interface MatchOptions {
   /** Per-side innate enemy skill (the boss archetype's signature passive). */
   readonly humanSkill?: EnemySkill
   readonly aiSkill?: EnemySkill
+  /** Enemy offense multiplier — the primary smooth ladder-difficulty lever (default 1). */
+  readonly aiPowerMult?: number
   /** Safety cap; a game that exceeds it is reported as a timeout (never expected). */
   readonly turnCap?: number
 }
@@ -59,6 +61,7 @@ export function playMatch(opts: MatchOptions): MatchOutcome {
     bonusStartMana: { AI: opts.aiBonusStartMana ?? 0 },
     cardLevels: { HUMAN: opts.humanCardLevels ?? {}, AI: opts.aiCardLevels ?? {} },
     skills: { HUMAN: opts.humanSkill ?? 'none', AI: opts.aiSkill ?? 'none' },
+    powerMult: { AI: opts.aiPowerMult ?? 1 },
   })
   const ai: Record<Side, Bot> = {
     HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced', opts.humanDepth ?? 2),

@@ -33,6 +33,7 @@ import {
   takeRewardAndTrim,
   tierAiDepth,
   tierBossHandicap,
+  tierEnemyPowerMult,
   tierPlayerLifePenalty,
   type CardLevels,
 } from '../engine'
@@ -93,6 +94,7 @@ function run(): void {
           humanCardLevels: coll,
           aiCardLevels: bl,
           aiSkill: bossSkill(boss.name),
+          aiPowerMult: tierEnemyPowerMult(tier, boss.index),
         })
         attempts++
         matches++

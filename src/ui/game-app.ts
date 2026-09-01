@@ -37,6 +37,7 @@ import {
   bossSkill,
   tierAiDepth,
   tierBossHandicap,
+  tierEnemyPowerMult,
   tierName,
   tierPlayerLifePenalty,
   bossCardLevels,
@@ -402,6 +403,7 @@ export class GameApp {
       },
       bonusStartMana: { AI: hc.bonusStartMana },
       skills: { AI: bossSkill(boss.name) }, // the boss archetype's signature enemy passive
+      powerMult: { AI: tierEnemyPowerMult(this.tier, bossIndex) }, // the smooth per-tier difficulty lever
       // `save` is the Autoplay slot during a demo, the active player slot otherwise. Bosses level by tier.
       cardLevels: { HUMAN: this.save.collection, AI: this.aiCardLevels() },
     })
