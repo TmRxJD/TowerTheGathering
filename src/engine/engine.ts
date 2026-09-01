@@ -1499,8 +1499,15 @@ class TowerEngine implements Engine {
   private unitAtk(unit: UnitInstance, superTurn: Record<Side, boolean>): number {
     const side = unit.owner
     let atk = unit.atk
-    atk += this.countModule(side, 'damage') * this.cardVal(side, 'damage')
-    atk += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
+    // Army-wide % ATK buffs (a fraction of the unit's OWN base ATK, so they scale your attackers and
+    // leave 0-ATK walls as walls). Additive across copies/cards, then applied to the base once.
+    let pct = 0
+    pct += this.countModule(side, 'damage') * this.cardVal(side, 'damage')
+    pct += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
+    pct += this.countModule(side, 'amplify-bot') * this.cardVal(side, 'amplify-bot') * this.botAmp(side)
+    pct += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
+    if (pct > 0) atk += Math.round(unit.atk * pct)
+    // Flat ATK auras (Range grants Reach; its ATK bump stays flat).
     atk += this.countModule(side, 'range') * this.cardVal(side, 'range')
     if (unit.cardId === 'extra-orbs') atk += this.countModule(side, 'orbs-speed') * this.cardVal(side, 'orbs-speed')
     // Singularity Harness: supercharges your "bots" — Mine/Wall tokens gain ATK.
@@ -1508,9 +1515,7 @@ class TowerEngine implements Engine {
       atk += this.countModule(side, 'singularity-harness') * this.cardVal(side, 'singularity-harness')
     // Project Funding: damage scales with your banked mana (per 3 in pool).
     atk += this.countModule(side, 'project-funding') * this.cardVal(side, 'project-funding') * Math.floor(this.players[side].manaPool / 3)
-    // Amplify Bot / Bot Bot: your own bots buff your units' ATK (Bot Bot also doubles other bots).
-    atk += this.countModule(side, 'amplify-bot') * this.cardVal(side, 'amplify-bot') * this.botAmp(side)
-    atk += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
+    // (Amplify Bot / Bot Bot are % ATK buffs — applied with the army-wide percents above.)
     // Commander enemy skill: it buffs its whole army with bonus ATK.
     if (this.skillOf(side) === 'commander') atk += ENEMY_SKILL.commanderAtk
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy, ×scale).

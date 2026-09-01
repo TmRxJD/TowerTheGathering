@@ -228,6 +228,17 @@ L1..L7) and a **mastery** (0..9) that either adds `masteryBonus` per level or un
 Format: **Name** (unit stats) · rarity · mana cost · L1→L7 (the levelled stat) · mastery name · effect.
 Behaviour is keyed by card `id` in the engine; the numbers are from `card-progression.ts`.
 
+> **Number scale (current build).** All *combat* quantities — unit ATK/HP, Tower life, and every
+> damage/heal/defense card value — now live on a ×10 scale (`COMBAT_SCALE` in `tuning.ts`), so the
+> table below shows the pre‑scale design values: multiply combat stats by 10 for the in‑engine number
+> (e.g. Fortress is 0/80, the Tower starts at 200). Non‑combat values (coins, draw/mana counts, freeze
+> turns, %s and chances) are unscaled. The scale‑up exists so card levels can step by a *percent* and
+> still render as clean whole numbers.
+>
+> **Army ATK buffs are now percent.** **Damage**, **Attack Speed**, **Amplify Bot**, and **Bot Bot**
+> add a *percentage of each unit's own ATK* (not a flat amount), so they scale your attackers gradually
+> and leave 0‑ATK walls as walls. Their L1→L7 columns below are those percentages.
+
 <!-- GENERATED FROM cards.ts + card-progression.ts -->
 
 ### UNITS
@@ -243,10 +254,10 @@ Behaviour is keyed by card `id` in the engine; the numbers are from `card-progre
 
 | Card | Rarity | Cost | L1→L7 | Mastery | Effect |
 |---|---|---|---|---|---|
-| **Damage** | common | 1 | 1→7 | Damage+ | Friendly units have +1 ATK. |
+| **Damage** | common | 1 | 20%→90% | Damage+ | Friendly units deal +20% of their own ATK. |
 | **Enemy Balance** | common | 1 | 1→7 | Elite Balance | Draw +1 card each turn, but all enemy units have +1 ATK. |
 | **Range** | common | 1 | 0→6 | Long Shot | Friendly units gain Reach (hit an adjacent lane when their own is clear). |
-| **Attack Speed** | common | 2 | 0→6 | Attack Speed+ | Your units gain First Strike. |
+| **Attack Speed** | common | 2 | 15%→85% | Attack Speed+ | Your units gain First Strike and deal +15% of their own ATK. |
 | **Coins** | common | 2 | 1→7 | Coins+ | Draw +1 card at the start of every one of your turns. |
 | **Critical Chance** | common | 2 | 0.3→0.6 | Super Crit | Friendly units have a 30% chance on hit to deal 2× damage. |
 | **Golden Bot** | rare | 2 | 1→4 | Gold Rush | Start of your turn: gain +1 temporary mana (coin farming). |
@@ -256,9 +267,9 @@ Behaviour is keyed by card `id` in the engine; the numbers are from `card-progre
 | **Orbs Speed** | rare | 2 | 2→8 | Orbs Speed+ | Friendly Extra Orbs units have +2 ATK. |
 | **Package Chance** | rare | 2 | 2→8 | Care Package | Whenever you draw an Ultimate, gain +2 Nexus HP. |
 | **Scout Chip** | rare | 2 | 1→3 | Recon | Scouted: all enemy units have −1 ATK. |
-| **Amplify Bot** | rare | 3 | 1→4 | Overdrive | Amplify: your units have +1 ATK. |
+| **Amplify Bot** | rare | 3 | 10%→50% | Overdrive | Amplify: your units deal +10% of their own ATK. |
 | **Black Hole Digestor** | epic | 3 | 1→7 | Digest | Start of your turn: gain +1 temporary mana for each Module you control. |
-| **Bot Bot** | epic | 3 | 1→3 | Maximum Power | Your units have +1 ATK, and your OTHER Bots trigger twice as strongly. |
+| **Bot Bot** | epic | 3 | 15%→55% | Maximum Power | Your units deal +15% of their own ATK, and your OTHER Bots trigger twice as strongly. |
 | **Critical Coin** | rare | 3 | 1→7 | Double Coins | When a friendly unit destroys an enemy unit, gain +1 mana next turn. |
 | **Death Penalty** | epic | 3 | 1→7 | Doom | Each turn, mark the first enemy unit that enters — the first hit it takes destroys it. |
 | **Extra Defense** | common | 3 | 1→7 | Extra Defense+ | Incoming Nexus damage is reduced by 1 (minimum 1). |

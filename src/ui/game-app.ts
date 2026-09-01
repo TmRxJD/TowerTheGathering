@@ -1334,7 +1334,7 @@ export class GameApp {
     el.innerHTML =
       `<div class="help-card">` +
       `<h3>How to play</h3>` +
-      `<p><b>Goal:</b> drop the enemy Tower to 0 HP. You start at 20; the ladder enemies start tougher.</p>` +
+      `<p><b>Goal:</b> drop the enemy Tower to 0 HP. You start at ${TUNING.START_LIFE}; the ladder enemies start tougher.</p>` +
       `<p><b>Each turn:</b> you gain +1 mana (max 10) and draw a card. Spend mana to play cards, then press <b>End Turn</b> to fight.</p>` +
       `<p><b>Lanes:</b> units stack in the Left / Center / Right lanes. Only the <b>front</b> unit fights each turn; it trades damage with the enemy's front unit. A lane with no enemy unit sends your front unit's damage straight to the Tower.</p>` +
       `<p><b>Card types:</b> <b>Units</b> fight in a lane · <b>Modules</b> give lasting effects from your backline (max ${TUNING.BACKLINE_SLOTS}) · <b>Ultimates</b> are one-time spells.</p>` +

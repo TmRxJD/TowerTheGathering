@@ -149,7 +149,7 @@ describe('combat', () => {
     expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 1 * COMBAT_SCALE)
   })
 
-  it('Damage module is a live control: +1 ATK moves face damage from 1 to 2', () => {
+  it('Damage module is a live control: +20% ATK lifts a land-mine hit above its base', () => {
     const e = build(['damage', 'land-mine-stun'], [])
     pass(e) // t1 → AI
     pass(e) // AI → t2
@@ -158,7 +158,8 @@ describe('combat', () => {
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
     pass(e)
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 2 * COMBAT_SCALE)
+    // land-mine base ATK = COMBAT_SCALE (10); Damage L1 adds +20% of it.
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - (COMBAT_SCALE + Math.round(COMBAT_SCALE * 0.2)))
   })
 
   it('a Defender blocks: face is untouched and the defender soaks the hit', () => {
@@ -206,7 +207,7 @@ describe('card levels + mastery', () => {
       seed: 'lvl',
       shuffle: false,
       firstPlayer: 'HUMAN',
-      // Damage level 6 (value 6) + mastery level 1 (+1) => +7 ATK.
+      // Damage level 6 (0.75) + mastery level 1 (+0.05) => +80% ATK.
       cardLevels: { HUMAN: { damage: { level: 6, mastery: 1 } } },
     })
     pass(e) // t1 → AI
@@ -215,8 +216,8 @@ describe('card levels + mastery', () => {
     pass(e) // AI → t3 (mana 3)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
-    pass(e) // combat: land-mine base 1 ATK + Damage(+7) = 8 to AI face
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 8 * COMBAT_SCALE)
+    pass(e) // combat: land-mine base ATK (10) + Damage(+80%) to AI face
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - (COMBAT_SCALE + Math.round(COMBAT_SCALE * 0.8)))
   })
 })
 

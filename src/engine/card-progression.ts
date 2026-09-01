@@ -22,14 +22,15 @@ export const MASTERY_MAX_LEVEL = 9
  * Cards whose level value is a COMBAT quantity (HP / ATK / damage / thorns / ATK-reduction). Their
  * value is scaled ×COMBAT_SCALE centrally in cardLevelValue, matching the ×10 unit/tower stats. Cards
  * NOT listed here keep their raw value: currency (coins), resource clock (mana/draw/reveal counts),
- * durations (freeze/tap turns), and ratios (%s, multipliers, chances). NOTE: damage/attack-speed/
- * amplify-bot/bot-bot are here as flat ATK for now; they become % ATK buffs in the next pass.
+ * durations (freeze/tap turns), and ratios (%s, multipliers, chances). The army-wide ATK buffs
+ * damage/attack-speed/amplify-bot/bot-bot are % buffs (a fraction of each unit's own ATK, applied in
+ * unitAtk) — deliberately NOT here, so their level value stays a raw fraction rather than a flat ×10.
  */
 export const COMBAT_CARDS: ReadonlySet<string> = new Set([
   // units
   'fortress', 'extra-orbs', 'berserker', 'land-mine-stun',
-  // ATK buffs / army
-  'damage', 'attack-speed', 'range', 'amplify-bot', 'bot-bot', 'om-chip', 'super-tower', 'orbs-speed',
+  // flat ATK buffs / army (the % army buffs — damage/attack-speed/amplify-bot/bot-bot — are excluded)
+  'range', 'om-chip', 'super-tower', 'orbs-speed',
   'singularity-harness', 'project-funding', 'guardian-ally',
   // HP / heal / defense
   'health', 'health-regen', 'sharp-fortitude', 'wormhole-redirector', 'recovery-package', 'package-chance',
@@ -71,8 +72,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'land-mine-stun': { levels: [1, 2, 3, 4, 5, 6, 7], unitStat: 'atk', masteryName: 'Flashbang', masteryText: '+1 ATK per level.', masteryBonus: 1 },
 
   // --- Modules ---
-  damage: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Damage+', masteryText: '+1 ATK to friendly units, per level.', masteryBonus: 1 },
-  'attack-speed': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Attack Speed+', masteryText: 'Your units deal +1 more, per level.', masteryBonus: 1 },
+  damage: { levels: [0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 0.9], masteryName: 'Damage+', masteryText: '+5% ATK to friendly units, per level.', masteryBonus: 0.05 },
+  'attack-speed': { levels: [0.15, 0.25, 0.35, 0.45, 0.55, 0.7, 0.85], masteryName: 'Attack Speed+', masteryText: 'Your units deal +5% more, per level.', masteryBonus: 0.05 },
   health: { levels: [5, 7, 9, 11, 13, 15, 18], masteryName: 'Health+', masteryText: '+2 more max Tower HP per level.', masteryBonus: 2 },
   'health-regen': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Health Regen+', masteryText: '+1 more healing each turn, per level.', masteryBonus: 1 },
   range: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Long Shot', masteryText: 'Reaching units deal +1 more, per level.', masteryBonus: 1 },
@@ -146,8 +147,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'flame-bot': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
   'thunder-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Linger', masteryText: '+1 stun turn per level.', masteryBonus: 1 },
   'golden-bot': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Gold Rush', masteryText: '+2 more coins per level.', masteryBonus: 2 },
-  'amplify-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Overdrive', masteryText: '+1 ATK per level.', masteryBonus: 1 },
-  'bot-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Maximum Power', masteryText: '+1 ATK per level.', masteryBonus: 1 },
+  'amplify-bot': { levels: [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5], masteryName: 'Overdrive', masteryText: '+5% ATK per level.', masteryBonus: 0.05 },
+  'bot-bot': { levels: [0.15, 0.2, 0.25, 0.3, 0.35, 0.45, 0.55], masteryName: 'Maximum Power', masteryText: '+5% ATK per level.', masteryBonus: 0.05 },
 
   // --- Guardian chips ---
   'guardian-ally': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Loyal Ally', masteryText: 'The converted unit gains +1/+1 more per level.', masteryBonus: 1 },
@@ -171,8 +172,8 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'extra-orbs': { fmt: 'flat', label: 'ATK · First Strike, spillover' },
   berserker: { fmt: 'flat', label: 'ATK · gains +1 ATK when it survives a hit' },
   'land-mine-stun': { fmt: 'flat', label: 'ATK · Trap: freezes an entering enemy 1 turn' },
-  damage: { fmt: 'plus', label: 'ATK to all friendly units' },
-  'attack-speed': { fmt: 'plus', label: 'ATK to your units (grants First Strike)' },
+  damage: { fmt: 'percent', label: 'more ATK for all your units' },
+  'attack-speed': { fmt: 'percent', label: 'more ATK for your units (grants First Strike)' },
   health: { fmt: 'plus', label: 'max Tower HP (healed on play)' },
   'health-regen': { fmt: 'plus', label: 'HP healed to Tower & units each turn' },
   range: { fmt: 'plus', label: 'ATK to units (grants Reach)' },
@@ -238,8 +239,8 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'flame-bot': { fmt: 'flat', label: 'burn damage to all enemy units each turn (they get −1 ATK)' },
   'thunder-bot': { fmt: 'flat', label: 'turns the strongest enemy unit is stunned each turn' },
   'golden-bot': { fmt: 'flat', label: 'coins farmed each turn (banked on a win)' },
-  'amplify-bot': { fmt: 'plus', label: 'ATK to all your units' },
-  'bot-bot': { fmt: 'plus', label: 'ATK to your units (doubles your other Bots)' },
+  'amplify-bot': { fmt: 'percent', label: 'more ATK for all your units' },
+  'bot-bot': { fmt: 'percent', label: 'more ATK for your units (doubles your other Bots)' },
   // Guardian chips
   'guardian-ally': { fmt: 'plus', label: 'ATK/HP on the converted weakest enemy unit' },
   'guardian-attack': { fmt: 'plus', label: "damage on top of the target's missing HP" },

@@ -88,25 +88,26 @@ describe('bots + chips coverage', () => {
 })
 
 describe('bot/chip effects (flip the control, output moves)', () => {
-  it('Amplify Bot raises your units’ ATK; Bot Bot doubles that and adds its own', () => {
-    // Control: extra-orbs alone is 3 ATK.
+  it('Amplify Bot raises your units’ ATK by %; Bot Bot doubles that and adds its own', () => {
+    const base = 3 * COMBAT_SCALE // extra-orbs base ATK (30)
+    // Control: extra-orbs alone is its base ATK.
     const c = build(['extra-orbs'], [])
     toHumanMana(c, 4)
     c.apply({ kind: 'playUnit', uid: uidOf(c, 'HUMAN', 'extra-orbs'), lane: 'LEFT' })
-    expect(stack(c, 'LEFT', 'HUMAN')[0]?.atk).toBe(3 * COMBAT_SCALE)
-    // Amplify Bot (+1): 3 + 1 = 4.
+    expect(stack(c, 'LEFT', 'HUMAN')[0]?.atk).toBe(base)
+    // Amplify Bot L1 = +10% of the unit's own ATK.
     const a = build(['amplify-bot', 'extra-orbs'], [])
     toHumanMana(a, 7)
     a.apply({ kind: 'playModule', uid: uidOf(a, 'HUMAN', 'amplify-bot') })
     a.apply({ kind: 'playUnit', uid: uidOf(a, 'HUMAN', 'extra-orbs'), lane: 'LEFT' })
-    expect(stack(a, 'LEFT', 'HUMAN')[0]?.atk).toBe(4 * COMBAT_SCALE)
-    // Bot Bot doubles Amplify (1→2) and adds +1 of its own: 3 + 2 + 1 = 6.
+    expect(stack(a, 'LEFT', 'HUMAN')[0]?.atk).toBe(base + Math.round(base * 0.1))
+    // Bot Bot doubles Amplify (×2) and adds its own 15%: +(10%×2 + 15%) = +35%.
     const b = build(['bot-bot', 'amplify-bot', 'extra-orbs'], [])
     toHumanMana(b, 10)
     b.apply({ kind: 'playModule', uid: uidOf(b, 'HUMAN', 'bot-bot') })
     b.apply({ kind: 'playModule', uid: uidOf(b, 'HUMAN', 'amplify-bot') })
     b.apply({ kind: 'playUnit', uid: uidOf(b, 'HUMAN', 'extra-orbs'), lane: 'LEFT' })
-    expect(stack(b, 'LEFT', 'HUMAN')[0]?.atk).toBe(6 * COMBAT_SCALE)
+    expect(stack(b, 'LEFT', 'HUMAN')[0]?.atk).toBe(base + Math.round(base * (0.1 * 2 + 0.15)))
   })
 
   it('Scout Chip saps every enemy unit’s ATK', () => {
