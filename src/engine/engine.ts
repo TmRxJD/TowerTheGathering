@@ -571,7 +571,7 @@ class TowerEngine implements Engine {
           continue
         }
         if (u.tappedTurns > 0) u.tappedTurns--
-        if (u.frozenTurns > 0) u.frozenTurns--
+        if (u.frozenTurns > 0) u.frozenTurns = Math.max(0, u.frozenTurns - 1) // fractional-safe
       }
     }
   }
@@ -848,7 +848,7 @@ class TowerEngine implements Engine {
           if (stack.length < TUNING.LANE_STACK_CAP) {
             victim.owner = side
             victim.tappedTurns = Math.max(victim.tappedTurns, 1) // freshly turned — can't attack this turn
-            const buff = this.cardVal(side, 'guardian-ally') - 1 // Loyal Ally mastery: +buff/+buff
+            const buff = this.cardVal(side, 'guardian-ally') // the converted unit gains +buff/+buff (scales by level)
             if (buff > 0) {
               victim.atk += buff
               victim.maxHp += buff
@@ -936,6 +936,8 @@ class TowerEngine implements Engine {
         break
       }
       case 'chrono-field': {
+        // Pure crowd control: freeze the whole board. Duration is FRACTIONAL (a broad freeze can't
+        // safely scale to whole-turn lock, so it grows gradually per level, like Tower's UW tables).
         const turns = this.cardVal(side, 'chrono-field') + this.uwBonus(side)
         const opp = this.opponent(side)
         for (const lane of LANES) {
@@ -1524,7 +1526,7 @@ class TowerEngine implements Engine {
   }
 
   private canAct(unit: UnitInstance): boolean {
-    return unit.tappedTurns === 0 && unit.frozenTurns === 0
+    return unit.tappedTurns <= 0 && unit.frozenTurns <= 0 // frozenTurns may be fractional (Chrono Field)
   }
 
   private superTowerActive(side: Side): boolean {

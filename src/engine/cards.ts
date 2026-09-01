@@ -340,7 +340,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'chrono-field': {
     id: 'chrono-field', name: 'Chrono Field', rarity: 'epic', type: 'ULTIMATE', cost: 5,
-    text: 'Freeze all enemy units for 2 turns.',
+    text: 'Freeze all enemy units for N turns.',
     art: 'chrono-field.webp',
   },
   'inner-land-mines': {

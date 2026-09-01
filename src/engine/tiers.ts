@@ -65,7 +65,7 @@ export function tierAiDepth(level: number): number {
   // Depth is the dominant difficulty lever vs a human: a searching boss out-plays you regardless of
   // HP. So keep bosses SIMPLE (1-ply) through the easy onboarding tiers, step up to the anti-cheese
   // 2-ply for the mid game, and only bring the 2-turn-lookahead 3-ply out for the top tiers.
-  return t <= 6 ? 1 : t <= 15 ? 2 : 3
+  return t <= 6 ? 1 : t <= 11 ? 2 : 3
 }
 
 /**
@@ -83,7 +83,7 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   // punishing one. (Replaced the old brutal/nightmare/capstone spikes wholesale.)
   // Across-tier difficulty: starts NEGATIVE so early bosses are genuinely weaker than you (an easy
   // onboarding win), crosses ~T6, and accelerates in the last third for a fair-but-real top-tier fight.
-  const climb = Math.round((t - 6) * 2.5 + Math.max(0, t - 14) * 3.2) // T1 -13, T6 0, T15 +25, T24 +77
+  const climb = Math.round((t - 6) * 3.2 + Math.max(0, t - 14) * 4.0) // steeper: compensates buffed player cards
   const bossRamp = Math.round((i - 1) * (0.4 + t * 0.12)) // within-tier ramp; later rungs a touch harder
   // The 11th "Boss" rung is the real Tower Boss enemy: its identity is a chunk of extra HP (kept
   // beatable — scales gently with tier), not an offense spike.

@@ -66,12 +66,12 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   // --- Ultimates ---
   cash: { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Big Cash', masteryText: '+1 more temporary mana, per level.', masteryBonus: 1 },
   'free-upgrades': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Locked Upgrade', masteryText: 'Reveal +1 more card, per level.', masteryBonus: 1 },
-  'plasma-cannon': { levels: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8], masteryName: 'Elite Cannon', masteryText: 'Also hits a second enemy unit.', masterySpecial: 'elite-cannon' },
-  'wave-skip': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Fast Forward', masteryText: '+1 more card drawn, per level.', masteryBonus: 1 },
+  'plasma-cannon': { levels: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], masteryName: 'Elite Cannon', masteryText: 'Also hits a second enemy unit.', masterySpecial: 'elite-cannon' },
+  'wave-skip': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Fast Forward', masteryText: '+1 more card drawn, per level.', masteryBonus: 1 },
   'intro-sprint': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Warp Speed', masteryText: 'Draw +1 more, per level.', masteryBonus: 1 },
   'recovery-package': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more overheal, per level.', masteryBonus: 1 },
   'death-ray': { levels: [6, 7, 8, 9, 10, 11, 12], masteryName: 'Enhanced Ray', masteryText: '+1 more damage per level.', masteryBonus: 1 },
-  'energy-net': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Electrified Net', masteryText: 'Freeze +1 more turn, per level.', masteryBonus: 1 },
+  'energy-net': { levels: [2, 2.5, 3, 3.5, 4, 4.5, 5], masteryName: 'Electrified Net', masteryText: '+0.5 more freeze per level.', masteryBonus: 0.5 },
   'second-wind': { levels: [5, 6, 7, 8, 9, 10, 12], masteryName: 'Angel Wings', masteryText: 'Also heals all your units to full when it triggers.', masterySpecial: 'angel-wings' },
   'demon-mode': { levels: [5, 6, 7, 8, 9, 10, 12], masteryName: 'Demon Revenge', masteryText: '+1 more ATK per level.', masteryBonus: 1 },
   nuke: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Radiation', masteryText: 'Also deals 6 damage to the enemy Tower.', masterySpecial: 'radiation' },
@@ -81,7 +81,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'chain-lightning': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Smite', masteryText: '+1 to every bolt per level.', masteryBonus: 1 },
   'smart-missiles': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Cover Fire', masteryText: '+1 missile damage per lane, per level.', masteryBonus: 1 },
   'death-wave': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Kill Wall', masteryText: '+1 wave damage each turn, per level.', masteryBonus: 1 },
-  'chrono-field': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Chrono Loop', masteryText: '+1 freeze turn per level.', masteryBonus: 1 },
+  'chrono-field': { levels: [1.5, 1.8, 2.1, 2.4, 2.7, 3, 3.5], masteryName: 'Chrono Loop', masteryText: '+0.25 more freeze per level.', masteryBonus: 0.25 },
   'inner-land-mines': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Charged Mines', masteryText: '+1 mine damage per level.', masteryBonus: 1 },
   'golden-tower': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Golden Combo', masteryText: '+2 more coins per kill, per level.', masteryBonus: 2 },
   'poison-swamp': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Death Creep', masteryText: '+1 poison damage per level.', masteryBonus: 1 },
@@ -117,19 +117,19 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'om-chip': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Focus', masteryText: '+1 focus ATK per level.', masteryBonus: 1 },
 
   // --- Bots ---
-  'flame-bot': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
-  'thunder-bot': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Linger', masteryText: '+1 stun turn per level.', masteryBonus: 1 },
+  'flame-bot': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
+  'thunder-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Linger', masteryText: '+1 stun turn per level.', masteryBonus: 1 },
   'golden-bot': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Gold Rush', masteryText: '+2 more coins per level.', masteryBonus: 2 },
-  'amplify-bot': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Overdrive', masteryText: '+1 ATK per level.', masteryBonus: 1 },
-  'bot-bot': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Maximum Power', masteryText: '+1 ATK per level.', masteryBonus: 1 },
+  'amplify-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Overdrive', masteryText: '+1 ATK per level.', masteryBonus: 1 },
+  'bot-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Maximum Power', masteryText: '+1 ATK per level.', masteryBonus: 1 },
 
   // --- Guardian chips ---
-  'guardian-ally': { levels: [1, 1, 1, 1, 1, 1, 1], masteryName: 'Loyal Ally', masteryText: 'The converted unit gains +1/+1 per level.', masteryBonus: 1 },
+  'guardian-ally': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Loyal Ally', masteryText: 'The converted unit gains +1/+1 more per level.', masteryBonus: 1 },
   'guardian-attack': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Execute', masteryText: '+1 bonus damage per level.', masteryBonus: 1 },
-  'guardian-bounty': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Jackpot', masteryText: '+1 card drawn per level.', masteryBonus: 1 },
+  'guardian-bounty': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Jackpot', masteryText: '+1 card drawn per level.', masteryBonus: 1 },
   'guardian-fetch': { levels: [3, 4, 5, 6, 7, 8, 10], masteryName: 'Big Haul', masteryText: '+1 HP stolen per level.', masteryBonus: 1 },
-  'guardian-summon': { levels: [2, 3, 3, 4, 4, 5, 6], masteryName: 'Swarm', masteryText: '+1 token ATK/HP per level.', masteryBonus: 1 },
-  'guardian-scout': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Recon', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
+  'guardian-summon': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Swarm', masteryText: '+1 token ATK/HP per level.', masteryBonus: 1 },
+  'guardian-scout': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Recon', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
 }
 
 /** How a card's numeric value is shown, and what the number MEANS (so the UI reads like the game). */
@@ -215,7 +215,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'amplify-bot': { fmt: 'plus', label: 'ATK to all your units' },
   'bot-bot': { fmt: 'plus', label: 'ATK to your units (doubles your other Bots)' },
   // Guardian chips
-  'guardian-ally': { fmt: 'flat', label: 'weakest enemy unit converted to your side' },
+  'guardian-ally': { fmt: 'plus', label: 'ATK/HP on the converted weakest enemy unit' },
   'guardian-attack': { fmt: 'plus', label: "damage on top of the target's missing HP" },
   'guardian-bounty': { fmt: 'flat', label: 'cards drawn' },
   'guardian-fetch': { fmt: 'flat', label: 'HP stolen from the enemy Tower (then draw 1)' },
