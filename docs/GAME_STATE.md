@@ -293,27 +293,27 @@ own ATK, so they scale your attackers gradually and leave 0‑ATK walls as walls
 | **Health Regen** | common | 2 | +10→+70 HP | Health Regen+ | Start of turn: heal your Tower and all units. |
 | **Coins** | common | 1 | 10→50 | Interest | Bonus coins on a win, per copy in play. (Economy.) |
 | **Critical Chance** | common | 2 | 30%→60% | Super Crit | Your units have a % chance on hit to deal 2× damage. |
-| **Enemy Balance** | common | 1 | 1→7 | Elite Balance | Draw +N cards each turn, but all enemy units get +10 ATK. |
+| **Enemy Balance** | common | 1 | 1→3 | Elite Balance | Draw +N cards each turn, but all enemy units get +10 ATK. (Count capped — extra draws compound fast.) |
 | **Extra Defense** | common | 3 | +10→+70 | Extra Defense+ | Incoming Tower damage reduced (min 10). |
 | **Critical Coin** | rare | 3 | 2→10 | Double Coins | Coins farmed per critical hit (banked on a win). |
 | **Package Chance** | rare | 2 | +20→+80 HP | Care Package | +Tower HP whenever you draw an Ultimate. |
-| **Slow Aura** | rare | 3 | 1→7 | Slow Attack | Enemy units enter tapped for N turns. |
+| **Slow Aura** | rare | 3 | 1→3 | Slow Attack | Enemy units enter tapped for N turns. (Duration capped — a long tap is a lock.) |
 | **Land Mine Chance** | rare | 2 | 50%→80% | Minefield | % chance to spawn a mine each turn. |
 | **Orbs Speed** | rare | 2 | +20→+80 ATK | Orbs Speed+ | +ATK to your Extra Orbs units. |
 | **Golden Bot** | rare | 2 | 2→10 | Gold Rush | Coins farmed each turn (banked on a win). |
 | **Amplify Bot** | rare | 3 | 10%→50% | Overdrive | Amplify: all your units deal +% of their own ATK. |
 | **Scout Chip** | rare | 2 | 10→70 | Recon | All enemy units have −ATK. |
-| **Thunder Bot** | rare | 3 | 1→7 | Linger | Start of turn: stun the strongest enemy N turns. |
+| **Thunder Bot** | rare | 3 | 1→3 | Linger | Start of turn: stun the strongest enemy N turns (×Bot Bot). Duration capped. |
 | **Inner Land Mines** | rare | 3 | 20→80 | Charged Mines | Damage to each enemy unit as it enters a lane. |
 | **Golden Tower** | rare | 3 | 2→10 | Golden Combo | Coins farmed per enemy killed (banked on a win). |
 | **Spotlight** | rare | 3 | +10→+70 | Floodlight | +N added to each of your Ultimate Weapon cards' effect. |
 | **Super Tower** | epic | 5 | +30→+90 ATK | Ultimate Tower | Every 3rd turn: your units +ATK and Invulnerable that combat. |
-| **Energy Shield** | epic | 4 | 1→7 | Repel | Absorbs N instances of Tower damage. |
-| **Wave Accelerator** | epic | 3 | +1→+7 | Spawn Accelerator | Your Ultimates cost N less (min 1). |
+| **Energy Shield** | epic | 4 | 1→4 | Repel | Absorbs N instances of Tower damage (each negates a full hit). |
+| **Wave Accelerator** | epic | 3 | +1→+3 | Spawn Accelerator | Your Ultimates cost N less (min 1). Reduction capped. |
 | **Death Wave** | epic | 4 | 10→70 | Kill Wall | Damage to every enemy unit each turn. |
 | **Poison Swamp** | epic | 4 | 10→70 | Death Creep | Damage to a dying enemy's lane‑mates. |
 | **Being Annihilator** | epic | 4 | 1→7 | Super Crit | N guaranteed crits (2×) each turn. |
-| **Death Penalty** | epic | 3 | 1→7 | Doom | Marks N entering enemies (first hit destroys them). |
+| **Death Penalty** | epic | 3 | 15%→60% | Doom | % chance an entering enemy is Marked (first hit destroys it). +3%/mastery. |
 | **Havoc Bringer** | epic | 4 | +10→+70 | Rend Max | Enemy units take +N damage from your attacks. |
 | **Astral Deliverance** | epic | 4 | 10→70 | Ricochet | Bounce damage to the enemy behind your target. |
 | **Anti‑Cube Portal** | epic | 4 | 10→70 | Aftershock | Shockwave damage to neighboring lanes' enemy fronts. |
@@ -321,15 +321,15 @@ own ATK, so they scale your attackers gradually and leave 0‑ATK walls as walls
 | **Sharp Fortitude** | epic | 4 | +40→+160 HP | Barbed | +max Tower HP (healed); attackers take thorns. |
 | **Wormhole Redirector** | epic | 3 | 10→70 | Conduit | Tower HP recovered at the start of each turn. |
 | **Space Displacer** | epic | 4 | 10→70 | Organize | HP of a Mine spawned in each empty lane each turn. |
-| **Black Hole Digestor** | epic | 3 | 1→7 | Digest | +temp mana each turn per Module you control. |
-| **Galaxy Compressor** | epic | 3 | 1→7 | Recover | Less Ultimate cost on turns you heal your Tower. |
-| **Project Funding** | epic | 4 | +10→+70 ATK | Investment | +ATK to your units per 3 mana in your pool. |
+| **Black Hole Digestor** | epic | 3 | 1→7 | Digest | +temp mana each turn (× copies, NOT × module count). |
+| **Galaxy Compressor** | epic | 3 | 1→3 | Recover | Less Ultimate cost on turns you heal your Tower. Reduction capped. |
+| **Project Funding** | epic | 4 | 5%→22% | Investment | +% of unit ATK per 3 mana in your pool (was flat; now a % army buff). |
 | **Pulsar Harvester** | epic | 4 | 10→70 | Decay | −ATK from an enemy your unit damages. |
 | **Singularity Harness** | epic | 3 | +10→+70 ATK | Bot Boost | +ATK to your Mine & Wall tokens. |
 | **Dimension Core** | epic | 4 | +10→+70 | Overcharge | +damage to your damage‑dealing Ultimates. |
-| **Harmony Conductor** | epic | 4 | 1→7 | Discord | N enemy fronts miss their attack each turn. |
+| **Harmony Conductor** | epic | 4 | 1→3 | Discord | N enemy fronts miss their attack each turn (caps at 3 = the board). |
 | **Magnetic Hook** | epic | 4 | 20→80 | Reel | Damage to the strongest enemy unit each turn. |
-| **Multiverse Nexus** | epic | 4 | 1→7 | Synchrony | After you play an Ultimate, sync N free ones (fire together). |
+| **Multiverse Nexus** | epic | 4 | 1→4 | Synchrony | After you play an Ultimate, sync N free ones (fire together). Count capped. |
 | **Om Chip** | epic | 3 | +10→+70 ATK | Focus | Start of turn: your strongest unit gains +ATK. |
 | **Flame Bot** | epic | 3 | 20→80 | Burn Stack | Burn all enemy units each turn (they also get −10 ATK). |
 | **Bot Bot** | epic | 3 | 15%→55% | Maximum Power | Your units deal +% ATK; doubles your other Bots. |
