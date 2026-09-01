@@ -117,7 +117,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     atk: 0,
     hp: 80,
     keywords: ['defender'],
-    text: 'Defender. Enemies must destroy it first. Deals no combat damage.',
+    text: 'Taunt. Enemies must destroy it first. Deals no combat damage.',
     art: 'fortress.jpg',
   },
 
@@ -167,7 +167,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     atk: 10,
     hp: 20,
     keywords: ['trap', 'defender'],
-    text: 'Trap, Defender. When an enemy enters this lane, destroy this and freeze that enemy 1 turn.',
+    text: 'Secret, Taunt. When an enemy enters this lane, destroy this and freeze that enemy 1 turn.',
     art: 'land-mine-stun.jpg',
   },
   'recovery-package': {
@@ -215,7 +215,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'rare',
     type: 'MODULE',
     cost: 2,
-    text: 'End of your turn: 50% chance to spawn a 1/1 Defender mine in a random empty lane.',
+    text: 'End of your turn: 50% chance to spawn a 1/1 Taunt mine in a random empty lane.',
     art: 'land-mine-chance.webp',
   },
   'orbs-speed': {
@@ -547,7 +547,7 @@ export const MINE_TOKEN: CardDef = {
   atk: 10,
   hp: 10,
   keywords: ['defender'],
-  text: 'Defender. A spawned mine token.',
+  text: 'Taunt. A spawned mine token.',
   art: 'land-mine-chance.webp',
 }
 

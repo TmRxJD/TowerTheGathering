@@ -79,7 +79,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   fortress: mag(80, { unitStat: 'hp', masteryName: 'Fortress Walls', masteryText: 'On death, a wall rebuilds in its place (once).', masterySpecial: 'fortress-walls' }),
   'extra-orbs': mag(30, { unitStat: 'atk', masteryName: 'Coin Orb', masteryText: 'Farm bonus coins (= its ATK) whenever it destroys an enemy.', masterySpecial: 'coin-orb' }),
   berserker: mag(20, { unitStat: 'atk', masteryName: 'Viking Funeral', masteryText: 'On death, deals its ATK to the enemy Tower.', masterySpecial: 'viking-funeral' }),
-  'land-mine-stun': mag(10, { unitStat: 'atk', masteryName: 'Flashbang', masteryText: 'A leveled trap hits harder.' }),
+  'land-mine-stun': mag(10, { unitStat: 'atk', masteryName: 'Flashbang', masteryText: 'A leveled mine hits harder.' }),
 
   // --- Modules ---
   damage: ratio(0.2, 3, { masteryName: 'Damage+', masteryText: 'More ATK to all your units.' }),
@@ -178,10 +178,10 @@ export interface CardDisplay {
 }
 
 export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
-  fortress: { fmt: 'flat', label: 'HP · Defender wall, deals no damage' },
-  'extra-orbs': { fmt: 'flat', label: 'ATK · First Strike, spillover' },
+  fortress: { fmt: 'flat', label: 'HP · Taunt wall, deals no damage' },
+  'extra-orbs': { fmt: 'flat', label: 'ATK · First Strike, Overkill' },
   berserker: { fmt: 'flat', label: 'ATK · gains ATK when it survives a hit' },
-  'land-mine-stun': { fmt: 'flat', label: 'ATK · Trap: freezes an entering enemy 1 turn' },
+  'land-mine-stun': { fmt: 'flat', label: 'ATK · Secret: freezes an entering enemy 1 turn' },
   damage: { fmt: 'percent', label: 'more ATK for all your units' },
   'attack-speed': { fmt: 'percent', label: 'more ATK for your units (grants First Strike)' },
   health: { fmt: 'plus', label: 'max Tower HP (healed on play)' },

@@ -61,19 +61,31 @@ import { loadSaves, writeSaves, freshSave, loadSettings, writeSettings, PLAYER_S
 const LANES: readonly Lane[] = ['LEFT', 'CENTER', 'RIGHT']
 
 /** Plain-language keyword meanings shown in the hover preview and help panel. */
+// Keyword display labels. The engine keys stay internal (defender/trap/spillover); these Hearthstone-
+// aligned names are what the player reads — Taunt/Secret/Overkill are the familiar HS terms.
 const KEYWORD_INFO: Record<string, string> = {
-  defender: 'Defender — enemies must destroy it before hitting units behind it.',
+  defender: 'Taunt — enemies must destroy it before hitting units behind it.',
   firstStrike: 'First Strike — deals its damage before the enemy strikes back.',
   reach: 'Reach — can strike an adjacent lane when its own lane is clear.',
-  spillover: 'Spillover — leftover (overkill) damage carries to the enemy Tower.',
-  trap: 'Trap — triggers and is destroyed when an enemy enters its lane.',
+  spillover: 'Overkill — leftover damage carries to the enemy Tower.',
+  trap: 'Secret — triggers and is destroyed when an enemy enters its lane.',
+}
+
+/** Short badges drawn on a unit in-battle. Derived from the DISPLAY name, not the engine key, so Taunt
+ *  shows T, Secret S, Overkill O (the keys are still defender/trap/spillover). */
+const KEYWORD_ABBR: Record<string, string> = {
+  defender: 'T', // Taunt
+  firstStrike: 'FS',
+  reach: 'R',
+  spillover: 'O', // Overkill
+  trap: 'S', // Secret
 }
 
 /** Runtime statuses a card can inflict, shown in Help. These aren't static card keywords (so they don't
  *  appear on card previews) — they're conditions a unit picks up mid-battle, rendered on it as icons. */
 const STATUS_INFO: Record<string, string> = {
-  marked: 'Marked 💀 — the next hit destroys it outright, no matter how much HP it has (Death Penalty).',
-  vulnerable: 'Vulnerable 🎯 — takes extra damage from every hit while the status lasts.',
+  marked: 'Marked (💀) — the next hit destroys it, regardless of how much HP it has.',
+  vulnerable: 'Vulnerable (🎯) — takes extra damage from every hit while the status lasts.',
 }
 
 export interface MatchResult {
@@ -893,7 +905,7 @@ export class GameApp {
 
     const kw = node.querySelector('.kw') as HTMLElement
     kw.innerHTML = u.keywords
-      .map(k => `<span>${k === 'firstStrike' ? 'FS' : k[0]!.toUpperCase()}</span>`)
+      .map(k => `<span>${KEYWORD_ABBR[k] ?? k[0]!.toUpperCase()}</span>`)
       .join('')
     const status = node.querySelector('.status') as HTMLElement
     status.textContent = [u.frozen ? '❄' : '', u.tapped ? '💤' : '', u.invulnerable ? '🛡' : '', u.marked ? '💀' : '', u.vulnerable > 0 ? '🎯' : ''].join('')
@@ -1355,7 +1367,7 @@ export class GameApp {
       `<p><b>Lanes:</b> units stack in the Left / Center / Right lanes. Only the <b>front</b> unit fights each turn; it trades damage with the enemy's front unit. A lane with no enemy unit sends your front unit's damage straight to the Tower.</p>` +
       `<p><b>Combat:</b> damage varies a little each swing, and every attack can <b>crit</b> for extra damage — so trades aren't always identical. Plan for the average, not a single lucky hit.</p>` +
       `<p><b>Card types:</b> <b>Units</b> fight in a lane · <b>Modules</b> give lasting effects from your backline (max ${TUNING.BACKLINE_SLOTS}) · <b>Ultimates</b> are one-time spells.</p>` +
-      `<p><b>Deck-out:</b> once your deck is empty, drawing hurts you a little more each time — so games always end.</p>` +
+      `<p><b>Fatigue:</b> once your deck is empty, drawing hurts you a little more each time — so games always end.</p>` +
       `<p><b>Keywords:</b></p><ul>${kw}</ul>` +
       `<p><b>Statuses:</b></p><ul>${st}</ul>` +
       `<p class="help-tip">Tip: hover any card to see it full-size. Use <b>Autoplay</b> to watch the AI play both sides.</p>` +
