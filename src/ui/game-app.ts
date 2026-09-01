@@ -1015,6 +1015,38 @@ export class GameApp {
       } else if (ev.type === 'ultimateCast') {
         this.castFx(ev.cardId, ev.side, ev.target)
         if (ev.side === 'AI') this.showToast(`Enemy casts ${getCard(ev.cardId).name}`)
+      } else if (ev.type === 'unitFrozen') {
+        const node = this.unitNodes.get(ev.uid)
+        const c = node ? this.centerIn(node.getBoundingClientRect()) : null
+        if (c) {
+          this.fx.ring(c.x, c.y, '#6fe0ff', 42)
+          this.fx.burst(c.x, c.y, '#bff2ff', 8, 0.22)
+        }
+      } else if (ev.type === 'moduleTriggered') {
+        this.moduleFx(ev.cardId, ev.side)
+      }
+    }
+  }
+
+  /** Themed FX for a passive module that fires on its own turn (bots). Flame Bot paints fire over
+   *  every enemy unit; others can hook in here as they gain a signature look. */
+  private moduleFx(cardId: string, side: Side): void {
+    if (cardId === 'flame-bot') {
+      const opp: Side = side === 'HUMAN' ? 'AI' : 'HUMAN'
+      const snap = this.engine.snapshot()
+      for (const lane of LANES) {
+        for (const u of snap.lanes[lane][opp]) {
+          const node = this.unitNodes.get(u.uid)
+          if (!node) continue
+          const c = this.centerIn(node.getBoundingClientRect())
+          if (c) {
+            this.fx.ring(c.x, c.y, '#ff7a2a', 40)
+            this.fx.burst(c.x, c.y, '#ffb454', 12, 0.42)
+          }
+          node.classList.remove('burning')
+          void node.offsetWidth
+          node.classList.add('burning')
+        }
       }
     }
   }
@@ -1129,6 +1161,29 @@ export class GameApp {
         break
       case 'second-wind':
         sparkle('#ffd257')
+        break
+      case 'guardian-attack':
+        if (t) {
+          beam(side === 'AI' ? '#ff5b6e' : '#ffb060')
+          this.fx.ring(t.x, t.y, '#ff9550', 50)
+          this.fx.burst(t.x, t.y, '#ffc070', 16, 0.5)
+        }
+        break
+      case 'guardian-ally':
+        sparkle('#9d7bff') // recruit glow — the weakest enemy defects
+        break
+      case 'guardian-bounty':
+        sparkle('#ffd257')
+        break
+      case 'guardian-fetch': {
+        const opp: Side = side === 'HUMAN' ? 'AI' : 'HUMAN'
+        const foe = this.centerIn(this.nexus[opp].el.getBoundingClientRect())
+        if (self && foe) this.fx.beam(foe.x, foe.y, self.x, self.y, '#c78bff') // drain toward you
+        sparkle('#ffd257')
+        break
+      }
+      case 'guardian-summon':
+        sparkle('#5ff0a0')
         break
       default:
         if (t) beam(side === 'AI' ? '#ff5b6e' : '#5b8cff')

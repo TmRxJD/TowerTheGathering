@@ -469,6 +469,10 @@ class TowerEngine implements Engine {
     if (this.countModule(side, 'flame-bot') > 0) {
       const dmg = this.cardVal(side, 'flame-bot') * this.countModule(side, 'flame-bot') * this.botAmp(side)
       const opp = this.opponent(side)
+      const fb = p.modules.find(m => m.cardId === 'flame-bot')
+      if (fb && this.lanes.LEFT[opp].length + this.lanes.CENTER[opp].length + this.lanes.RIGHT[opp].length > 0) {
+        events.push({ type: 'moduleTriggered', uid: fb.uid, cardId: 'flame-bot', side }) // burn FX cue
+      }
       for (const lane of LANES) for (const u of [...this.lanes[lane][opp]]) this.damageUnit(u, dmg, null, false, events)
       if (this.winner !== null) return
     }
