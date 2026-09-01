@@ -63,9 +63,9 @@ export function tierName(level: number): string {
  */
 const HP_GROWTH = 1.15 // per-tier HP ratio for BOTH towers (symmetric) — sets battle length, not difficulty
 // The ONE monotonic difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
-const R_MIN = 0.45 // T1-5 trivially easy (your deck is tiny early) so the onboarding stays a flat, high win
-const R_MAX = 2.2 // T24 enemy at 2.2× total power — the climax (its early-ramped mastery adds offense too)
-const R_SHAPE = 0.75 // <1 = concave: R stays low through the easy early tiers, then climbs through the mid
+const R_MIN = 0.7 // T1 easy onboarding win, but not a walkover (smoothed income makes the early deck stronger)
+const R_MAX = 1.6 // T24 climax — held at the AI's win/loss step edge so the top lands ~50%, not a crater
+const R_SHAPE = 0.6 // <1 = concave: R climbs through the mid so the curve keeps declining, not plateauing
 const RUNG_STEP = 0.04 // within a tier, each later rung is a little stronger
 const BOSS_MULT = 1.2 // the final Boss rung's extra power
 

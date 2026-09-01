@@ -32,7 +32,11 @@ export function masteryUpCost(mastery: number): number {
  * incentive is always to climb, never to farm a cleared tier.
  */
 export function tierShardBonus(tier: number): number {
-  return tier * tier // per-boss base: T1 = 1, T5 = 25, T10 = 100, T20 = 400, T24 = 576
+  // LINEAR in tier (was tier²). The quadratic curve back-loaded income so hard that the player's bank
+  // surged in the mid tiers, letting the buyer dump it into masteries all at once — a discrete power
+  // spike (the T9-12 win-rate bump). Linear income still rewards climbing (T10 pays 10× T1) but rises
+  // smoothly, so the player's power — and the win curve — climbs without a lump.
+  return tier * 10 // per-boss base: T1 = 10, T5 = 50, T10 = 100, T20 = 200, T24 = 240
 }
 
 /**
