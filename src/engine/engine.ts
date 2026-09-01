@@ -14,7 +14,7 @@
 import { getCard, MINE_TOKEN, SUMMON_TOKEN } from './cards'
 import { cardLevelValue, cardMasterySpecial, cardUnitStat, type MasterySpecial } from './card-progression'
 import { createRng, type Rng } from './rng'
-import { TUNING } from './tuning'
+import { TUNING, COMBAT_SCALE } from './tuning'
 import type {
   Action,
   CardRef,
@@ -46,13 +46,13 @@ import { LANES, SIDES } from './types'
 /** Magnitudes for the boss "enemy skills" (see EnemySkill). Fixed, modest values — the tier handicap
  *  scales raw difficulty; these give each archetype a distinct, plannable threat. */
 const ENEMY_SKILL = {
-  tankHp: 3, // Tank: bonus max HP per unit
-  commanderAtk: 1, // Commander: bonus ATK to all its units
-  protectorReduction: 1, // Protector: combat damage reduction on its units (min 1 still lands)
-  vampireDrain: 2, // Vampire: HP drained from your Nexus each of its turns
-  saboteurTap: 1, // Saboteur: turns your strongest unit is tapped each of its turns
-  overchargeBurst: 4, // Overcharge: burst to your Nexus on its power turn
-  overchargeEvery: 3, // …every Nth of its turns
+  tankHp: 3 * COMBAT_SCALE, // Tank: bonus max HP per unit
+  commanderAtk: 1 * COMBAT_SCALE, // Commander: bonus ATK to all its units
+  protectorReduction: 1 * COMBAT_SCALE, // Protector: combat damage reduction on its units
+  vampireDrain: 2 * COMBAT_SCALE, // Vampire: HP drained from your Tower each of its turns
+  saboteurTap: 1, // Saboteur: TURNS your strongest unit is tapped (a duration — unscaled)
+  overchargeBurst: 4 * COMBAT_SCALE, // Overcharge: burst to your Tower on its power turn
+  overchargeEvery: 3, // …every Nth of its turns (cadence — unscaled)
 } as const
 
 const ADJACENT: Readonly<Record<Lane, readonly Lane[]>> = {
@@ -911,7 +911,7 @@ class TowerEngine implements Engine {
           while (u && bolt > 0) {
             hit.add(u.uid)
             this.damageUnit(u, bolt, null, false, events)
-            bolt -= 1
+            bolt -= COMBAT_SCALE
             u = bolt > 0 ? this.biggestEnemyUnitExcept(side, hit) : undefined
           }
         }
@@ -1117,7 +1117,7 @@ class TowerEngine implements Engine {
     for (const uid of damaged.keys()) {
       const u = this.findUnit(uid)
       if (u && u.hp > 0 && u.cardId === 'berserker') {
-        u.atk += 1
+        u.atk += COMBAT_SCALE
         events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
       }
     }
@@ -1204,7 +1204,7 @@ class TowerEngine implements Engine {
     if (plan.target === 'nexus') {
       this.damageNexus(plan.side, plan.amount, events)
       // Sharp Fortitude: the wall's thorns hurt whoever strikes the Nexus.
-      const thorns = this.countModule(plan.side, 'sharp-fortitude')
+      const thorns = this.countModule(plan.side, 'sharp-fortitude') * COMBAT_SCALE
       if (thorns > 0) {
         const attacker = this.findUnit(plan.attackerUid)
         if (attacker) this.damageUnit(attacker, thorns, null, false, events)
@@ -1267,7 +1267,7 @@ class TowerEngine implements Engine {
     }
     let amt = amount + unit.vulnerable // Spotlight
     // Protector enemy skill: its units shrug off some of every hit (min 1 still lands).
-    if (this.skillOf(unit.owner) === 'protector') amt = Math.max(1, amt - ENEMY_SKILL.protectorReduction)
+    if (this.skillOf(unit.owner) === 'protector') amt = Math.max(COMBAT_SCALE, amt - ENEMY_SKILL.protectorReduction)
     if (unit.marked) {
       amt = Math.max(amt, unit.hp) // Death Penalty: first hit destroys
       unit.marked = false
@@ -1276,9 +1276,9 @@ class TowerEngine implements Engine {
     unit.hp -= amt
     events.push({ type: 'damage', targetUid: unit.uid, amount: amt, sourceUid, crit })
     if (unit.hp > 0) {
-      // Berserker: +1/+0 on surviving damage.
+      // Berserker: +ATK on surviving damage.
       if (unit.cardId === 'berserker') {
-        unit.atk += 1
+        unit.atk += COMBAT_SCALE
         events.push({ type: 'unitBuffed', uid: unit.uid, atk: unit.atk, hp: unit.hp })
       }
     } else {
@@ -1315,17 +1315,17 @@ class TowerEngine implements Engine {
       stack.length < TUNING.LANE_STACK_CAP
     ) {
       const shard = this.makeUnit(unit.owner, MINE_TOKEN.id, unit.lane)
-      shard.atk = 1
-      shard.hp = 1
-      shard.maxHp = 1
+      shard.atk = COMBAT_SCALE
+      shard.hp = COMBAT_SCALE
+      shard.maxHp = COMBAT_SCALE
       stack.unshift(shard)
       events.push({ type: 'unitPlaced', unit: shard, index: 0 })
     }
     // Fortress Walls mastery: rebuild a small wall in the lane once (the token can't re-trigger).
     if (this.hasMasterySpecial(unit.owner, unit.cardId, 'fortress-walls')) {
       const wall = this.makeUnit(unit.owner, MINE_TOKEN.id, unit.lane)
-      wall.hp = 4
-      wall.maxHp = 4
+      wall.hp = 4 * COMBAT_SCALE
+      wall.maxHp = 4 * COMBAT_SCALE
       wall.atk = 0
       stack.unshift(wall)
       events.push({ type: 'unitPlaced', unit: wall, index: 0 })
@@ -1382,7 +1382,7 @@ class TowerEngine implements Engine {
       }
       // Extra Defense: reduce per copy (scaled by level), but a hit never drops below 1.
       const reduction = this.cardVal(side, 'extra-defense') * this.countModule(side, 'extra-defense')
-      applied = Math.max(1, amount - reduction)
+      applied = Math.max(COMBAT_SCALE, amount - reduction)
     }
 
     p.life -= applied
@@ -1430,7 +1430,7 @@ class TowerEngine implements Engine {
       // Deck-out: escalating unpreventable damage so two stalling boards can't draw forever.
       p.fatigue++
       events.push({ type: 'cardDrawn', side: p.side, card: null })
-      this.damageNexus(p.side, p.fatigue, events, true)
+      this.damageNexus(p.side, p.fatigue * COMBAT_SCALE, events, true)
       return
     }
     const card = p.deck.pop() as CardRef
@@ -1513,14 +1513,14 @@ class TowerEngine implements Engine {
     atk += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
     // Commander enemy skill: it buffs its whole army with bonus ATK.
     if (this.skillOf(side) === 'commander') atk += ENEMY_SKILL.commanderAtk
-    // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy).
-    atk += this.countModule(this.opponent(side), 'enemy-balance')
+    // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy, ×scale).
+    atk += this.countModule(this.opponent(side), 'enemy-balance') * COMBAT_SCALE
     // Negative Mass Projector: the enemy's projector saps this unit's ATK.
     atk -= this.countModule(this.opponent(side), 'negative-mass-projector') * this.cardVal(this.opponent(side), 'negative-mass-projector')
     // Scout Chip / Flame Bot: the enemy's recon and burn sap this unit's ATK (Scout by level, burn −1).
     const opp = this.opponent(side)
     atk -= this.countModule(opp, 'guardian-scout') * this.cardVal(opp, 'guardian-scout')
-    atk -= this.countModule(opp, 'flame-bot') // burned units deal 1 less per Flame Bot
+    atk -= this.countModule(opp, 'flame-bot') * COMBAT_SCALE // burned units deal less per Flame Bot
     if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
     return Math.max(0, atk)
   }

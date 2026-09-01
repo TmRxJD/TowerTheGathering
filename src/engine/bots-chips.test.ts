@@ -11,7 +11,7 @@ import { createEngine } from './engine'
 import { ALL_CARD_IDS, getCard } from './cards'
 import { CARD_PROG, CARD_DISPLAY, CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
 import { HeuristicAI } from '../ai/heuristic'
-import { TUNING } from './tuning'
+import { TUNING, COMBAT_SCALE } from './tuning'
 import type { CardLevels, Engine, Lane, Side } from './types'
 
 const BOTS = ['flame-bot', 'thunder-bot', 'golden-bot', 'amplify-bot', 'bot-bot'] as const
@@ -93,29 +93,29 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     const c = build(['extra-orbs'], [])
     toHumanMana(c, 4)
     c.apply({ kind: 'playUnit', uid: uidOf(c, 'HUMAN', 'extra-orbs'), lane: 'LEFT' })
-    expect(stack(c, 'LEFT', 'HUMAN')[0]?.atk).toBe(3)
+    expect(stack(c, 'LEFT', 'HUMAN')[0]?.atk).toBe(3 * COMBAT_SCALE)
     // Amplify Bot (+1): 3 + 1 = 4.
     const a = build(['amplify-bot', 'extra-orbs'], [])
     toHumanMana(a, 7)
     a.apply({ kind: 'playModule', uid: uidOf(a, 'HUMAN', 'amplify-bot') })
     a.apply({ kind: 'playUnit', uid: uidOf(a, 'HUMAN', 'extra-orbs'), lane: 'LEFT' })
-    expect(stack(a, 'LEFT', 'HUMAN')[0]?.atk).toBe(4)
+    expect(stack(a, 'LEFT', 'HUMAN')[0]?.atk).toBe(4 * COMBAT_SCALE)
     // Bot Bot doubles Amplify (1→2) and adds +1 of its own: 3 + 2 + 1 = 6.
     const b = build(['bot-bot', 'amplify-bot', 'extra-orbs'], [])
     toHumanMana(b, 10)
     b.apply({ kind: 'playModule', uid: uidOf(b, 'HUMAN', 'bot-bot') })
     b.apply({ kind: 'playModule', uid: uidOf(b, 'HUMAN', 'amplify-bot') })
     b.apply({ kind: 'playUnit', uid: uidOf(b, 'HUMAN', 'extra-orbs'), lane: 'LEFT' })
-    expect(stack(b, 'LEFT', 'HUMAN')[0]?.atk).toBe(6)
+    expect(stack(b, 'LEFT', 'HUMAN')[0]?.atk).toBe(6 * COMBAT_SCALE)
   })
 
   it('Scout Chip saps every enemy unit’s ATK', () => {
     const e = build(['guardian-scout'], ['extra-orbs'])
     aiPlays(e, 'extra-orbs', 'LEFT')
-    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(3)
+    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(3 * COMBAT_SCALE)
     toHumanMana(e, 2)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'guardian-scout') })
-    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(2) // 3 − 1
+    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(2 * COMBAT_SCALE) // 3 − 1
   })
 
   it('Flame Bot weakens an enemy unit’s ATK immediately (−1)', () => {
@@ -123,7 +123,7 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     aiPlays(e, 'extra-orbs', 'LEFT')
     toHumanMana(e, 3)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'flame-bot') })
-    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(2) // 3 − 1 (read in unitAtk)
+    expect(stack(e, 'LEFT', 'AI')[0]?.atk).toBe(2 * COMBAT_SCALE) // 3 − 1 (read in unitAtk)
   })
 
   it('Flame Bot burns enemy units at start of your turn', () => {
@@ -133,7 +133,7 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'flame-bot') })
     pass(e) // → AI
     toHumanMana(e, 0) // back to a fresh HUMAN start-of-turn → burn fires
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBeLessThan(8)
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBeLessThan(8 * COMBAT_SCALE)
   })
 
   it('Thunder Bot stuns the strongest enemy unit at start of your turn', () => {
@@ -161,10 +161,10 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     toHumanMana(e, 3)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'inner-land-mines') })
     aiPlays(e, 'fortress', 'LEFT') // enters through 2 mine damage → 6/8 (missing 2)
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(6)
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(6 * COMBAT_SCALE)
     toHumanMana(e, 2)
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'guardian-attack'), target: { kind: 'unit', uid: stack(e, 'LEFT', 'AI')[0]!.uid } })
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(3) // 6 − (missing 2 + level-1 bonus 1)
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(3 * COMBAT_SCALE) // 6 − (missing 2 + level-1 bonus 1)
   })
 
   it('Fetch Chip steals HP from the enemy Nexus and draws', () => {
@@ -173,7 +173,7 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     const enemyBefore = e.snapshot().players.AI.life
     const handBefore = hand(e, 'HUMAN').length
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'guardian-fetch') })
-    expect(e.snapshot().players.AI.life).toBe(enemyBefore - 3)
+    expect(e.snapshot().players.AI.life).toBe(enemyBefore - 3 * COMBAT_SCALE)
     expect(hand(e, 'HUMAN').length).toBe(handBefore - 1 + 1) // played fetch, drew 1
   })
 
@@ -183,7 +183,7 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'guardian-summon') })
     const total = (['LEFT', 'CENTER', 'RIGHT'] as Lane[]).reduce((n, l) => n + stack(e, l, 'HUMAN').length, 0)
     expect(total).toBe(3) // one token per empty lane
-    expect(stack(e, 'LEFT', 'HUMAN')[0]?.atk).toBe(2) // 2/2 base token
+    expect(stack(e, 'LEFT', 'HUMAN')[0]?.atk).toBe(2 * COMBAT_SCALE) // 2/2 base token
   })
 
   it('Golden Bot adds temporary mana at start of your turn; Bounty draws cards', () => {

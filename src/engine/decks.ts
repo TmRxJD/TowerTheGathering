@@ -8,7 +8,7 @@
  */
 
 import { getCard } from './cards'
-import { COPY_LIMITS, TUNING } from './tuning'
+import { COPY_LIMITS, COMBAT_SCALE, TUNING } from './tuning'
 import type { EnemySkill } from './types'
 
 export type Archetype = 'balanced' | 'turtle' | 'aggro' | 'ramp' | 'nuke-control' | 'orbs-burst'
@@ -276,7 +276,7 @@ export function bossHandicap(index: number): { bonusLife: number; bonusStartMana
   // (bosses 1–5 are a fair fight). The back half gets a light, escalating life edge purely to make
   // the finale feel like a capstone. Tuned via `pnpm harness:ladder`.
   return {
-    bonusLife: index === 10 ? 4 : 0, // a light capstone edge on the final boss only
+    bonusLife: index === 10 ? 4 * COMBAT_SCALE : 0, // a light capstone edge on the final boss only
     bonusStartMana: 0,
   }
 }

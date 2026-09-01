@@ -6,11 +6,14 @@
  */
 
 import { ALL_CARD_IDS, COPY_LIMITS, getCard } from './index'
+import { COMBAT_SCALE } from './tuning'
 
-/** Rough power value of a card, used to pick the best reward and trim the weakest card. */
+/** Rough power value of a card, used to pick the best reward and trim the weakest card. Unit stats are
+ *  on the ×COMBAT_SCALE combat scale, so divide them back down to keep the ranking comparable to the
+ *  flat per-card values below (which are heuristic weights, not combat numbers). */
 export function cardValue(id: string): number {
   const d = getCard(id)
-  if (d.type === 'UNIT') return (d.atk ?? 0) * 1.3 + (d.hp ?? 0) * 0.9 + d.cost
+  if (d.type === 'UNIT') return ((d.atk ?? 0) * 1.3 + (d.hp ?? 0) * 0.9) / COMBAT_SCALE + d.cost
   if (id === 'nuke' || id === 'death-ray') return 9
   if (id === 'bot-bot' || id === 'flame-bot' || id === 'guardian-ally') return 8 // premium bots/chips
   if (id === 'plasma-cannon' || id === 'energy-net' || id === 'demon-mode') return 7

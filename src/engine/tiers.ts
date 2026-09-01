@@ -13,6 +13,8 @@
  *    lost starting life. Higher tiers are meant to be brutal; most players won't reach the top.
  */
 
+import { COMBAT_SCALE } from './tuning'
+
 export const MAX_TIER = 24
 /** From this tier up, the player takes on "battle conditions" (nerfs), as in The Tower. */
 export const BATTLE_CONDITION_TIER = 14
@@ -49,12 +51,16 @@ export function tierName(level: number): string {
  *  the fun is in developing your board, and a 20-HP sprint ends before the build gets going. By the
  *  top tiers this is a long slog where your climbed-up deck size (fatigue resistance) and card levels
  *  decide it. The boss stacks its difficulty edge (tierBossHandicap) ON TOP of this shared pool. */
+/** Unscaled shared-life pool (small units); tierBaseLife applies the ×COMBAT_SCALE. */
+function baseLifeRaw(t: number): number {
+  return Math.round((t - 1) * 0.8) + Math.round(Math.max(0, t - 16) * 1.3) // T1 +0, T12 +9, T24 +28
+}
+
 export function tierBaseLife(level: number): number {
   const t = clampTier(level)
-  // TCG pacing: battles stay SHORT (a fast mini-game, not a roguelike slog). A small, gently-rising
-  // pool means fights run ~8 turns early and ~16 up top — long enough to develop a board, short enough
-  // that the fun resets briskly. (Was 12+6t, which made mid battles ~20 turns and starved small decks.)
-  return Math.round((t - 1) * 0.8) + Math.round(Math.max(0, t - 16) * 1.3) // T1 +0, T12 +9, T24 +28
+  // TCG pacing: battles stay SHORT (a fast mini-game). Small, gently-rising shared pool on top of the
+  // ×10-scaled START_LIFE. (The boss stacks its edge — tierBossHandicap — over this.)
+  return baseLifeRaw(t) * COMBAT_SCALE
 }
 
 /** Search depth by tier: a beatable 1-ply intro, 2-ply anti-cheese through the mid tiers, and a
@@ -87,9 +93,9 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   const bossRamp = Math.round((i - 1) * (0.4 + t * 0.12)) // within-tier ramp; later rungs a touch harder
   // The 11th "Boss" rung is the real Tower Boss enemy: its identity is a chunk of extra HP (kept
   // beatable — scales gently with tier), not an offense spike.
-  const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(tierBaseLife(t) * 0.8) + Math.round(t * 0.6) : 0
-  const bonusStartMana = t >= 23 ? 1 : 0 // a tiny opening tempo edge only at the very top
-  return { bonusLife: climb + bossRamp + finalBoss, bonusStartMana }
+  const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(baseLifeRaw(t) * 0.8) + Math.round(t * 0.6) : 0
+  const bonusStartMana = t >= 23 ? 1 : 0 // a tiny opening tempo edge only at the very top (mana, unscaled)
+  return { bonusLife: (climb + bossRamp + finalBoss) * COMBAT_SCALE, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —

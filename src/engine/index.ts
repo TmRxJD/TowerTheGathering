@@ -5,7 +5,7 @@
 
 export * from './types'
 export { CARD_CATALOG, ALL_CARD_IDS, getCard, MINE_TOKEN } from './cards'
-export { TUNING, COPY_LIMITS } from './tuning'
+export { TUNING, COPY_LIMITS, COMBAT_SCALE } from './tuning'
 export {
   STARTER_DECK,
   BOSS_DECKS,

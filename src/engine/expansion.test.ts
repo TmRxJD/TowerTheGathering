@@ -14,7 +14,7 @@ import { validateDeck } from './decks'
 import { ALL_CARD_IDS } from './cards'
 import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
 import { HeuristicAI } from '../ai/heuristic'
-import { TUNING } from './tuning'
+import { TUNING, COMBAT_SCALE } from './tuning'
 import type { CardLevels, Engine, Lane, Side } from './types'
 
 // Two legal 20-card decks whose union contains all 29 new cards (5 rares + 24 epics).
@@ -129,7 +129,7 @@ describe('expansion effects (flip the control, output moves)', () => {
     // AI plays fortress; entering it should take 2 mine damage.
     for (let g = 0; g < 6 && e.snapshot().activeSide === 'AI' && e.snapshot().players.AI.manaPool < 2; g++) pass(e)
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'AI', 'fortress'), lane: 'LEFT' })
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(6) // 8 − 2
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe((8 - 2) * COMBAT_SCALE) // 8 − 2
   })
 
   it('Spotlight (module) boosts your Ultimate Weapon cards', () => {
@@ -139,7 +139,7 @@ describe('expansion effects (flip the control, output moves)', () => {
     c.apply({ kind: 'playUnit', uid: uidOf(c, 'AI', 'fortress'), lane: 'LEFT' })
     toHumanMana(c, 3)
     c.apply({ kind: 'playUltimate', uid: uidOf(c, 'HUMAN', 'smart-missiles') })
-    expect(stack(c, 'LEFT', 'AI')[0]?.hp).toBe(6) // 8 − 2
+    expect(stack(c, 'LEFT', 'AI')[0]?.hp).toBe((8 - 2) * COMBAT_SCALE) // 8 − 2
 
     // With Spotlight in play (+1 to every UW), Smart Missiles deals 3.
     const e = build(['spotlight', 'smart-missiles'], ['fortress'])
@@ -148,7 +148,7 @@ describe('expansion effects (flip the control, output moves)', () => {
     toHumanMana(e, 6)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'spotlight') })
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'smart-missiles') })
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(5) // 8 − (2 + 1 Spotlight)
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe((8 - (2 + 1)) * COMBAT_SCALE) // 8 − (2 + 1 Spotlight)
   })
 
   it('Multiverse Nexus makes the next Ultimate free (weapons fire together)', () => {

@@ -13,8 +13,34 @@
  * engine, active once mastery level ≥ 1).
  */
 
+import { COMBAT_SCALE } from './tuning'
+
 export const CARD_MAX_LEVEL = 7
 export const MASTERY_MAX_LEVEL = 9
+
+/**
+ * Cards whose level value is a COMBAT quantity (HP / ATK / damage / thorns / ATK-reduction). Their
+ * value is scaled ×COMBAT_SCALE centrally in cardLevelValue, matching the ×10 unit/tower stats. Cards
+ * NOT listed here keep their raw value: currency (coins), resource clock (mana/draw/reveal counts),
+ * durations (freeze/tap turns), and ratios (%s, multipliers, chances). NOTE: damage/attack-speed/
+ * amplify-bot/bot-bot are here as flat ATK for now; they become % ATK buffs in the next pass.
+ */
+export const COMBAT_CARDS: ReadonlySet<string> = new Set([
+  // units
+  'fortress', 'extra-orbs', 'berserker', 'land-mine-stun',
+  // ATK buffs / army
+  'damage', 'attack-speed', 'range', 'amplify-bot', 'bot-bot', 'om-chip', 'super-tower', 'orbs-speed',
+  'singularity-harness', 'project-funding', 'guardian-ally',
+  // HP / heal / defense
+  'health', 'health-regen', 'sharp-fortitude', 'wormhole-redirector', 'recovery-package', 'package-chance',
+  'space-displacer', 'second-wind', 'extra-defense',
+  // damage dealers
+  'death-ray', 'nuke', 'chain-lightning', 'smart-missiles', 'death-wave', 'inner-land-mines', 'poison-swamp',
+  'black-hole', 'magnetic-hook', 'demon-mode', 'astral-deliverance', 'anti-cube-portal', 'havoc-bringer',
+  'dimension-core', 'flame-bot', 'guardian-attack', 'guardian-summon', 'guardian-fetch', 'spotlight',
+  // ATK reduction
+  'shrink-ray', 'negative-mass-projector', 'pulsar-harvester', 'guardian-scout',
+])
 
 export type MasterySpecial =
   | 'fortress-walls' // Fortress: on death, leaves a 0/4 wall once (rebuilds).
@@ -249,7 +275,8 @@ export function cardLevelValue(cardId: string, level: number, masteryLevel: numb
   const prog = CARD_PROG[cardId]
   if (!prog) return 0
   const base = prog.levels[clampLevel(level) - 1] ?? prog.levels[0] ?? 0
-  return base + (prog.masteryBonus ? prog.masteryBonus * clampMastery(masteryLevel) : 0)
+  const val = base + (prog.masteryBonus ? prog.masteryBonus * clampMastery(masteryLevel) : 0)
+  return COMBAT_CARDS.has(cardId) ? val * COMBAT_SCALE : val
 }
 
 /** The distinct mastery ability id for a card, if it has one and its mastery is unlocked (level ≥ 1). */

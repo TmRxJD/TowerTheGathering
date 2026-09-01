@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEngine } from './engine'
 import { BOSS_DECKS, STARTER_DECK, validateDeck } from './decks'
 import { createRng } from './rng'
-import { TUNING } from './tuning'
+import { TUNING, COMBAT_SCALE } from './tuning'
 import type { Action, Engine, Lane, Side } from './types'
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ describe('combat', () => {
     pass(e) // AI t1 → HUMAN t2 (mana 2)
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
     pass(e) // HUMAN combat: land-mine hits AI face for 1
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 1)
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 1 * COMBAT_SCALE)
   })
 
   it('Damage module is a live control: +1 ATK moves face damage from 1 to 2', () => {
@@ -158,7 +158,7 @@ describe('combat', () => {
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
     pass(e)
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 2)
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 2 * COMBAT_SCALE)
   })
 
   it('a Defender blocks: face is untouched and the defender soaks the hit', () => {
@@ -173,7 +173,7 @@ describe('combat', () => {
     expect(life(e, 'AI')).toBe(TUNING.START_LIFE) // fortress absorbed it
     const fort = stack(e, 'LEFT', 'AI')[0]
     expect(fort?.cardId).toBe('fortress')
-    expect(fort?.hp).toBe(7)
+    expect(fort?.hp).toBe(7 * COMBAT_SCALE)
   })
 
   it('Extra Orbs spillover carries overkill to the Nexus', () => {
@@ -194,7 +194,7 @@ describe('combat', () => {
     pass(e) // HUMAN combat: mutual first-strike kill, spillover both ways
     expect(stack(e, 'LEFT', 'HUMAN').length).toBe(0)
     expect(stack(e, 'LEFT', 'AI').length).toBe(0)
-    expect(life(e, 'AI')).toBe(aiBefore - 2) // overkill spilled to AI face
+    expect(life(e, 'AI')).toBe(aiBefore - 2 * COMBAT_SCALE) // overkill spilled to AI face
   })
 })
 
@@ -216,12 +216,12 @@ describe('card levels + mastery', () => {
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
     pass(e) // combat: land-mine base 1 ATK + Damage(+7) = 8 to AI face
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 8)
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - 8 * COMBAT_SCALE)
   })
 })
 
 describe('ultimates', () => {
-  it('Plasma Cannon removes 50% of current HP (rounded up)', () => {
+  it('Plasma Cannon removes a % of current HP (30% at level 1, rounded up)', () => {
     const e = build(['plasma-cannon'], ['berserker']) // berserker 2/4
     pass(e) // HUMAN t1 → AI t1
     // AI needs mana 4 for berserker; ramp.
@@ -234,9 +234,9 @@ describe('ultimates', () => {
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'AI', 'berserker'), lane: 'CENTER' })
     pass(e) // AI combat → HUMAN t5 (mana 5, plasma costs 3)
     const zerk = stack(e, 'CENTER', 'AI')[0]!
-    expect(zerk.hp).toBe(4)
+    expect(zerk.hp).toBe(4 * COMBAT_SCALE)
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'plasma-cannon'), target: { kind: 'unit', uid: zerk.uid } })
-    expect(stack(e, 'CENTER', 'AI')[0]?.hp).toBe(2) // ceil(4/2) = 2 removed
+    expect(stack(e, 'CENTER', 'AI')[0]?.hp).toBe(4 * COMBAT_SCALE - Math.ceil(4 * COMBAT_SCALE * 0.3)) // removes 30% (ceil) at level 1
   })
 
   it('Smart Missiles hits the front enemy unit in every lane', () => {
@@ -249,9 +249,9 @@ describe('ultimates', () => {
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'AI', 'berserker'), lane: 'CENTER' })
     pass(e) // AI combat → HUMAN t5 (mana 5)
     const zerk = stack(e, 'CENTER', 'AI')[0]!
-    expect(zerk.hp).toBe(4)
+    expect(zerk.hp).toBe(4 * COMBAT_SCALE)
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'smart-missiles') })
-    expect(stack(e, 'CENTER', 'AI')[0]?.hp).toBe(2) // took 2
+    expect(stack(e, 'CENTER', 'AI')[0]?.hp).toBe(2 * COMBAT_SCALE) // took 2
   })
 
   it('Nuke clears every unit on both sides', () => {

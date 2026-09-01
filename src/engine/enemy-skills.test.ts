@@ -9,7 +9,7 @@ import { createEngine } from './engine'
 import { BOSS_DECKS, bossSkill } from './decks'
 import { tierBossHandicap } from './tiers'
 import { getCard } from './cards'
-import { TUNING } from './tuning'
+import { TUNING, COMBAT_SCALE } from './tuning'
 import type { EnemySkill, Engine, Lane, Side } from './types'
 
 const pass = (e: Engine) => e.apply({ kind: 'endTurn' })
@@ -64,13 +64,13 @@ describe('enemy skills (flip the skill, output moves)', () => {
     const baseHp = stack(plain, 'LEFT', 'AI')[0]!.hp
     const tank = build([], ['fortress'], 'tank')
     aiPlays(tank, 'fortress', 'LEFT')
-    expect(stack(tank, 'LEFT', 'AI')[0]!.hp).toBe(baseHp + 3)
+    expect(stack(tank, 'LEFT', 'AI')[0]!.hp).toBe(baseHp + 3 * COMBAT_SCALE)
   })
 
   it('Commander: its units have bonus ATK', () => {
     const e = build([], ['extra-orbs'], 'commander')
     aiPlays(e, 'extra-orbs', 'LEFT')
-    expect(stack(e, 'LEFT', 'AI')[0]!.atk).toBe(3 + 1) // extra-orbs 3 ATK + commander
+    expect(stack(e, 'LEFT', 'AI')[0]!.atk).toBe((3 + 1) * COMBAT_SCALE) // extra-orbs 3 ATK + commander
   })
 
   it('Fast grants First Strike; Ranged grants Reach', () => {
@@ -88,13 +88,13 @@ describe('enemy skills (flip the skill, output moves)', () => {
     aiPlays(plain, 'fortress', 'LEFT')
     toHumanMana(plain, 3)
     plain.apply({ kind: 'playUltimate', uid: uidOf(plain, 'HUMAN', 'smart-missiles') })
-    expect(stack(plain, 'LEFT', 'AI')[0]!.hp).toBe(6) // 8 − 2
+    expect(stack(plain, 'LEFT', 'AI')[0]!.hp).toBe((8 - 2) * COMBAT_SCALE) // 8 − 2
 
     const prot = build(['smart-missiles'], ['fortress'], 'protector')
     aiPlays(prot, 'fortress', 'LEFT')
     toHumanMana(prot, 3)
     prot.apply({ kind: 'playUltimate', uid: uidOf(prot, 'HUMAN', 'smart-missiles') })
-    expect(stack(prot, 'LEFT', 'AI')[0]!.hp).toBe(7) // 8 − max(1, 2−1)
+    expect(stack(prot, 'LEFT', 'AI')[0]!.hp).toBe((8 - 1) * COMBAT_SCALE) // 8 − max(1×scale, 2−1)
   })
 
   it('Vampire drains your Nexus each of its turns and disables your regen', () => {

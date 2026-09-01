@@ -5,8 +5,16 @@
 
 import type { Rarity } from './types'
 
+/**
+ * Combat numbers run on a ×10 scale ("Tower players like big numbers") so card levels can grow by a
+ * gradual % without fractional stats. HP/ATK/damage are all scaled; the RESOURCE clock (mana, hand,
+ * deck size, draw counts), currency (coins), durations (freeze/tap turns) and ratios (crit ×, %s) are
+ * NOT scaled. Combat card VALUES are scaled centrally in cardLevelValue() via COMBAT_CARDS.
+ */
+export const COMBAT_SCALE = 10
+
 export const TUNING = {
-  START_LIFE: 20,
+  START_LIFE: 20 * COMBAT_SCALE,
   START_MANA_MAX: 1,
   MANA_CAP: 10,
   HAND_LIMIT: 7,
@@ -20,18 +28,18 @@ export const TUNING = {
   CRIT_MULTIPLIER: 2,
   LAND_MINE_SPAWN_CHANCE: 0.5,
 
-  HEALTH_MODULE_BONUS: 5,
-  REGEN_PER_TURN: 1,
-  EXTRA_DEFENSE_REDUCTION: 1,
-  SECOND_WIND_HEAL: 5,
-  DEATH_RAY_MAIN: 6,
-  DEATH_RAY_SPLASH: 2,
-  DEMON_MODE_ATK: 5,
-  SUPER_TOWER_ATK: 3,
+  HEALTH_MODULE_BONUS: 5 * COMBAT_SCALE,
+  REGEN_PER_TURN: 1 * COMBAT_SCALE,
+  EXTRA_DEFENSE_REDUCTION: 1 * COMBAT_SCALE,
+  SECOND_WIND_HEAL: 5 * COMBAT_SCALE,
+  DEATH_RAY_MAIN: 6 * COMBAT_SCALE,
+  DEATH_RAY_SPLASH: 2 * COMBAT_SCALE,
+  DEMON_MODE_ATK: 5 * COMBAT_SCALE,
+  SUPER_TOWER_ATK: 3 * COMBAT_SCALE,
   SUPER_TOWER_EVERY: 3,
-  ORBS_SPEED_ATK: 2,
-  RECOVERY_OVERHEAL: 2,
-  PACKAGE_CHANCE_HP: 2,
+  ORBS_SPEED_ATK: 2 * COMBAT_SCALE,
+  RECOVERY_OVERHEAL: 2 * COMBAT_SCALE,
+  PACKAGE_CHANCE_HP: 2 * COMBAT_SCALE,
   ULTIMATE_CRIT_MULTIPLIER: 3,
 } as const
 

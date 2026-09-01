@@ -19,6 +19,7 @@
 
 import type { Action, Engine, GameEvent, Side } from '../engine'
 import type { Archetype } from '../engine'
+import { COMBAT_SCALE } from '../engine'
 
 const LANES = ['LEFT', 'CENTER', 'RIGHT'] as const
 
@@ -103,10 +104,12 @@ export class SearchAI {
       if (ef && !mf && !ef.tapped && !ef.frozen) s -= ef.atk * 1.5
     }
 
-    s += (me.modules.length - foe.modules.length) * 0.6
-    s += (me.handCount - foe.handCount) * 0.4
+    // Count-based edges are weighted on the ×COMBAT_SCALE stat scale so they stay comparable to the
+    // life/board (HP) terms above.
+    s += (me.modules.length - foe.modules.length) * 0.6 * COMBAT_SCALE
+    s += (me.handCount - foe.handCount) * 0.4 * COMBAT_SCALE
     // Prize surviving life when low — discourages suicidal races the 2-ply reply would punish anyway.
-    if (me.life <= 6) s -= (7 - me.life) * 3
+    if (me.life <= 6 * COMBAT_SCALE) s -= (7 * COMBAT_SCALE - me.life) * 3
     return s
   }
 }
