@@ -4,22 +4,26 @@
  * is GATED: you must full-clear a tier's 10-boss ladder to unlock the next (enforced by the game via
  * the saved `highestTierCleared`).
  *
- * Difficulty levers, tuned via `pnpm winrate` against the fun curve in docs/GAME_STATE.md §3:
- *  - AI depth (`tierAiDepth`)   — 1-ply intro (T1-5), 2-ply (T6-8), 3-ply from T9. The dominant lever.
- *  - Boss handicap (`tierBossHandicap`) — bonus life that climbs each tier + an opening mana edge from
- *                    the mid tiers, and an HP capstone on the final Boss rung.
- *  - Enemy card power (`bossCardLevels`) — levels rise every 3 tiers; a small mastery from T9, the full
- *                    mastery ramp from T13, so the top out-cards you rather than just out-lifes you.
- *  The old per-tier PLAYER life nerf ("battle conditions") is removed — difficulty is all on the boss.
+ * Difficulty levers, tuned via `pnpm winrate` (measured against the HEURISTIC/competent player — the
+ * depth-1/2/3 search players are within ~2%, i.e. the game is decided by deck power, not lookahead):
+ *  - Difficulty ratio R (`tierR`)     — the ONE knob: the enemy's total power vs the player, split √R
+ *                    into HP and √R into offense, rising mildly-convex from R_MIN (T1) to R_MAX (T24).
+ *  - Enemy card power (`bossCardLevels`) — TRACKS the player's own realistic levelling, so the mid is a
+ *                    fair fight (no walkover from out-levelling the enemy) and R alone sets difficulty.
+ *  - Per-game variance (TUNING.GAME_VARIANCE) — a run-to-run swing of the enemy's whole matchup, which
+ *                    turns the win/loss response from a step into a GRADUAL decline every tier.
+ *  Battle length is a separate, symmetric geometric HP base (`tierPowerIndex`). The player's deck is
+ *  FULL from Tier 1 (see maxDeckForTier) so their power is flat and the curve rides purely on R.
  */
 
 import { TUNING } from './tuning'
 import { ALL_CARD_IDS } from './cards'
-import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL, G_MAG } from './card-progression'
+import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
 import type { CardLevels } from './types'
 
 export const MAX_TIER = 24
-/** From this tier up, the player takes on "battle conditions" (nerfs), as in The Tower. */
+/** Cosmetic UI threshold only: tiers from here show a "⚠" flavour marker. (The old mechanical player
+ *  "battle conditions" nerf was removed — see tierPlayerLifePenalty.) */
 export const BATTLE_CONDITION_TIER = 14
 /** The last rung of every tier is the Boss (rung 11) — a huge-HP capstone. = BOSS_DECKS.length. */
 export const FINAL_BOSS_RUNG = 11
@@ -54,21 +58,20 @@ export function tierName(level: number): string {
 }
 
 /**
- * The difficulty model, rebuilt for a STRICTLY DECREASING win curve.
+ * The difficulty model — one ratio R(t), for a gradual declining win curve.
  *
- * HP tankiness was the wrong primary lever: a strong player wins ~100% until the enemy is suddenly
- * overwhelming, so HP gives a flat plateau then a cliff — never a smooth decline. The primary lever is
- * now the enemy's OFFENSE: `tierEnemyPowerMult` multiplies every enemy hit, rising smoothly and
- * monotonically every tier, so the enemy wins the damage race a little more each tier and the player's
- * win rate falls gradually and monotonically. HP is a SYMMETRIC, smooth geometric base shared by both
- * towers (no per-tier mastery jumps that used to bounce survivability around), tuned only to keep the
- * battle length bounded. Difficulty lives in ONE monotonic knob: `tierEnemyPowerMult`.
+ * Both towers share a SYMMETRIC geometric HP base (`tierPowerIndex`) that only sets battle length. The
+ * enemy's edge is the ratio R(t), split evenly: `√R` into HP (it survives longer) and `√R` into offense
+ * (it hits harder), so its total power is R× the player's. R rises mildly-convex from R_MIN (T1, easy) to
+ * R_MAX (T24, hard). On its own R would give a near-STEP response (the game is deck-determined, so a small
+ * power edge tips the whole match), so a per-game variance (TUNING.GAME_VARIANCE) swings the enemy's whole
+ * matchup run-to-run — that turns the step into a smooth, gradual decline every tier.
  */
 const HP_GROWTH = 1.15 // per-tier HP ratio for BOTH towers (symmetric) — sets battle length, not difficulty
-// The ONE monotonic difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
+// The ONE difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
 const R_MIN = 0.85 // T1 easy onboarding win
-const R_MAX = 3.6 // T24 climax (~30% win, skewing lower). The wide per-game variance keeps the decline
-//                    GRADUAL even at this range, so raising the ceiling steepens the back half, no cliff.
+const R_MAX = 4.3 // T24 climax (~33% win, skewing lower). The per-game variance keeps the decline GRADUAL
+//                    even at this range, so raising the ceiling steepens the back half without a cliff.
 const R_SHAPE = 1.4 // mildly convex: gentle early (easy onboarding), then a steady climb so the back
 //                     half declines every tier from ~75% (T13) toward ~25% (T24).
 const RUNG_STEP = 0.04 // within a tier, each later rung is a little stronger
@@ -85,16 +88,13 @@ export function tierBaseLife(level: number): number {
   return Math.round(TUNING.START_LIFE * (tierPowerIndex(level) - 1))
 }
 
-/**
- * THE difficulty ratio R(t, rung): the enemy's total power relative to the player, rising **monotonically
- * and geometrically** from R_MIN (T1, easy) to R_MAX (T24). It is split evenly — `√R` into HP (the enemy
- * survives longer) and `√R` into offense (it hits harder) — so total power scales by R while battles stay
- * bounded, and the win rate falls smoothly every tier. This is the single knob the whole curve rides on.
- */
+/** The difficulty ratio R(t, rung): the enemy's total power relative to the player, rising geometrically
+ *  from R_MIN (T1) to R_MAX (T24) with a mildly-convex shape (gentle early, steeper late). Split √R/√R
+ *  into HP and offense by the callers below; a later rung (and the final Boss) is a little stronger. */
 function tierR(level: number, index: number): number {
   const t = clampTier(level)
   const frac = (t - 1) / (MAX_TIER - 1)
-  const base = R_MIN * (R_MAX / R_MIN) ** (frac ** R_SHAPE) // geometric, concave, monotonic
+  const base = R_MIN * (R_MAX / R_MIN) ** (frac ** R_SHAPE) // geometric, mildly convex, monotonic in tier
   return base * (1 + (index - 1) * RUNG_STEP) * (index >= FINAL_BOSS_RUNG ? BOSS_MULT : 1)
 }
 
@@ -112,9 +112,9 @@ export function tierAiDepth(level: number): number {
 }
 
 /**
- * Boss life/mana edge for (tier, boss index). HP is now SYMMETRIC — the enemy sits on the same geometric
- * HP base as the player, with only a tiny within-tier rung bump — because difficulty comes from offense
- * (`tierEnemyPowerMult`), not tankiness. `bonusLife` is the part over START_LIFE + tierBaseLife.
+ * Boss HP edge for (tier, boss index): enemy HP = player HP × √R (the tankiness half of the ratio R; the
+ * offense half is tierEnemyPowerMult). `bonusLife` is the part over START_LIFE + tierBaseLife, so the
+ * harness/game formula (START_LIFE + tierBaseLife + bonusLife) yields exactly that HP.
  */
 export function tierBossHandicap(level: number, index: number): { bonusLife: number; bonusStartMana: number } {
   const t = clampTier(level)
