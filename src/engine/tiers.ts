@@ -13,9 +13,9 @@
  *  The old per-tier PLAYER life nerf ("battle conditions") is removed — difficulty is all on the boss.
  */
 
-import { COMBAT_SCALE, TUNING } from './tuning'
+import { TUNING } from './tuning'
 import { ALL_CARD_IDS } from './cards'
-import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
+import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL, G_MAG } from './card-progression'
 import type { CardLevels } from './types'
 
 export const MAX_TIER = 24
@@ -50,20 +50,34 @@ export function tierName(level: number): string {
   return `Tier ${clampTier(level)}`
 }
 
-/** Extra Nexus life BOTH sides receive at a tier, so battles last longer and lengthen as you climb —
- *  the fun is in developing your board, and a 20-HP sprint ends before the build gets going. By the
- *  top tiers this is a long slog where your climbed-up deck size (fatigue resistance) and card levels
- *  decide it. The boss stacks its difficulty edge (tierBossHandicap) ON TOP of this shared pool. */
-/** Unscaled shared-life pool (small units); tierBaseLife applies the ×COMBAT_SCALE. */
-function baseLifeRaw(t: number): number {
-  return Math.round((t - 1) * 0.8) + Math.round(Math.max(0, t - 16) * 1.3) // T1 +0, T12 +9, T24 +28
+/**
+ * CROSSED geometric scaling — the core of the balance. Offense scales geometrically with card power, so
+ * HP must too, or a side is one-shot. The subtlety: the two sides' offense differs (the enemy runs full
+ * mastery for free; a real player can only afford part of it), so the HP is CROSSED —
+ *   - player HP scales with the ENEMY's offense (so you survive the enemy's hits), and
+ *   - enemy HP scales with the PLAYER's realistic offense (so your weaker board can still kill it in a
+ *     bounded number of turns — the fix for the high-tier turn explosion).
+ * At a power mirror this makes a fair fight BY CONSTRUCTION: both take the same "hits to kill". The one
+ * difficulty knob (`diff` in tierBossHandicap) then slides the enemy's relative tankiness easy→hard.
+ * `offenseIndex` is exactly the card-value growth factor `G_MAG^((L-1)+M/2)` reused for HP.
+ */
+const PLAYER_MST_FRAC = 0.6 // a real player reaches ~60% of the enemy's free mastery (harness: M~5.6 vs 9)
+const offenseIndex = (level: number, mastery: number): number => G_MAG ** (level - 1 + mastery / 2)
+/** The ENEMY's offense factor at a tier — drives PLAYER HP (survive the enemy). */
+export function tierPowerIndex(level: number): number {
+  const t = clampTier(level)
+  return offenseIndex(bossCardLevel(t), bossCardMastery(t))
+}
+/** The PLAYER's realistic offense factor at a tier — drives ENEMY HP (killable in bounded turns). */
+function playerPowerIndex(t: number): number {
+  return offenseIndex(bossCardLevel(t), bossCardMastery(t) * PLAYER_MST_FRAC)
 }
 
+/** Player Tower HP bonus over START_LIFE. BOTH towers scale by the same realistic index (playerPowerIndex),
+ *  so the HP economy is symmetric and self-similar — time-to-kill stays bounded and difficulty is carried
+ *  purely by the enemy's `diff` multiplier, not by an HP asymmetry that would make one side a slow tank. */
 export function tierBaseLife(level: number): number {
-  const t = clampTier(level)
-  // TCG pacing: battles stay SHORT (a fast mini-game). Small, gently-rising shared pool on top of the
-  // ×10-scaled START_LIFE. (The boss stacks its edge — tierBossHandicap — over this.)
-  return baseLifeRaw(t) * COMBAT_SCALE
+  return Math.round(TUNING.START_LIFE * (playerPowerIndex(clampTier(level)) - 1))
 }
 
 /** Search depth by tier: a beatable 1-ply intro (T1-5), 2-ply anti-cheese (T6-8), and a 3-ply searcher
@@ -77,34 +91,32 @@ export function tierAiDepth(level: number): number {
   return t <= 5 ? 1 : t <= 8 ? 2 : 3
 }
 
+/** The one geometric difficulty knob: the enemy's relative power vs the player, gliding from easy to
+ *  hard. DIFF_MIN < 1 means the early enemy is genuinely weaker than you (easy onboarding win); DIFF_MAX
+ *  > 1 is the top-tier climax. Interpolated GEOMETRICALLY so the win-rate curve is smooth end to end. */
+const DIFF_MIN = 0.55 // T1: enemy at 55% relative HP (easy onboarding win)
+const DIFF_MAX = 2.0 // T24: enemy this much tankier (symmetric base makes diff=1 a fair-ish fight)
+const DIFF_SHAPE = 0.5 // <1 = concave: diff rises fast early (bite the mid), flattens late (no cliff)
+const RUNG_STEP = 0.05 // within a tier, each later rung is +5% tougher
+const BOSS_MULT = 1.35 // the final Boss rung's extra HP pile
+
 /**
- * Boss life/mana edge for (tier, boss index). The curve is deliberately shaped: Tier 1 is a fair
- * fight and the early tiers stay easy; a steady ramp climbs through the mid tiers; from Tier 14 the
- * "battle conditions" bite; Tiers 21+ turn vicious and Tier 24 is a near-impossible wall that only an
- * optimally-played, fully-levelled deck can crack.
+ * Boss life/mana edge for (tier, boss index). Enemy total life = START_LIFE × tierPowerIndex × diff ×
+ * rungMult — i.e. the enemy sits on the SAME geometric HP ladder as the player, offset by one geometric
+ * difficulty multiplier `diff`. `bonusLife` is the part over START_LIFE + tierBaseLife (the player pool),
+ * so the harness/game formula (START_LIFE + tierBaseLife + bonusLife) yields exactly that total.
  */
 export function tierBossHandicap(level: number, index: number): { bonusLife: number; bonusStartMana: number } {
   const t = clampTier(level)
   const i = index // 1..11 — position within the tier's ladder (11 = the final Boss)
-  // TCG difficulty spec (docs/GAME_STATE.md): a SMOOTH, gentle rise — no nightmare walls, no offense
-  // spikes. `climb` is the main knob (harder each tier); `bossRamp` makes later rungs of a tier a bit
-  // tougher than earlier ones. Tuned against the win-rate harness to a fun 95%→40% curve, NOT a
-  // punishing one. (Replaced the old brutal/nightmare/capstone spikes wholesale.)
-  // Across-tier difficulty: starts NEGATIVE so early bosses are genuinely weaker than you (an easy
-  // onboarding win), crosses ~T6, and accelerates in the last third for a fair-but-real top-tier fight.
-  const climb = Math.round((t - 6) * 5.0 + Math.max(0, t - 12) * 6.0) // steeper: restores late-game pressure
-  const bossRamp = Math.round((i - 1) * (0.4 + t * 0.12)) // within-tier ramp; later rungs a touch harder
-  // The 11th "Boss" rung is the real Tower Boss enemy: its identity is a chunk of extra HP (kept
-  // beatable — scales gently with tier), not an offense spike.
-  const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(baseLifeRaw(t) * 0.8) + Math.round(t * 0.6) : 0
-  // Opening tempo edge: a mana lead lets the boss out-develop you — from the mid tiers (where your deck
-  // otherwise outpaces it), more at the very top.
-  const bonusStartMana = t >= 22 ? 2 : t >= 9 ? 1 : 0
-  const raw = (climb + bossRamp + finalBoss) * COMBAT_SCALE
-  // Floor so the enemy always starts with real HP — the steep early `climb` is negative enough at T1 to
-  // drive total life below zero (an instant, unplayable auto-win). Keep at least 20% of START_LIFE.
-  const minBonus = Math.round(TUNING.START_LIFE * 0.2) - TUNING.START_LIFE - tierBaseLife(t)
-  return { bonusLife: Math.max(minBonus, raw), bonusStartMana }
+  const frac = (t - 1) / (MAX_TIER - 1)
+  const diff = DIFF_MIN + (DIFF_MAX - DIFF_MIN) * frac ** DIFF_SHAPE // concave easy→hard offset
+  const rungMult = (1 + (i - 1) * RUNG_STEP) * (i >= FINAL_BOSS_RUNG ? BOSS_MULT : 1)
+  // Enemy HP scales with the PLAYER's realistic offense (killable in bounded turns), × the difficulty.
+  const enemyTotal = TUNING.START_LIFE * playerPowerIndex(t) * diff * rungMult
+  const bonusLife = Math.round(enemyTotal - TUNING.START_LIFE - tierBaseLife(t))
+  const bonusStartMana = t >= 18 ? 1 : 0 // a small opening tempo edge at the top only
+  return { bonusLife, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —

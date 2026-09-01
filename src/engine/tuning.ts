@@ -6,10 +6,10 @@
 import type { Rarity } from './types'
 
 /**
- * Combat numbers run on a ×10 scale ("Tower players like big numbers") so card levels can grow by a
- * gradual % without fractional stats. HP/ATK/damage are all scaled; the RESOURCE clock (mana, hand,
- * deck size, draw counts), currency (coins), durations (freeze/tap turns) and ratios (crit ×, %s) are
- * NOT scaled. Combat card VALUES are scaled centrally in cardLevelValue() via COMBAT_CARDS.
+ * Base combat unit for the engine's OWN non-card constants (fatigue, walls, tokens, enemy-skill
+ * magnitudes) — kept on the same ×10 footing as a card's level-1 value so they interoperate. Card
+ * values themselves are NOT scaled here: they carry their real L1 `base` and grow by the geometric law
+ * in card-progression.ts (see §6a). Mana / hand / draws / durations / ratios are unscaled.
  */
 export const COMBAT_SCALE = 10
 

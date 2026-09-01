@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEngine } from './engine'
 import { BOSS_DECKS, STARTER_DECK, validateDeck } from './decks'
 import { createRng } from './rng'
+import { cardLevelValue } from './card-progression'
 import { TUNING, COMBAT_SCALE } from './tuning'
 import type { Action, Engine, Lane, Side } from './types'
 
@@ -207,7 +208,7 @@ describe('card levels + mastery', () => {
       seed: 'lvl',
       shuffle: false,
       firstPlayer: 'HUMAN',
-      // Damage level 6 (0.75) + mastery level 1 (+0.05) => +80% ATK.
+      // Damage at level 6 + mastery 1 → a % ATK buff (geometric law); assert vs cardLevelValue itself.
       cardLevels: { HUMAN: { damage: { level: 6, mastery: 1 } } },
     })
     pass(e) // t1 → AI
@@ -216,8 +217,9 @@ describe('card levels + mastery', () => {
     pass(e) // AI → t3 (mana 3)
     e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'damage') })
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'HUMAN', 'land-mine-stun'), lane: 'LEFT' })
-    pass(e) // combat: land-mine base ATK (10) + Damage(+80%) to AI face
-    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - (COMBAT_SCALE + Math.round(COMBAT_SCALE * 0.8)))
+    pass(e) // combat: land-mine base ATK (10) + Damage(% of it) to AI face
+    const dmgPct = cardLevelValue('damage', 6, 1)
+    expect(life(e, 'AI')).toBe(TUNING.START_LIFE - (COMBAT_SCALE + Math.round(COMBAT_SCALE * dmgPct)))
   })
 })
 

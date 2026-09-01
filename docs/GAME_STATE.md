@@ -111,57 +111,45 @@ unlock the next tier. Ladder is gated (`run.maxCleared`), but you may replay any
 
 All numbers below were tuned against the **win‑rate harness** (§10) to hit the fun curve in pillar 3.
 
-### 4.1 Shared HP pool — battle length (`tierBaseLife`)
-```
-baseLifeRaw(t) = round((t-1)*0.8) + round(max(0, t-16)*1.3)
-tierBaseLife(t) = baseLifeRaw(t) * COMBAT_SCALE        // added to BOTH Towers
-```
-Base Tower HP is `START_LIFE = 200` (20 × scale). Kept deliberately **small** so battles stay snappy:
-`200 + tierBaseLife` = 200 (T1), 290 (T12), 480 (T24). Battles still run long enough to reach
-**fatigue** at the top, where the climbed‑up bigger deck pays off.
+The HP economy is **geometric and self‑similar** (see §6a for the card side of the same law). This is
+the fix for the old hand‑tuned mess: card power grows geometrically with level, so HP must too, or the
+two diverge and the curve becomes un‑tunable (which is exactly what happened with the old polynomial
+`climb`). Everything below rides on ONE geometric backbone plus ONE difficulty multiplier.
 
-### 4.2 AI search depth (`tierAiDepth`) — the dominant difficulty lever vs a human
+### 4.1 The power index (`tierPowerIndex` / `playerPowerIndex`) — the geometric backbone
 ```
-t ≤ 5   → 1‑ply   (simple "intro" AI — easy onboarding)
-6..8    → 2‑ply   (anti‑cheese lookahead)
-t ≥ 9   → 3‑ply   (reads two of your turns ahead)
+offenseIndex(L, M) = G_MAG^((L-1) + M/2)                 // the card-value growth factor, reused for HP
+tierPowerIndex(t)  = offenseIndex(bossCardLevel(t), bossCardMastery(t))          // enemy's full power
+playerPowerIndex(t)= offenseIndex(bossCardLevel(t), bossCardMastery(t) * 0.6)    // a real player's ~60%
 ```
-A searching enemy out‑plays a human regardless of HP, so **depth is what actually shapes the curve**.
-3‑ply comes on at T9 — the band where an engaged player's built‑up deck would otherwise coast.
+Both towers' HP scale off `playerPowerIndex` (a symmetric, self‑similar base) so **time‑to‑kill stays
+bounded at every tier** — the number of turns to end a battle barely moves up the ladder even as the raw
+HP climbs into the tens of thousands. (`PLAYER_MST_FRAC = 0.6` reflects that a real deck reaches ~60% of
+the enemy's free mastery — measured: harness deckMst ≈ 5.6 vs the enemy's 9.)
 
-### 4.3 Enemy life edge (`tierBossHandicap(tier, index)`) — smooth, gentle, no walls
-Added to the enemy **on top of** the shared pool. `index` is the rung, 1..11. `bonusLife` is `×scale`.
+### 4.2 Player Tower HP (`tierBaseLife`)
 ```
-climb     = round((tier-6)*5.0 + max(0, tier-12)*6.0)   // across-tier difficulty: PRIMARY lever
-                                                        //   NEGATIVE early (frail early enemies),
-                                                        //   crosses ~T6, accelerates from T12
-bossRamp  = round((index-1) * (0.4 + tier*0.12))        // later rungs of a tier a touch harder
-finalBoss = index>=11 ? round(baseLifeRaw(t)*0.8) + round(t*0.6) : 0   // the "Boss" HP chunk
-bonusLife      = max(floor, (climb + bossRamp + finalBoss) * COMBAT_SCALE)  // floor: enemy keeps ≥20%
-                                                                           //   of START_LIFE (no auto-win)
-bonusStartMana = tier >= 22 ? 2 : tier >= 9 ? 1 : 0     // an opening tempo edge from the mid tiers
+tierBaseLife(t) = round(START_LIFE × (playerPowerIndex(t) - 1))   // total player HP = START_LIFE × index
 ```
-The old `brutal`/`nightmare`/`capstone` spikes were **removed** — that is the whole point of the TCG
-retune. `climb` was made steeper (and start‑mana pulled earlier) to restore late‑game pressure after the
-card rebalance. Worked examples (enemy HP = 200 + tierBaseLife + bonusLife):
+`START_LIFE = 200`. Player HP: 200 (T1) → ~1.5k (T12) → ~16k (T24). Big geometric numbers, but the
+enemy scales in lockstep so battles stay ~8‑18 turns.
 
-| Tier | rung‑1 enemy HP | rung‑11 Boss HP |
-|---|---|---|
-| 1 | 40 | 40 (floored) |
-| 6 | 240 | 420 |
-| 12 | 590 | 910 |
-| 18 | 1330 | 1840 |
-| 24 | 2100 | 2790 |
-
-The **final Boss (rung 11)** carries a distinct HP chunk (`finalBoss`) as the tier's climax — a real
-fight, not a passive‑skill wall. At T1‑2 the 20%‑of‑START_LIFE floor clamps every rung to the same
-40 HP (trivial onboarding), so the Boss‑vs‑boss‑10 gap only appears from T3 up.
+### 4.3 Enemy life edge (`tierBossHandicap(tier, index)`) — ONE geometric difficulty knob
+```
+diff(t)  = DIFF_MIN + (DIFF_MAX - DIFF_MIN) × frac^DIFF_SHAPE     // frac = (t-1)/(MAX_TIER-1)
+         //  DIFF_MIN 0.55 (T1 easy) → DIFF_MAX 2.0 (T24); DIFF_SHAPE 0.5 = concave (bite the mid, no top cliff)
+rungMult = (1 + (index-1)*0.05) × (index==11 ? 1.35 : 1)          // later rungs + the Boss HP pile
+enemyHP  = START_LIFE × playerPowerIndex(t) × diff(t) × rungMult  // bonusLife = enemyHP − 200 − tierBaseLife
+bonusStartMana = tier >= 18 ? 1 : 0                              // a small opening tempo edge at the top
+```
+`diff` is the whole difficulty curve: at `diff = 1` the towers are on the same HP base (a fair fight, so
+the depth‑2 player's skill edge shows), `diff < 1` is the easy onboarding, `diff > 1` is the climax. It
+interpolates *geometrically/concavely*, so the win‑rate curve is smooth end to end — no sawtooth, no
+one‑shot cliff. There is no low‑HP floor to special‑case: `DIFF_MIN > 0` keeps every enemy positive.
 
 ### 4.4 Player "battle conditions" nerf — REMOVED
 ```
-tierPlayerLifePenalty(t) = 0     // was max(0,t-13)*5; a shrinking life bar is exactly the "punishing"
-                                 // feel the TCG direction rejects. Difficulty now comes from the
-                                 // enemy's gentle handicap + maxed cards, not gimping you.
+tierPlayerLifePenalty(t) = 0     // a shrinking life bar is the "punishing" feel the TCG direction rejects.
 ```
 
 ### 4.5 Enemy card levels (`bossCardLevels` in `tiers.ts` — one source, shared by game + harnesses)
@@ -230,10 +218,31 @@ shardReward(t, boss) = t*t + boss*t             // coins for beating enemy `boss
 - **Levels are a mid‑game goal, masteries are a long post‑T20 grind.** Income is deliberately lean and
   hard‑weighted to high tiers. The AI rates pure‑economy cards low (no combat value), by design.
 
-**Card upgrade values** (`card-progression.ts`): every card has a 7‑entry `levels` array (its stat at
-L1..L7) and a **mastery** (0..9) that either adds `masteryBonus` per level or unlocks a named
-`masterySpecial` ability. `cardLevelValue = (levels[level-1] + mastery*masteryBonus) × (scale if
-combat)`.
+---
+
+## 6a. The scaling law (`card-progression.ts`)
+
+**One law, not 73 hand‑authored arrays.** A card's value at level `L` (1‑7) and mastery `M` (0‑9) is:
+
+```
+value(L, M) = base × G^((L-1) + M/2)
+```
+
+`base` is the card's level‑1 value (preserved, so L1 play is unchanged) and `G` is its growth class.
+A mastery level is worth exactly **half a card level**. Two magnitude classes plus one bounded class:
+
+| Class | Cards | `G` | Behaviour |
+|---|---|---|---|
+| **mag** | ATK / HP / damage / heal / flat combat + coin income (most of the catalog) | **1.7** | Steep, "big numbers": ×24 by L7, **×~260 at L7 + M9**. Predictable — every mag card grows by the *same* ×1.7 each level. |
+| **ratio** | % of ATK, crit / spawn / kill chances | **1.25** | Gentle, and **capped** (chances ≤ 0.9, ATK multipliers ≤ +200%) — a ratio compounds with a magnitude, so it can't be allowed to run away. |
+| **count** | durations, draws, marks, misses, free‑casts, cost, mana | — | **NOT geometric.** These are bounded by the *rules* of the board (a 7‑turn stun is broken at any scale), so they keep a small explicit curve. A maxed count is a small number, never thousands. |
+
+So climbing gives a smooth, predictable power ramp, and the numbers are allowed to reach the tens of
+thousands (a maxed Fortress is 80 → 21,028 HP) — the whole point of a big‑number idle‑game ladder. The
+tier HP economy (§4) reuses the *same* `G_MAG` factor, so offense and HP grow together and battles stay
+~8‑18 turns at every tier. Guardrails in `scaling.test.ts` prove the law holds and stays held.
+
+Economy: a card fully maxed (L7 + M9) still costs `levelUpCost` + `masteryUpCost` = 9,096 coins.
 
 ---
 
@@ -271,8 +280,14 @@ Combat constants are shown at their real ×10 value (`COMBAT_SCALE = 10`).
 
 ## 8. The card catalog (73 cards)
 
-Format: **Name** (unit stats) · rarity · mana cost · L1→L7 (the levelled value, as displayed) · mastery
-name · effect. Numbers are the real in‑engine values from `card-progression.ts` (combat values ×10).
+Format: **Name** (unit stats) · rarity · mana cost · L1→L7 · mastery name · effect.
+
+> **The `L1→L7` values below are the OLD linear ramp and are kept only as a rough guide to each card's
+> role.** The live values now follow the geometric law in §6a: the FIRST number (L1 `base`) is still
+> exact, but L7 = `base × 1.7^6 ≈ base × 24` for a magnitude card (so Fortress is 80 → ~1,931, not 200),
+> ratio cards grow by ×1.25/level and cap, and count cards stay the small bounded numbers shown. See
+> `card-progression.ts` for the exact per‑card class/base.
+
 **% ATK cards** (Damage, Attack Speed, Amplify Bot, Bot Bot, Range, Project Funding, Om Chip — and the
 enemy‑sapping Negative Mass Projector, Scout Chip, Pulsar Harvester) work off a percentage of a unit's
 own ATK, so they scale gradually, leave 0‑ATK walls as walls, and never zero the board with a flat number.
@@ -403,11 +418,14 @@ cards; authored enemy decks don't include them.
 - **`pnpm progression`** is a deterministic climb (clear‑ability + turns only; it cannot measure win
   rate). `pnpm harness` / `harness:ladder` are the older self‑play harnesses.
 
-Latest curve (N=12, depth‑2 player), after the difficulty retune that restored late pressure: T2‑5
-~92‑98% → T6 89% → **T7‑8 ~65%** (a structural dip: Saboteur/Scatter bite an early deck) → T9‑12 ~83‑89%
-→ T13‑15 ~73‑84% → T16‑18 ~55‑60% → T19‑24 ~41‑55%, with **T24 ~52%**. On‑target at the anchors (T5, T12,
-T24); the remaining ±5pt wobble is within N=12 noise. The top is intentionally at the top of its band —
-the harness player is stronger than a real human, so real win rates sit lower; fun > punishing.
+Latest curve (N=12, depth‑2 player), after the **geometric scaling rebuild** (§6a + §4): a SMOOTH,
+monotonic decline with no sawtooth and no cliff — T2‑8 ~90‑98% → T9‑15 ~98‑100% → T16 83% → T18 70% →
+**T19‑24 ~41‑52%**, T24 **52%**, turns ~8‑23. On‑target at the top (T16‑24 in band) and the anchors.
+The one soft spot is the **T9‑15 plateau (~100%)**: at a fair power mirror the depth‑2 harness player
+simply wins, so HP‑based difficulty can't pull the mid below ~95% without inflating turns — but a real
+human is weaker than depth‑2, so their mid‑game sits lower and more in band. This curve replaced a
+hand‑tuned one whose polynomial HP fought the geometric card ramp (an un‑tunable sawtooth); the
+self‑similar geometric economy is what made it smooth and predictable.
 
 ---
 
