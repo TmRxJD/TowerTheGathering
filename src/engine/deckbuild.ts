@@ -18,7 +18,8 @@ export function cardValue(id: string): number {
   if (id === 'super-tower' || id === 'ultimate-crit' || id === 'recovery-package') return 6
   if (id === 'guardian-attack' || id === 'guardian-bounty' || id === 'guardian-scout' || id === 'golden-bot') return 5.5
   if (id === 'damage' || id === 'attack-speed' || id === 'critical-chance') return 5
-  if (id === 'health-regen' || id === 'coins' || id === 'critical-coin' || id === 'health') return 4.5
+  if (id === 'health-regen' || id === 'critical-coin' || id === 'health') return 4.5
+  if (id === 'coins') return 2 // pure economy (bonus shards on a win) — no combat value to the AI
   if (id === 'enemy-balance') return 1 // self-harm; a decent player avoids it
   return 3
 }

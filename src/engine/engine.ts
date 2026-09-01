@@ -427,11 +427,9 @@ class TowerEngine implements Engine {
       }
     }
 
-    // Draw: 1 + Coins (own) + Enemy Balance (own, both copies drew; levels scale the bonus).
-    const draws =
-      1 +
-      this.countModule(side, 'coins') * this.cardVal(side, 'coins') +
-      this.countModule(side, 'enemy-balance') * this.cardVal(side, 'enemy-balance')
+    // Draw: 1 + Enemy Balance (own; both copies drew, levels scale the bonus). (Coins is now an
+    // economy card — it boosts shard EARNINGS on a win, handled by the game, not a draw engine.)
+    const draws = 1 + this.countModule(side, 'enemy-balance') * this.cardVal(side, 'enemy-balance')
     for (let i = 0; i < draws; i++) this.drawCard(p, events)
 
     // Black Hole Digestor: your upgrades "digest" into temporary mana each turn (per Module held).
@@ -762,9 +760,9 @@ class TowerEngine implements Engine {
         break
       }
       case 'wave-skip': {
-        this.players[this.opponent(side)].skipNextCombat = true
-        const heal = this.cardVal(side, 'wave-skip')
-        if (heal > 0) this.healNexus(side, heal, events)
+        // Skip ahead through your deck — draw a burst of cards (was a heal + combat skip).
+        const n = this.cardVal(side, 'wave-skip')
+        for (let i = 0; i < n; i++) this.drawCard(p, events)
         break
       }
       case 'plasma-cannon': {

@@ -33,7 +33,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'common',
     type: 'MODULE',
     cost: 2,
-    text: '+5 max Nexus HP immediately (and heal 5).',
+    text: '+5 max Tower HP immediately (and heal 5).',
     art: 'health.jpg',
   },
   'health-regen': {
@@ -42,7 +42,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'common',
     type: 'MODULE',
     cost: 2,
-    text: 'Start of your turn: heal your Nexus and all friendly units +1 HP.',
+    text: 'Start of your turn: heal your Tower and all friendly units +1 HP.',
     art: 'health-regen.jpg',
   },
   range: {
@@ -68,8 +68,8 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     name: 'Coins',
     rarity: 'common',
     type: 'MODULE',
-    cost: 2,
-    text: 'Draw +1 card at the start of every one of your turns.',
+    cost: 1,
+    text: 'Economy: if you WIN this battle with Coins in play, earn +N bonus shards (stacks per copy).',
     art: 'coins.jpg',
   },
   'free-upgrades': {
@@ -105,7 +105,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'common',
     type: 'MODULE',
     cost: 3,
-    text: 'Incoming Nexus damage is reduced by 1 (minimum 1).',
+    text: 'Incoming Tower damage is reduced by 1 (minimum 1).',
     art: 'extra-defense.jpg',
   },
   fortress: {
@@ -146,7 +146,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'rare',
     type: 'ULTIMATE',
     cost: 2,
-    text: "Skip the enemy's next combat phase.",
+    text: 'Skip ahead through your deck: draw N cards.',
     art: 'wave-skip.jpg',
   },
   'intro-sprint': {
@@ -185,7 +185,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'rare',
     type: 'MODULE',
     cost: 2,
-    text: 'Whenever you draw an Ultimate, gain +2 Nexus HP.',
+    text: 'Whenever you draw an Ultimate, gain +2 Tower HP.',
     art: 'package-chance.jpg',
   },
   'slow-aura': {
@@ -206,7 +206,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     atk: 3,
     hp: 1,
     keywords: ['firstStrike', 'spillover'],
-    text: 'First Strike. Overkill damage spills to the enemy Nexus.',
+    text: 'First Strike. Overkill damage spills to the enemy Tower.',
     art: 'extra-orbs.jpg',
   },
   'land-mine-chance': {
@@ -262,7 +262,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'epic',
     type: 'ULTIMATE',
     cost: 4,
-    text: 'Secret. If your Nexus would reach 0, prevent it, set HP to 5, and exile this.',
+    text: 'Secret. If your Tower would reach 0, prevent it, set HP to 5, and exile this.',
     art: 'second-wind.jpg',
   },
   'demon-mode': {
@@ -280,7 +280,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'epic',
     type: 'MODULE',
     cost: 4,
-    text: 'Negates the next instance of direct Nexus damage, then destroys itself.',
+    text: 'Negates the next instance of direct Tower damage, then destroys itself.',
     art: 'energy-shield.jpg',
   },
   'wave-accelerator': {
@@ -318,7 +318,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'epic',
     type: 'ULTIMATE',
     cost: 4,
-    text: "A friendly unit's next attack deals 3× damage straight to the enemy Nexus, bypassing blockers.",
+    text: "A friendly unit's next attack deals 3× damage straight to the enemy Tower, bypassing blockers.",
     art: 'ultimate-crit.jpg',
   },
 
@@ -409,12 +409,12 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'sharp-fortitude': {
     id: 'sharp-fortitude', name: 'Sharp Fortitude', rarity: 'epic', type: 'MODULE', cost: 4,
-    text: 'A thorned wall: +4 max Nexus HP (healed), and attackers take 1 thorns damage.',
+    text: 'A thorned wall: +4 max Tower HP (healed), and attackers take 1 thorns damage.',
     art: 'sharp-fortitude.webp',
   },
   'wormhole-redirector': {
     id: 'wormhole-redirector', name: 'Wormhole Redirector', rarity: 'epic', type: 'MODULE', cost: 3,
-    text: 'Channels recovery: restore 1 Nexus HP at the start of each of your turns.',
+    text: 'Channels recovery: restore 1 Tower HP at the start of each of your turns.',
     art: 'wormhole-redirector.webp',
   },
   'space-displacer': {
@@ -431,7 +431,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'galaxy-compressor': {
     id: 'galaxy-compressor', name: 'Galaxy Compressor', rarity: 'epic', type: 'MODULE', cost: 3,
-    text: 'On any turn you heal your Nexus, your Ultimates cost 1 less (min 1).',
+    text: 'On any turn you heal your Tower, your Ultimates cost 1 less (min 1).',
     art: 'galaxy-compressor.webp',
   },
   'project-funding': {
@@ -467,7 +467,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     art: 'magnetic-hook.webp',
   },
   'multiverse-nexus': {
-    id: 'multiverse-nexus', name: 'Multiverse Nexus', rarity: 'epic', type: 'MODULE', cost: 4,
+    id: 'multiverse-nexus', name: 'Multiverse Tower', rarity: 'epic', type: 'MODULE', cost: 4,
     text: 'Your Ultimate Weapons sync: after you play an Ultimate, the next Ultimate this turn is free.',
     art: 'multiverse-nexus.webp',
   },
@@ -522,7 +522,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'guardian-fetch': {
     id: 'guardian-fetch', name: 'Fetch Chip', rarity: 'rare', type: 'ULTIMATE', cost: 3,
-    text: 'Steal 3 HP from the enemy Nexus (heal your own) and draw a card.',
+    text: 'Steal 3 HP from the enemy Tower (heal your own) and draw a card.',
     art: 'guardian-fetch.webp',
   },
   'guardian-summon': {

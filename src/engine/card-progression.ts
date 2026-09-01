@@ -19,9 +19,9 @@ export const MASTERY_MAX_LEVEL = 9
 export type MasterySpecial =
   | 'fortress-walls' // Fortress: on death, leaves a 0/4 wall once (rebuilds).
   | 'coin-orb' // Extra Orbs: draw a card when it destroys an enemy unit.
-  | 'viking-funeral' // Berserker: on death, deals its ATK to the enemy Nexus.
+  | 'viking-funeral' // Berserker: on death, deals its ATK to the enemy Tower.
   | 'elite-cannon' // Plasma Cannon: strikes a second enemy unit too.
-  | 'radiation' // Nuke: also deals extra damage to the enemy Nexus.
+  | 'radiation' // Nuke: also deals extra damage to the enemy Tower.
   | 'angel-wings' // Second Wind: on trigger, also heals all your units to full.
 
 export interface CardProg {
@@ -41,22 +41,22 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   // --- Units (level scales the primary stat) ---
   fortress: { levels: [8, 10, 12, 14, 16, 18, 20], unitStat: 'hp', masteryName: 'Fortress Walls', masteryText: 'On death, a 0/4 wall rebuilds in its place (once).', masterySpecial: 'fortress-walls' },
   'extra-orbs': { levels: [3, 4, 5, 6, 7, 8, 9], unitStat: 'atk', masteryName: 'Coin Orb', masteryText: 'Draw a card whenever it destroys an enemy unit.', masterySpecial: 'coin-orb' },
-  berserker: { levels: [2, 3, 4, 5, 6, 7, 8], unitStat: 'atk', masteryName: 'Viking Funeral', masteryText: 'On death, deals its ATK to the enemy Nexus.', masterySpecial: 'viking-funeral' },
+  berserker: { levels: [2, 3, 4, 5, 6, 7, 8], unitStat: 'atk', masteryName: 'Viking Funeral', masteryText: 'On death, deals its ATK to the enemy Tower.', masterySpecial: 'viking-funeral' },
   'land-mine-stun': { levels: [1, 2, 3, 4, 5, 6, 7], unitStat: 'atk', masteryName: 'Flashbang', masteryText: '+1 ATK per level.', masteryBonus: 1 },
 
   // --- Modules ---
   damage: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Damage+', masteryText: '+1 ATK to friendly units, per level.', masteryBonus: 1 },
   'attack-speed': { levels: [0, 1, 2, 3, 4, 5, 6], masteryName: 'Attack Speed+', masteryText: 'Your units deal +1 more, per level.', masteryBonus: 1 },
-  health: { levels: [5, 7, 9, 11, 13, 15, 18], masteryName: 'Health+', masteryText: '+2 more max Nexus HP per level.', masteryBonus: 2 },
+  health: { levels: [5, 7, 9, 11, 13, 15, 18], masteryName: 'Health+', masteryText: '+2 more max Tower HP per level.', masteryBonus: 2 },
   'health-regen': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Health Regen+', masteryText: '+1 more healing each turn, per level.', masteryBonus: 1 },
   range: { levels: [0, 1, 2, 3, 4, 5, 6], masteryName: 'Long Shot', masteryText: 'Reaching units deal +1 more, per level.', masteryBonus: 1 },
-  coins: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Coins+', masteryText: 'Draw +1 more each turn, per level.', masteryBonus: 1 },
+  coins: { levels: [10, 15, 20, 25, 30, 40, 50], masteryName: 'Interest', masteryText: '+10 more bonus shards per level.', masteryBonus: 10 },
   'slow-aura': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Slow Attack', masteryText: 'Enemies enter tapped +1 more turn, per level.', masteryBonus: 1 },
   'critical-chance': { levels: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], masteryName: 'Super Crit', masteryText: '+5% more crit chance per level.', masteryBonus: 0.05 },
   'enemy-balance': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Elite Balance', masteryText: 'Draw +1 more each turn, per level.', masteryBonus: 1 },
-  'extra-defense': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Extra Defense+', masteryText: 'Reduce incoming Nexus damage +1 more, per level.', masteryBonus: 1 },
+  'extra-defense': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Extra Defense+', masteryText: 'Reduce incoming Tower damage +1 more, per level.', masteryBonus: 1 },
   'critical-coin': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Double Coins', masteryText: '+1 more mana per kill, per level.', masteryBonus: 1 },
-  'package-chance': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more Nexus HP per Ultimate drawn, per level.', masteryBonus: 1 },
+  'package-chance': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more Tower HP per Ultimate drawn, per level.', masteryBonus: 1 },
   'land-mine-chance': { levels: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8], masteryName: 'Minefield', masteryText: '+5% more spawn chance per level.', masteryBonus: 0.05 },
   'orbs-speed': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Orbs Speed+', masteryText: '+1 more ATK to Extra Orbs, per level.', masteryBonus: 1 },
   'super-tower': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Ultimate Tower', masteryText: '+1 more ATK on its power turn, per level.', masteryBonus: 1 },
@@ -67,14 +67,14 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   cash: { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Big Cash', masteryText: '+1 more temporary mana, per level.', masteryBonus: 1 },
   'free-upgrades': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Locked Upgrade', masteryText: 'Reveal +1 more card, per level.', masteryBonus: 1 },
   'plasma-cannon': { levels: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8], masteryName: 'Elite Cannon', masteryText: 'Also hits a second enemy unit.', masterySpecial: 'elite-cannon' },
-  'wave-skip': { levels: [0, 1, 2, 3, 4, 5, 6], masteryName: 'Double Wave Skip', masteryText: 'Heal +1 more on cast, per level.', masteryBonus: 1 },
+  'wave-skip': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Fast Forward', masteryText: '+1 more card drawn, per level.', masteryBonus: 1 },
   'intro-sprint': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Warp Speed', masteryText: 'Draw +1 more, per level.', masteryBonus: 1 },
   'recovery-package': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more overheal, per level.', masteryBonus: 1 },
   'death-ray': { levels: [6, 7, 8, 9, 10, 11, 12], masteryName: 'Enhanced Ray', masteryText: '+1 more damage per level.', masteryBonus: 1 },
   'energy-net': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Electrified Net', masteryText: 'Freeze +1 more turn, per level.', masteryBonus: 1 },
   'second-wind': { levels: [5, 6, 7, 8, 9, 10, 12], masteryName: 'Angel Wings', masteryText: 'Also heals all your units to full when it triggers.', masterySpecial: 'angel-wings' },
   'demon-mode': { levels: [5, 6, 7, 8, 9, 10, 12], masteryName: 'Demon Revenge', masteryText: '+1 more ATK per level.', masteryBonus: 1 },
-  nuke: { levels: [0, 1, 2, 3, 4, 5, 6], masteryName: 'Radiation', masteryText: 'Also deals 6 damage to the enemy Nexus.', masterySpecial: 'radiation' },
+  nuke: { levels: [0, 1, 2, 3, 4, 5, 6], masteryName: 'Radiation', masteryText: 'Also deals 6 damage to the enemy Tower.', masterySpecial: 'radiation' },
   'ultimate-crit': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Ultimate Crit+', masteryText: '+1 more damage multiplier per level.', masteryBonus: 1 },
 
   // --- Ultimate Weapons (the 9 real UWs) ---
@@ -98,8 +98,8 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   // --- Armor modules (defense) ---
   'anti-cube-portal': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Aftershock', masteryText: '+1 shockwave damage per level.', masteryBonus: 1 },
   'negative-mass-projector': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Heavy', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
-  'sharp-fortitude': { levels: [4, 6, 8, 10, 12, 14, 16], masteryName: 'Barbed', masteryText: '+1 max Nexus HP per level.', masteryBonus: 1 },
-  'wormhole-redirector': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Conduit', masteryText: '+1 Nexus recovery each turn, per level.', masteryBonus: 1 },
+  'sharp-fortitude': { levels: [4, 6, 8, 10, 12, 14, 16], masteryName: 'Barbed', masteryText: '+1 max Tower HP per level.', masteryBonus: 1 },
+  'wormhole-redirector': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Conduit', masteryText: '+1 Tower recovery each turn, per level.', masteryBonus: 1 },
   'space-displacer': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Organize', masteryText: '+1 mine HP per level.', masteryBonus: 1 },
 
   // --- Generator modules (utility) ---
@@ -147,33 +147,33 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'land-mine-stun': { fmt: 'flat', label: 'ATK · Trap: freezes an entering enemy 1 turn' },
   damage: { fmt: 'plus', label: 'ATK to all friendly units' },
   'attack-speed': { fmt: 'plus', label: 'ATK to your units (grants First Strike)' },
-  health: { fmt: 'plus', label: 'max Nexus HP (healed on play)' },
-  'health-regen': { fmt: 'plus', label: 'HP healed to Nexus & units each turn' },
+  health: { fmt: 'plus', label: 'max Tower HP (healed on play)' },
+  'health-regen': { fmt: 'plus', label: 'HP healed to Tower & units each turn' },
   range: { fmt: 'plus', label: 'ATK to units (grants Reach)' },
-  coins: { fmt: 'flat', label: 'cards drawn each turn' },
+  coins: { fmt: 'flat', label: 'bonus shards on a win (per copy in play)' },
   'slow-aura': { fmt: 'flat', label: 'turns enemy units enter tapped' },
   'critical-chance': { fmt: 'percent', label: 'chance on hit to deal 2× damage' },
   'enemy-balance': { fmt: 'flat', label: 'cards drawn each turn (enemy units +1 ATK)' },
-  'extra-defense': { fmt: 'plus', label: 'incoming Nexus damage reduced (min 1)' },
+  'extra-defense': { fmt: 'plus', label: 'incoming Tower damage reduced (min 1)' },
   'critical-coin': { fmt: 'plus', label: 'mana next turn when a unit kills' },
-  'package-chance': { fmt: 'plus', label: 'Nexus HP when you draw an Ultimate' },
+  'package-chance': { fmt: 'plus', label: 'Tower HP when you draw an Ultimate' },
   'land-mine-chance': { fmt: 'percent', label: 'chance to spawn a mine each turn' },
   'orbs-speed': { fmt: 'plus', label: 'ATK to your Extra Orbs' },
   'super-tower': { fmt: 'plus', label: 'ATK to your units every 3rd turn (invulnerable)' },
   'wave-accelerator': { fmt: 'plus', label: 'less mana for your Ultimates (min 1)' },
-  'energy-shield': { fmt: 'flat', label: 'instances of Nexus damage absorbed' },
+  'energy-shield': { fmt: 'flat', label: 'instances of Tower damage absorbed' },
   cash: { fmt: 'plus', label: 'temporary mana this turn' },
   'free-upgrades': { fmt: 'flat', label: 'cards revealed (play a free unit ≤3)' },
   'plasma-cannon': { fmt: 'percent', label: "of the target's current HP removed" },
-  'wave-skip': { fmt: 'plus', label: 'Nexus HP healed (skips enemy combat)' },
+  'wave-skip': { fmt: 'flat', label: 'cards drawn' },
   'intro-sprint': { fmt: 'flat', label: 'cards drawn (then discard 1)' },
   'recovery-package': { fmt: 'plus', label: 'HP over max (heals target to full)' },
   'death-ray': { fmt: 'flat', label: 'damage to a unit (+2 to neighbours)' },
   'energy-net': { fmt: 'flat', label: 'turns an enemy unit is frozen' },
-  'second-wind': { fmt: 'flat', label: 'HP revived to if your Nexus would die' },
+  'second-wind': { fmt: 'flat', label: 'HP revived to if your Tower would die' },
   'demon-mode': { fmt: 'plus', label: 'ATK this turn (unit is sacrificed after)' },
-  nuke: { fmt: 'flat', label: 'bonus Nexus damage (destroys all units)' },
-  'ultimate-crit': { fmt: 'flat', label: '× damage straight to the Nexus (bypasses blockers)' },
+  nuke: { fmt: 'flat', label: 'bonus Tower damage (destroys all units)' },
+  'ultimate-crit': { fmt: 'flat', label: '× damage straight to the Tower (bypasses blockers)' },
   // Ultimate Weapons
   'chain-lightning': { fmt: 'flat', label: 'damage to a target, arcing −1 to each next enemy' },
   'smart-missiles': { fmt: 'flat', label: "damage to each lane's front enemy" },
@@ -193,12 +193,12 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   // Armor modules
   'anti-cube-portal': { fmt: 'flat', label: "shockwave damage to neighboring lanes' enemy fronts" },
   'negative-mass-projector': { fmt: 'flat', label: 'ATK removed from all enemy units' },
-  'sharp-fortitude': { fmt: 'plus', label: 'max Nexus HP (healed); attackers take 1 thorns' },
-  'wormhole-redirector': { fmt: 'flat', label: 'Nexus HP recovered at the start of each turn' },
+  'sharp-fortitude': { fmt: 'plus', label: 'max Tower HP (healed); attackers take 1 thorns' },
+  'wormhole-redirector': { fmt: 'flat', label: 'Tower HP recovered at the start of each turn' },
   'space-displacer': { fmt: 'flat', label: 'HP of a Mine spawned in each empty lane each turn' },
   // Generator modules
   'black-hole-digestor': { fmt: 'flat', label: 'temporary mana each turn per Module you control' },
-  'galaxy-compressor': { fmt: 'flat', label: 'less Ultimate cost on turns you heal your Nexus' },
+  'galaxy-compressor': { fmt: 'flat', label: 'less Ultimate cost on turns you heal your Tower' },
   'project-funding': { fmt: 'plus', label: 'ATK to your units per 3 mana in your pool' },
   'pulsar-harvester': { fmt: 'flat', label: 'ATK removed from an enemy your unit damages' },
   'singularity-harness': { fmt: 'plus', label: 'ATK to your Mine & Wall tokens (your "bots")' },
@@ -218,7 +218,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'guardian-ally': { fmt: 'flat', label: 'weakest enemy unit converted to your side' },
   'guardian-attack': { fmt: 'plus', label: "damage on top of the target's missing HP" },
   'guardian-bounty': { fmt: 'flat', label: 'cards drawn' },
-  'guardian-fetch': { fmt: 'flat', label: 'HP stolen from the enemy Nexus (then draw 1)' },
+  'guardian-fetch': { fmt: 'flat', label: 'HP stolen from the enemy Tower (then draw 1)' },
   'guardian-summon': { fmt: 'flat', label: 'ATK/HP of an Ally summoned in each empty lane' },
   'guardian-scout': { fmt: 'flat', label: 'ATK removed from all enemy units' },
 }

@@ -62,7 +62,7 @@ const KEYWORD_INFO: Record<string, string> = {
   defender: 'Defender — enemies must destroy it before hitting units behind it.',
   firstStrike: 'First Strike — deals its damage before the enemy strikes back.',
   reach: 'Reach — can strike an adjacent lane when its own lane is clear.',
-  spillover: 'Spillover — leftover (overkill) damage carries to the enemy Nexus.',
+  spillover: 'Spillover — leftover (overkill) damage carries to the enemy Tower.',
   trap: 'Trap — triggers and is destroyed when an enemy enters its lane.',
 }
 
@@ -352,7 +352,7 @@ export class GameApp {
     }
     // The AI portrait is set per match from the boss name (see startMatch).
     const who = this.div('who')
-    who.innerHTML = side === 'ai' ? 'Enemy Nexus<small></small>' : 'Your Nexus<small>Commander</small>'
+    who.innerHTML = side === 'ai' ? 'Enemy Tower<small></small>' : 'Your Tower<small>Commander</small>'
     const hpwrap = this.div('ttg-hpwrap')
     const hpbar = this.div('ttg-hpbar')
     const hpFill = this.div('ttg-hpfill')
@@ -469,7 +469,7 @@ export class GameApp {
     if (res.winner === 'HUMAN') {
       this.recordWin(res.turns)
       this.maxCleared = Math.max(this.maxCleared, this.bossIndex) // unlock the next rung (farming a beaten one doesn't lower it)
-      const gained = shardReward(this.tier, this.bossIndex)
+      const gained = shardReward(this.tier, this.bossIndex) + this.coinsBonus()
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
@@ -1324,9 +1324,9 @@ export class GameApp {
     el.innerHTML =
       `<div class="help-card">` +
       `<h3>How to play</h3>` +
-      `<p><b>Goal:</b> drop the enemy Nexus to 0 HP. You start at 20; the ladder bosses start tougher.</p>` +
+      `<p><b>Goal:</b> drop the enemy Tower to 0 HP. You start at 20; the ladder enemies start tougher.</p>` +
       `<p><b>Each turn:</b> you gain +1 mana (max 10) and draw a card. Spend mana to play cards, then press <b>End Turn</b> to fight.</p>` +
-      `<p><b>Lanes:</b> units stack in the Left / Center / Right lanes. Only the <b>front</b> unit fights each turn; it trades damage with the enemy's front unit. A lane with no enemy unit sends your front unit's damage straight to the Nexus.</p>` +
+      `<p><b>Lanes:</b> units stack in the Left / Center / Right lanes. Only the <b>front</b> unit fights each turn; it trades damage with the enemy's front unit. A lane with no enemy unit sends your front unit's damage straight to the Tower.</p>` +
       `<p><b>Card types:</b> <b>Units</b> fight in a lane · <b>Modules</b> give lasting effects from your backline (max ${TUNING.BACKLINE_SLOTS}) · <b>Ultimates</b> are one-time spells.</p>` +
       `<p><b>Deck-out:</b> once your deck is empty, drawing hurts you a little more each time — so games always end.</p>` +
       `<p><b>Keywords:</b></p><ul>${kw}</ul>` +
@@ -1555,6 +1555,15 @@ export class GameApp {
 
   private collEntry(cardId: string): { level: number; mastery: number } {
     return this.save.collection[cardId] ?? { level: 1, mastery: 0 }
+  }
+
+  /** Coins is an economy card: each Coins MODULE you have in play when you WIN pays bonus shards
+   *  (scaled by your Coins level). Pairs with farming already-beaten enemies. */
+  private coinsBonus(): number {
+    const inPlay = this.engine.snapshot().players.HUMAN.modules.filter(m => m.cardId === 'coins').length
+    if (inPlay === 0) return 0
+    const { level, mastery } = this.collEntry('coins')
+    return inPlay * cardLevelValue('coins', level, mastery)
   }
 
   private levelCost = levelUpCost // shared with the progression simulator (engine/economy.ts)
