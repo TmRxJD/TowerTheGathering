@@ -86,7 +86,6 @@ const ULTIMATE_TARGET: Readonly<Record<string, TargetType>> = {
   'recovery-package': 'friendlyUnit',
   'ultimate-crit': 'friendlyUnit',
   'chain-lightning': 'enemyUnit',
-  spotlight: 'enemyUnit',
   'shrink-ray': 'enemyUnit',
   'guardian-attack': 'anyUnit',
 }
@@ -447,7 +446,7 @@ class TowerEngine implements Engine {
     }
     // Death Wave: damage every enemy unit.
     if (this.countModule(side, 'death-wave') > 0) {
-      const dmg = this.cardVal(side, 'death-wave') * this.countModule(side, 'death-wave')
+      const dmg = this.cardVal(side, 'death-wave') * this.countModule(side, 'death-wave') + this.uwBonus(side)
       const opp = this.opponent(side)
       for (const lane of LANES) for (const u of [...this.lanes[lane][opp]]) this.damageUnit(u, dmg, null, false, events)
       if (this.winner !== null) return
@@ -638,7 +637,7 @@ class TowerEngine implements Engine {
 
     // Inner Land Mines: the enemy's mines detonate on the entering unit for AOE damage.
     if (this.countModule(opp, 'inner-land-mines') > 0) {
-      const dmg = this.cardVal(opp, 'inner-land-mines') * this.countModule(opp, 'inner-land-mines')
+      const dmg = this.cardVal(opp, 'inner-land-mines') * this.countModule(opp, 'inner-land-mines') + this.uwBonus(opp)
       this.damageUnit(unit, dmg, null, false, events)
     }
     // Death Penalty: the enemy marks the entering unit for death (a limited number per turn).
@@ -907,7 +906,7 @@ class TowerEngine implements Engine {
         const first = this.unitByTarget(target)
         if (first) {
           const hit = new Set<number>()
-          let bolt = this.cardVal(side, 'chain-lightning') + this.ultBonus(side)
+          let bolt = this.cardVal(side, 'chain-lightning') + this.ultBonus(side) + this.uwBonus(side)
           let u: UnitInstance | undefined = first
           while (u && bolt > 0) {
             hit.add(u.uid)
@@ -919,7 +918,7 @@ class TowerEngine implements Engine {
         break
       }
       case 'smart-missiles': {
-        const dmg = this.cardVal(side, 'smart-missiles') + this.ultBonus(side)
+        const dmg = this.cardVal(side, 'smart-missiles') + this.ultBonus(side) + this.uwBonus(side)
         for (const lane of LANES) {
           const front = this.frontUnit(lane, this.opponent(side))
           if (front) this.damageUnit(front, dmg, null, false, events)
@@ -927,7 +926,7 @@ class TowerEngine implements Engine {
         break
       }
       case 'black-hole': {
-        const threshold = this.cardVal(side, 'black-hole')
+        const threshold = this.cardVal(side, 'black-hole') + this.uwBonus(side)
         const opp = this.opponent(side)
         for (const lane of LANES) {
           let weakest: UnitInstance | undefined
@@ -937,22 +936,13 @@ class TowerEngine implements Engine {
         break
       }
       case 'chrono-field': {
-        const turns = this.cardVal(side, 'chrono-field')
+        const turns = this.cardVal(side, 'chrono-field') + this.uwBonus(side)
         const opp = this.opponent(side)
         for (const lane of LANES) {
           for (const u of this.lanes[lane][opp]) {
             u.frozenTurns = Math.max(u.frozenTurns, turns)
             events.push({ type: 'unitFrozen', uid: u.uid, turns: u.frozenTurns })
           }
-        }
-        break
-      }
-      case 'spotlight': {
-        // Enemies in the spotlight take more damage from every source, permanently.
-        const u = this.unitByTarget(target)
-        if (u) {
-          u.vulnerable += this.cardVal(side, 'spotlight')
-          events.push({ type: 'unitBuffed', uid: u.uid, atk: u.atk, hp: u.hp })
         }
         break
       }
@@ -971,6 +961,11 @@ class TowerEngine implements Engine {
   /** Dimension Core: bonus damage added to this side's damage-dealing Ultimates. */
   private ultBonus(side: Side): number {
     return this.countModule(side, 'dimension-core') * this.cardVal(side, 'dimension-core')
+  }
+
+  /** Spotlight: bonus added to EVERY Ultimate Weapon card's effect this side controls. */
+  private uwBonus(side: Side): number {
+    return this.countModule(side, 'spotlight') * this.cardVal(side, 'spotlight')
   }
 
   /** Highest-HP enemy unit of `side`'s foe not already in `exclude`. For Chain Lightning. */
@@ -1214,6 +1209,14 @@ class TowerEngine implements Engine {
       }
       return
     }
+    // Critical Coin: a CRITICAL hit by your unit (in combat) farms coins (banked on a win).
+    if (plan.crit && plan.amount > 0) {
+      const critOwner = this.findUnit(plan.attackerUid)?.owner
+      if (critOwner) {
+        const cc = this.countModule(critOwner, 'critical-coin')
+        if (cc > 0) this.players[critOwner].goldEarned += this.cardVal(critOwner, 'critical-coin') * cc
+      }
+    }
     const u = this.findUnit(plan.uid)
     if (!u) return
     if (u.invulnerableThisTurn) {
@@ -1299,7 +1302,7 @@ class TowerEngine implements Engine {
     // Poison Swamp: an enemy dying spreads poison to its surviving lane-mates.
     const poisoner = this.opponent(unit.owner)
     if (this.countModule(poisoner, 'poison-swamp') > 0) {
-      const dmg = this.cardVal(poisoner, 'poison-swamp') * this.countModule(poisoner, 'poison-swamp')
+      const dmg = this.cardVal(poisoner, 'poison-swamp') * this.countModule(poisoner, 'poison-swamp') + this.uwBonus(poisoner)
       for (const mate of [...stack]) this.damageUnit(mate, dmg, null, false, events)
     }
     // Scatter enemy skill: a dying (non-token) unit splits — a 1/1 shard takes its place.
@@ -1330,13 +1333,10 @@ class TowerEngine implements Engine {
       const killer = this.findUnit(killerUid)
       if (killer) {
         const kp = this.players[killer.owner]
-        // Critical Coin: earns shards per kill (banked on a win), not mana.
-        if (this.countModule(killer.owner, 'critical-coin') > 0) {
-          kp.goldEarned += this.cardVal(killer.owner, 'critical-coin') * this.countModule(killer.owner, 'critical-coin')
-        }
-        // Golden Tower: the golden tower farms shards for each enemy killed.
+        // (Critical Coin now pays on CRITICAL hits — see applyPlan — not on kills.)
+        // Golden Tower: the golden tower farms coins for each enemy killed.
         if (this.countModule(killer.owner, 'golden-tower') > 0) {
-          kp.goldEarned += this.cardVal(killer.owner, 'golden-tower') * this.countModule(killer.owner, 'golden-tower')
+          kp.goldEarned += this.cardVal(killer.owner, 'golden-tower') * this.countModule(killer.owner, 'golden-tower') + this.uwBonus(killer.owner)
         }
         // Coin Orb mastery: an Extra Orbs that kills farms bonus shards.
         if (this.hasMasterySpecial(killer.owner, killer.cardId, 'coin-orb')) {

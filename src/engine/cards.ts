@@ -69,7 +69,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'common',
     type: 'MODULE',
     cost: 1,
-    text: 'Economy: if you WIN this battle with Coins in play, earn +N bonus shards (stacks per copy).',
+    text: 'Economy: if you WIN this battle with Coins in play, earn +N bonus coins (stacks per copy).',
     art: 'coins.jpg',
   },
   'free-upgrades': {
@@ -137,7 +137,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'rare',
     type: 'MODULE',
     cost: 3,
-    text: 'Economy: when your unit destroys an enemy, farm +N shards (banked if you win the battle).',
+    text: 'Economy: when your unit lands a CRITICAL hit, farm +N coins (banked if you win the battle).',
     art: 'critical-coin.jpg',
   },
   'wave-skip': {
@@ -350,7 +350,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'golden-tower': {
     id: 'golden-tower', name: 'Golden Tower', rarity: 'rare', type: 'MODULE', cost: 3,
-    text: 'Economy: the tower turns golden — farm +N shards whenever your unit destroys an enemy (banked if you win).',
+    text: 'Economy: the tower turns golden — farm +N coins whenever your unit destroys an enemy (banked if you win).',
     art: 'golden-tower.webp',
   },
   'poison-swamp': {
@@ -364,8 +364,8 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     art: 'black-hole.webp',
   },
   spotlight: {
-    id: 'spotlight', name: 'Spotlight', rarity: 'rare', type: 'ULTIMATE', cost: 2,
-    text: 'Spotlight an enemy unit: it permanently takes +2 damage from every source.',
+    id: 'spotlight', name: 'Spotlight', rarity: 'rare', type: 'MODULE', cost: 3,
+    text: 'Spotlight your arsenal: all of your Ultimate Weapon cards have +N to their effect.',
     art: 'spotlight.webp',
   },
 
@@ -490,7 +490,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'golden-bot': {
     id: 'golden-bot', name: 'Golden Bot', rarity: 'rare', type: 'MODULE', cost: 2,
-    text: 'Economy: start of your turn, farm +N shards (banked if you win the battle).',
+    text: 'Economy: start of your turn, farm +N coins (banked if you win the battle).',
     art: 'golden-bot.webp',
   },
   'amplify-bot': {

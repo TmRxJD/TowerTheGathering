@@ -167,6 +167,19 @@
   border-color: #3a1c24;
   opacity: 0.5;
 }
+.ttg-coins {
+  flex: 0 0 auto;
+  font-weight: 800;
+  font-size: 13px;
+  color: #ffd257;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.ttg-coins .coins-pend {
+  color: #5ff0a0;
+  font-size: 11px;
+  opacity: 0.9;
+}
 .ttg-header .spacer {
   flex: 1;
 }

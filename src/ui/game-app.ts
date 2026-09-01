@@ -142,6 +142,7 @@ export class GameApp {
 
   // persistent skeleton refs
   private ladderEl!: HTMLElement
+  private coinsEl!: HTMLElement
   private bossSelect!: HTMLSelectElement
   private watchBtn!: HTMLButtonElement
   private previewEl!: HTMLElement
@@ -249,6 +250,8 @@ export class GameApp {
     logo.textContent = 'Powerstone'
     this.ladderEl = this.div('ttg-ladder')
     const spacer = this.div('spacer')
+    this.coinsEl = this.div('ttg-coins')
+    this.coinsEl.title = 'Coins — earned by winning; spent to upgrade cards'
     this.bossSelect = document.createElement('select')
     this.bossSelect.className = 'ttg-select'
     for (const b of BOSS_DECKS) {
@@ -283,7 +286,7 @@ export class GameApp {
     menuBtn.textContent = '☰ Menu'
     menuBtn.title = 'Back to the main menu (your run is saved)'
     menuBtn.addEventListener('click', () => this.showMenu())
-    header.append(logo, this.ladderEl, spacer, this.bossSelect, this.watchBtn, deckBtn, restartBtn, menuBtn, helpBtn)
+    header.append(logo, this.ladderEl, spacer, this.coinsEl, this.bossSelect, this.watchBtn, deckBtn, restartBtn, menuBtn, helpBtn)
 
     this.banner = this.div('ttg-banner')
     this.banner.appendChild(document.createElement('span'))
@@ -476,7 +479,7 @@ export class GameApp {
         this.recordTierClear()
       }
       this.persistSaves()
-      this.showToast(`+${gained} shards`)
+      this.showToast(`+${gained} coins`)
     }
     const boss = BOSS_DECKS[this.bossIndex - 1]!
     this.onResult?.({
@@ -750,6 +753,9 @@ export class GameApp {
       `<div class="lad-l1"><b>${tierName(this.tier)}</b> · Enemy ${this.bossIndex}/${BOSS_DECKS.length}</div>` +
       `<div class="lad-l2">${boss.name} <span class="pipline">${dots}</span>${cond}</div>`
     this.updateBossSelectGating()
+    // Coins display: your total, plus any coins being farmed this battle (banked on a win).
+    const pending = this.started || this.demo ? this.coinsBonus() + this.engine.snapshot().players.HUMAN.goldEarned : 0
+    this.coinsEl.innerHTML = `🪙 ${this.fmtShards(this.save.shards)}${pending > 0 ? ` <span class="coins-pend">+${pending}</span>` : ''}`
     // The Autoplay button only exists while a demo is running (pause/resume). Real runs never show it.
     this.watchBtn.style.display = this.demo ? '' : 'none'
     this.bossSelect.style.display = this.demo ? 'none' : ''
@@ -1460,7 +1466,7 @@ export class GameApp {
       this.saves.slots
         .map((s, i) => {
           const used = s.highestTierCleared > 0 || s.shards > 0 || Object.keys(s.collection).length > 0 || s.run
-          const sub = used ? `T${s.highestTierCleared} · 💠${this.fmtShards(s.shards)}` : 'empty'
+          const sub = used ? `T${s.highestTierCleared} · 🪙${this.fmtShards(s.shards)}` : 'empty'
           return `<button class="slot-btn${i === this.saves.activeSlot ? ' on' : ''}" data-slot="${i}">Save ${i + 1}<small>${sub}</small></button>`
         })
         .join('') +
@@ -1489,7 +1495,7 @@ export class GameApp {
       tierRow +
       `<div class="menu-btns">` +
       primary +
-      `<button class="ttg-mini" data-m="collection">🃏 Collection (💠 ${this.fmtShards(this.save.shards)})</button>` +
+      `<button class="ttg-mini" data-m="collection">🃏 Collection (🪙 ${this.fmtShards(this.save.shards)})</button>` +
       `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
       `<button class="ttg-mini" data-m="help">? How to Play</button>` +
       `<button class="ttg-mini menu-reset" data-m="reset">♻ Reset Progress</button>` +
@@ -1583,9 +1589,9 @@ export class GameApp {
     const el = this.div('ttg-modal ttg-confirm')
     const rows =
       this.saves.slots
-        .map((s, i) => `<button class="ttg-mini" data-reset="slot${i}">Reset Save ${i + 1} <small>(T${s.highestTierCleared} · 💠${this.fmtShards(s.shards)})</small></button>`)
+        .map((s, i) => `<button class="ttg-mini" data-reset="slot${i}">Reset Save ${i + 1} <small>(T${s.highestTierCleared} · 🪙${this.fmtShards(s.shards)})</small></button>`)
         .join('') +
-      `<button class="ttg-mini" data-reset="ai">Reset Autoplay <small>(T${this.saves.ai.highestTierCleared} · 💠${this.fmtShards(this.saves.ai.shards)})</small></button>`
+      `<button class="ttg-mini" data-reset="ai">Reset Autoplay <small>(T${this.saves.ai.highestTierCleared} · 🪙${this.fmtShards(this.saves.ai.shards)})</small></button>`
     el.innerHTML =
       `<div class="modal-card confirm-card">` +
       `<h3>Reset progress</h3>` +
@@ -1641,8 +1647,8 @@ export class GameApp {
       .map(k => `<button class="coll-sort${this.collSort === k ? ' on' : ''}" data-sort="${k}">${k[0]!.toUpperCase()}${k.slice(1)}</button>`)
       .join('')
     card.innerHTML =
-      `<h3>Collection · 💠 ${this.fmtShards(this.save.shards)}</h3>` +
-      `<div class="modal-sub">Win battles to earn 💠 shards — spend them to level cards (1→7) and their Mastery (1→9). Tap a card.</div>` +
+      `<h3>Collection · 🪙 ${this.fmtShards(this.save.shards)}</h3>` +
+      `<div class="modal-sub">Win battles to earn 🪙 coins — spend them to level cards (1→7) and their Mastery (1→9). Tap a card.</div>` +
       `<div class="coll-legend"><span class="lg-cost">◆</span> mana cost · <span class="lg-lvl">L1</span> your level · <span class="lg-stat">2 / 4</span> ATK / HP (units)</div>` +
       `<div class="coll-toolbar"><span>Sort:</span> ${sortBtns}</div>`
     const grid = this.div('coll-faces')
@@ -1732,7 +1738,7 @@ export class GameApp {
       action.className = 'ttg-btn ready'
       if (!max) {
         const cost = this.levelCost(level)
-        action.textContent = `Level Up · ${cost}💠`
+        action.textContent = `Level Up · ${cost}🪙`
         action.disabled = this.save.shards < cost
         action.addEventListener('click', () => {
           if (this.save.shards < cost) return
@@ -1743,7 +1749,7 @@ export class GameApp {
         })
       } else if (!masteryMaxed) {
         const cost = this.masteryCost(mastery)
-        action.textContent = `${mastery === 0 ? 'Unlock' : 'Level Up'} Mastery · ${cost}💠`
+        action.textContent = `${mastery === 0 ? 'Unlock' : 'Level Up'} Mastery · ${cost}🪙`
         action.disabled = this.save.shards < cost
         action.addEventListener('click', () => {
           if (this.save.shards < cost) return

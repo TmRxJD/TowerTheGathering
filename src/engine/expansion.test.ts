@@ -132,17 +132,23 @@ describe('expansion effects (flip the control, output moves)', () => {
     expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(6) // 8 − 2
   })
 
-  it('Spotlight makes an enemy take extra damage from later hits', () => {
+  it('Spotlight (module) boosts your Ultimate Weapon cards', () => {
+    // Control: Smart Missiles alone deals 2 to the front enemy.
+    const c = build(['smart-missiles'], ['fortress'])
+    for (let g = 0; g < 6 && !(c.snapshot().activeSide === 'AI' && c.snapshot().players.AI.manaPool >= 2); g++) pass(c)
+    c.apply({ kind: 'playUnit', uid: uidOf(c, 'AI', 'fortress'), lane: 'LEFT' })
+    toHumanMana(c, 3)
+    c.apply({ kind: 'playUltimate', uid: uidOf(c, 'HUMAN', 'smart-missiles') })
+    expect(stack(c, 'LEFT', 'AI')[0]?.hp).toBe(6) // 8 − 2
+
+    // With Spotlight in play (+1 to every UW), Smart Missiles deals 3.
     const e = build(['spotlight', 'smart-missiles'], ['fortress'])
-    // Let AI drop a fortress in LEFT first.
     for (let g = 0; g < 6 && !(e.snapshot().activeSide === 'AI' && e.snapshot().players.AI.manaPool >= 2); g++) pass(e)
     e.apply({ kind: 'playUnit', uid: uidOf(e, 'AI', 'fortress'), lane: 'LEFT' })
-    const ff = stack(e, 'LEFT', 'AI')[0]!
-    expect(ff.hp).toBe(8)
-    toHumanMana(e, 5)
-    e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'spotlight'), target: { kind: 'unit', uid: ff.uid } })
+    toHumanMana(e, 6)
+    e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'spotlight') })
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'smart-missiles') })
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(4) // 8 − (2 missile + 2 spotlight)
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(5) // 8 − (2 + 1 Spotlight)
   })
 
   it('Multiverse Nexus makes the next Ultimate free (weapons fire together)', () => {

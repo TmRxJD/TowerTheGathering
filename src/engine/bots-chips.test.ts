@@ -164,7 +164,7 @@ describe('bot/chip effects (flip the control, output moves)', () => {
     expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(6)
     toHumanMana(e, 2)
     e.apply({ kind: 'playUltimate', uid: uidOf(e, 'HUMAN', 'guardian-attack'), target: { kind: 'unit', uid: stack(e, 'LEFT', 'AI')[0]!.uid } })
-    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(4) // 6 − missing(2)
+    expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe(3) // 6 − (missing 2 + level-1 bonus 1)
   })
 
   it('Fetch Chip steals HP from the enemy Nexus and draws', () => {
