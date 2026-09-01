@@ -27,8 +27,9 @@ export interface RunMeta {
 export interface SaveState {
   /** Highest tier whose 10-boss ladder has been fully cleared (0 = none). Unlocks tier+1. */
   highestTierCleared: number
-  /** The in-progress run to resume, or null. */
-  run: { tier: number; bossIndex: number; deck: string[] } | null
+  /** The in-progress run to resume, or null. `maxCleared` is the highest enemy rung beaten this tier
+   *  (0..11): you may fight or replay any rung up to maxCleared+1, but not skip ahead of the ladder. */
+  run: { tier: number; bossIndex: number; deck: string[]; maxCleared: number } | null
   /** Card collection: level (1-7) + mastery level (0-9) per card. Missing = level 1, no mastery. */
   collection: CardLevels
   /** Currency earned from wins, spent to level cards + unlock masteries. */
@@ -112,7 +113,10 @@ function cleanSave(raw: unknown): SaveState {
     const tier = clampTier(s.run.tier ?? 1)
     // Deck may be anywhere from the starter size up to this tier's cap (it grows +1 per tier climbed).
     if (deck.length >= STARTER_DECK.length && deck.length <= maxDeckForTier(tier) && copiesLegal(deck)) {
-      run = { tier, bossIndex: clampInt(s.run.bossIndex, 1, 10, 1), deck }
+      const bossIndex = clampInt(s.run.bossIndex, 1, 11, 1)
+      // Older saves lack maxCleared; assume you'd unlocked up to your current rung.
+      const maxCleared = clampInt(s.run.maxCleared ?? bossIndex - 1, 0, 11, bossIndex - 1)
+      run = { tier, bossIndex, deck, maxCleared }
     }
   }
   return {

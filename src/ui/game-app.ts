@@ -111,6 +111,8 @@ export class GameApp {
   private humanAi!: SearchAI
   private bossIndex: number
   private tier = 1
+  /** Highest enemy rung beaten this tier (0..11). You may fight/replay 1..maxCleared+1, not skip ahead. */
+  private maxCleared = 0
   private selection: Selection | null = null
   private busy = false
   private hint = ''
@@ -176,6 +178,7 @@ export class GameApp {
       this.playerDeck = [...this.save.run.deck]
       this.bossIndex = this.save.run.bossIndex
       this.tier = this.save.run.tier
+      this.maxCleared = this.save.run.maxCleared
     }
     this.buildSkeleton()
     this.fx = new FxLayer(this.root)
@@ -230,7 +233,7 @@ export class GameApp {
   /** Persist the active player run. (The Autoplay slot persists via its own demo flow.) */
   private persist(): void {
     if (this.demo || !this.started) return
-    this.save.run = { tier: this.tier, bossIndex: this.bossIndex, deck: [...this.playerDeck] }
+    this.save.run = { tier: this.tier, bossIndex: this.bossIndex, deck: [...this.playerDeck], maxCleared: this.maxCleared }
     this.persistSaves()
   }
 
@@ -243,7 +246,7 @@ export class GameApp {
 
     const header = this.div('ttg-header')
     const logo = this.div('ttg-logo')
-    logo.textContent = 'Tower: The Gathering'
+    logo.textContent = 'Powerstone'
     this.ladderEl = this.div('ttg-ladder')
     const spacer = this.div('spacer')
     this.bossSelect = document.createElement('select')
@@ -251,7 +254,7 @@ export class GameApp {
     for (const b of BOSS_DECKS) {
       const opt = document.createElement('option')
       opt.value = String(b.index)
-      opt.textContent = `Boss ${b.index} · ${b.name}`
+      opt.textContent = `Enemy ${b.index} · ${b.name}`
       this.bossSelect.appendChild(opt)
     }
     this.bossSelect.addEventListener('change', () => this.startMatch(Number(this.bossSelect.value) || 1))
@@ -415,8 +418,10 @@ export class GameApp {
       this.nexus.AI.portrait.classList.add('img')
       this.nexus.AI.portrait.textContent = ''
     } else {
+      // Clear the previous enemy's art too, or it bleeds through behind the glyph fallback.
+      this.nexus.AI.portrait.style.backgroundImage = ''
       this.nexus.AI.portrait.classList.remove('img')
-      this.nexus.AI.portrait.textContent = '🏰'
+      this.nexus.AI.portrait.textContent = '👾'
     }
     this.bossSelect.value = String(this.bossIndex)
     this.matchStartMs = this.now()
@@ -425,7 +430,7 @@ export class GameApp {
     if (this.started || this.demo) this.save.meta.matches++ // not the menu-backdrop match on load
     if (this.demo) {
       // The Autoplay slot persists its own resume point.
-      this.save.run = { tier: this.tier, bossIndex, deck: [...this.playerDeck] }
+      this.save.run = { tier: this.tier, bossIndex, deck: [...this.playerDeck], maxCleared: this.maxCleared }
       this.persistSaves()
     }
     this.persist()
@@ -463,6 +468,7 @@ export class GameApp {
     // maxing the whole collection is a long, climb-the-ladder grind — not something tier 1 can do.
     if (res.winner === 'HUMAN') {
       this.recordWin(res.turns)
+      this.maxCleared = Math.max(this.maxCleared, this.bossIndex) // unlock the next rung (farming a beaten one doesn't lower it)
       const gained = shardReward(this.tier, this.bossIndex)
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
@@ -635,6 +641,7 @@ export class GameApp {
     if (res && res.winner === 'HUMAN') {
       this.demoStuck = 0
       this.recordWin(res.turns)
+      this.maxCleared = Math.max(this.maxCleared, this.bossIndex)
       this.save.shards += shardReward(this.tier, this.bossIndex)
       takeRewardAndTrim(this.playerDeck, () => Math.random(), maxDeckForTier(this.tier))
       this.save.shards = spendShards(this.save.collection, this.playerDeck, this.save.shards).bank
@@ -645,6 +652,7 @@ export class GameApp {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
         this.recordTierClear()
         this.tier++
+        this.maxCleared = 0 // new tier — ladder resets
         this.persistSaves()
         this.showToast(`${tierName(this.tier - 1)} cleared → ${tierName(this.tier)}`)
         later(1700, () => this.startMatch(1))
@@ -734,11 +742,12 @@ export class GameApp {
     const boss = BOSS_DECKS[this.bossIndex - 1]!
     let dots = ''
     for (let i = 1; i <= BOSS_DECKS.length; i++) {
-      const cls = i < this.bossIndex ? 'done' : i === this.bossIndex ? 'cur' : ''
+      const cls = i === this.bossIndex ? 'cur' : i <= this.maxCleared ? 'done' : i > this.maxCleared + 1 ? 'locked' : ''
       dots += `<span class="dot ${cls}"></span>`
     }
     const cond = this.tier >= BATTLE_CONDITION_TIER ? ' <span class="cond">⚠ conditions</span>' : ''
-    this.ladderEl.innerHTML = `<b>${tierName(this.tier)}</b> · Boss ${this.bossIndex}/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>${cond}`
+    this.ladderEl.innerHTML = `<b>${tierName(this.tier)}</b> · Enemy ${this.bossIndex}/${BOSS_DECKS.length} · ${boss.name} <span class="pipline">${dots}</span>${cond}`
+    this.updateBossSelectGating()
     // The Autoplay button only exists while a demo is running (pause/resume). Real runs never show it.
     this.watchBtn.style.display = this.demo ? '' : 'none'
     this.bossSelect.style.display = this.demo ? 'none' : ''
@@ -1295,7 +1304,7 @@ export class GameApp {
           ? `${tierName(this.tier)} conquered — ${tierName(this.tier + 1)} unlocked!`
           : `You conquered all ${MAX_TIER} tiers. Legendary.`
     } else {
-      p.textContent = `${tierName(this.tier)} · Boss ${this.bossIndex}: ${boss.name} · ${res.turns} turns`
+      p.textContent = `${tierName(this.tier)} · Enemy ${this.bossIndex}: ${boss.name} · ${res.turns} turns`
     }
     const btn = document.createElement('button')
     btn.className = 'ttg-btn ready'
@@ -1336,10 +1345,19 @@ export class GameApp {
     this.tier = clampTier(tier)
     this.playerDeck = [...STARTER_DECK]
     this.bossIndex = 1
+    this.maxCleared = 0 // fresh ladder — only enemy 1 is unlocked
   }
 
   private advanceBoss(): void {
     this.startMatch(this.bossIndex + 1)
+  }
+
+  /** Gate the enemy picker to the ladder: you may fight/replay 1..maxCleared+1, never skip ahead. */
+  private updateBossSelectGating(): void {
+    const frontier = Math.min(BOSS_DECKS.length, this.maxCleared + 1)
+    for (const opt of Array.from(this.bossSelect.options)) {
+      opt.disabled = Number(opt.value) > frontier
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1363,7 +1381,7 @@ export class GameApp {
     const best =
       this.save.highestTierCleared > 0
         ? `<div class="menu-best">Highest tier cleared: ${tierName(this.save.highestTierCleared)}${this.save.highestTierCleared >= MAX_TIER ? ' — all tiers!' : ''}</div>`
-        : `<div class="menu-best">Clear a tier's ${BOSS_DECKS.length} bosses to unlock the next.</div>`
+        : `<div class="menu-best">Clear a tier's ${BOSS_DECKS.length} enemies to unlock the next.</div>`
 
     // Tier picker (only unlocked tiers). Defaults to the run's tier, else the newest unlocked.
     let opts = ''
@@ -1407,8 +1425,8 @@ export class GameApp {
     const el = this.div('ttg-menu')
     el.innerHTML =
       `<div class="menu-card">` +
-      `<div class="menu-logo">Tower: The Gathering</div>` +
-      `<div class="menu-sub">A 1v1 mana lane battler — climb the ${BOSS_DECKS.length}-boss ladder across ${MAX_TIER} tiers.</div>` +
+      `<div class="menu-logo">Powerstone</div>` +
+      `<div class="menu-sub">A 1v1 mana lane battler — climb the ${BOSS_DECKS.length}-enemy ladder across ${MAX_TIER} tiers.</div>` +
       slotRow +
       best +
       statsRow +
@@ -1453,6 +1471,7 @@ export class GameApp {
           this.demo = false
           this.tier = this.save.run.tier
           this.playerDeck = [...this.save.run.deck]
+          this.maxCleared = this.save.run.maxCleared
           this.startMatch(this.save.run.bossIndex)
         } else if (m === 'watch') {
           // Autoplay runs its own dedicated slot: resume its climb, or start a fresh one at Tier 1.
@@ -1461,6 +1480,7 @@ export class GameApp {
           const r = this.save.run
           this.tier = r ? r.tier : 1
           this.playerDeck = r ? [...r.deck] : [...STARTER_DECK]
+          this.maxCleared = r ? r.maxCleared : 0
           this.startMatch(r ? r.bossIndex : 1)
           this.toggleWatch()
         } else {

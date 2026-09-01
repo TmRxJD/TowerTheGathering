@@ -153,6 +153,11 @@
   background: #43e08a;
   border-color: #43e08a;
 }
+.ttg-ladder .dot.locked {
+  background: #241016;
+  border-color: #3a1c24;
+  opacity: 0.5;
+}
 .ttg-header .spacer {
   flex: 1;
 }
