@@ -19,6 +19,7 @@ import type {
   Action,
   CardRef,
   CardLevels,
+  EnemySkill,
   Engine,
   EngineOptions,
   EngineState,
@@ -41,6 +42,18 @@ import type {
   UnitView,
 } from './types'
 import { LANES, SIDES } from './types'
+
+/** Magnitudes for the boss "enemy skills" (see EnemySkill). Fixed, modest values — the tier handicap
+ *  scales raw difficulty; these give each archetype a distinct, plannable threat. */
+const ENEMY_SKILL = {
+  tankHp: 3, // Tank: bonus max HP per unit
+  commanderAtk: 1, // Commander: bonus ATK to all its units
+  protectorReduction: 1, // Protector: combat damage reduction on its units (min 1 still lands)
+  vampireDrain: 2, // Vampire: HP drained from your Nexus each of its turns
+  saboteurTap: 1, // Saboteur: turns your strongest unit is tapped each of its turns
+  overchargeBurst: 4, // Overcharge: burst to your Nexus on its power turn
+  overchargeEvery: 3, // …every Nth of its turns
+} as const
 
 const ADJACENT: Readonly<Record<Lane, readonly Lane[]>> = {
   LEFT: ['CENTER'],
@@ -93,6 +106,7 @@ class TowerEngine implements Engine {
   private readonly bonusLife: Partial<Record<Side, number>>
   private readonly bonusStartMana: Partial<Record<Side, number>>
   private readonly cardLevels: Partial<Record<Side, CardLevels>>
+  private readonly skills: Partial<Record<Side, EnemySkill>>
 
   constructor(opts: EngineOptions, restore?: EngineState) {
     this.rng = createRng(opts.seed ?? 'ttg-default')
@@ -107,6 +121,7 @@ class TowerEngine implements Engine {
       this.bonusLife = restore.bonusLife
       this.bonusStartMana = restore.bonusStartMana
       this.cardLevels = restore.cardLevels
+      this.skills = restore.skills ?? {}
       this.activeSide = restore.activeSide
       this.players = { HUMAN: this.blankPlayer('HUMAN'), AI: this.blankPlayer('AI') }
       this.loadState(restore)
@@ -117,6 +132,7 @@ class TowerEngine implements Engine {
     this.bonusLife = opts.bonusLife ?? {}
     this.bonusStartMana = opts.bonusStartMana ?? {}
     this.cardLevels = opts.cardLevels ?? {}
+    this.skills = opts.skills ?? {}
     this.players = {
       HUMAN: this.newPlayer('HUMAN', opts.humanDeck),
       AI: this.newPlayer('AI', opts.aiDeck),
@@ -197,6 +213,7 @@ class TowerEngine implements Engine {
       rngState: this.rng.getState(),
       shuffleDecks: this.shuffleDecks,
       bonusLife: { ...this.bonusLife },
+      skills: { ...this.skills },
       bonusStartMana: { ...this.bonusStartMana },
       cardLevels: this.cardLevels,
     }
@@ -399,8 +416,10 @@ class TowerEngine implements Engine {
       if (m.cardId === 'multiverse-nexus') m.data.freeUltsLeft = 0
     }
 
+    // A Vampire opponent disables all your regen while it drains you (as in The Tower).
+    const regenDisabled = this.skillOf(this.opponent(side)) === 'vampire'
     // Start-of-turn: Health Regen (per copy, scaled by level).
-    if (this.countModule(side, 'health-regen') > 0) {
+    if (!regenDisabled && this.countModule(side, 'health-regen') > 0) {
       const amt = this.cardVal(side, 'health-regen') * this.countModule(side, 'health-regen')
       this.healNexus(side, amt, events)
       for (const lane of LANES) {
@@ -421,7 +440,7 @@ class TowerEngine implements Engine {
       events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
     }
     // Wormhole Redirector: channel a little Nexus recovery at the start of each turn.
-    if (this.countModule(side, 'wormhole-redirector') > 0) {
+    if (!regenDisabled && this.countModule(side, 'wormhole-redirector') > 0) {
       this.healNexus(side, this.cardVal(side, 'wormhole-redirector') * this.countModule(side, 'wormhole-redirector'), events)
     }
     // Death Wave: damage every enemy unit.
@@ -466,6 +485,23 @@ class TowerEngine implements Engine {
     if (this.countModule(side, 'golden-bot') > 0) {
       p.manaPool += this.cardVal(side, 'golden-bot') * this.countModule(side, 'golden-bot') * this.botAmp(side)
       events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
+    }
+    // Enemy skills that fire at the start of the skilled side's turn.
+    const skill = this.skillOf(side)
+    const foe = this.opponent(side)
+    if (skill === 'vampire') {
+      // Drain the enemy Nexus into your own (its regen is disabled below while it faces you).
+      this.damageNexus(foe, ENEMY_SKILL.vampireDrain, events)
+      if (this.winner !== null) return
+      this.healNexus(side, ENEMY_SKILL.vampireDrain, events)
+    }
+    if (skill === 'overcharge' && p.turnCount > 0 && p.turnCount % ENEMY_SKILL.overchargeEvery === 0) {
+      this.damageNexus(foe, ENEMY_SKILL.overchargeBurst, events) // charged ray → burst
+      if (this.winner !== null) return
+    }
+    if (skill === 'saboteur') {
+      const target = this.strongestEnemyUnit(side) // sabotage the foe's best unit
+      if (target) target.tappedTurns = Math.max(target.tappedTurns, ENEMY_SKILL.saboteurTap)
     }
     // Space Displacer: inner land mines organize around the tower — a Mine per empty lane.
     if (this.countModule(side, 'space-displacer') > 0) {
@@ -1220,6 +1256,8 @@ class TowerEngine implements Engine {
       return 0
     }
     let amt = amount + unit.vulnerable // Spotlight
+    // Protector enemy skill: its units shrug off some of every hit (min 1 still lands).
+    if (this.skillOf(unit.owner) === 'protector') amt = Math.max(1, amt - ENEMY_SKILL.protectorReduction)
     if (unit.marked) {
       amt = Math.max(amt, unit.hp) // Death Penalty: first hit destroys
       unit.marked = false
@@ -1258,6 +1296,20 @@ class TowerEngine implements Engine {
     if (this.countModule(poisoner, 'poison-swamp') > 0) {
       const dmg = this.cardVal(poisoner, 'poison-swamp') * this.countModule(poisoner, 'poison-swamp')
       for (const mate of [...stack]) this.damageUnit(mate, dmg, null, false, events)
+    }
+    // Scatter enemy skill: a dying (non-token) unit splits — a 1/1 shard takes its place.
+    if (
+      this.skillOf(unit.owner) === 'scatter' &&
+      unit.cardId !== MINE_TOKEN.id &&
+      unit.cardId !== SUMMON_TOKEN.id &&
+      stack.length < TUNING.LANE_STACK_CAP
+    ) {
+      const shard = this.makeUnit(unit.owner, MINE_TOKEN.id, unit.lane)
+      shard.atk = 1
+      shard.hp = 1
+      shard.maxHp = 1
+      stack.unshift(shard)
+      events.push({ type: 'unitPlaced', unit: shard, index: 0 })
     }
     // Fortress Walls mastery: rebuild a small wall in the lane once (the token can't re-trigger).
     if (this.hasMasterySpecial(unit.owner, unit.cardId, 'fortress-walls')) {
@@ -1403,6 +1455,8 @@ class TowerEngine implements Engine {
     const unitStat = cardUnitStat(cardId) // level scales the unit's primary stat
     if (unitStat === 'atk') atk = this.cardVal(side, cardId)
     else if (unitStat === 'hp') hp = this.cardVal(side, cardId)
+    // Tank enemy skill: its units enter tougher (The Tower's Tank = 5× health).
+    if (this.skillOf(side) === 'tank') hp += ENEMY_SKILL.tankHp
     return {
       uid,
       cardId,
@@ -1427,6 +1481,10 @@ class TowerEngine implements Engine {
     const kw = new Set<Keyword>(unit.innate)
     if (this.countModule(unit.owner, 'attack-speed') > 0) kw.add('firstStrike')
     if (this.countModule(unit.owner, 'range') > 0) kw.add('reach')
+    // Enemy skills: Fast → First Strike (2× speed), Ranged → Reach (shoots from range).
+    const skill = this.skillOf(unit.owner)
+    if (skill === 'fast') kw.add('firstStrike')
+    if (skill === 'ranged') kw.add('reach')
     return kw
   }
 
@@ -1447,6 +1505,8 @@ class TowerEngine implements Engine {
     // Amplify Bot / Bot Bot: your own bots buff your units' ATK (Bot Bot also doubles other bots).
     atk += this.countModule(side, 'amplify-bot') * this.cardVal(side, 'amplify-bot') * this.botAmp(side)
     atk += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
+    // Commander enemy skill: it buffs its whole army with bonus ATK.
+    if (this.skillOf(side) === 'commander') atk += ENEMY_SKILL.commanderAtk
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy).
     atk += this.countModule(this.opponent(side), 'enemy-balance')
     // Negative Mass Projector: the enemy's projector saps this unit's ATK.
@@ -1480,6 +1540,11 @@ class TowerEngine implements Engine {
   /** Bot Bot amplifies your OTHER bots: their magnitude is multiplied by this (×2 with a Bot Bot). */
   private botAmp(side: Side): number {
     return 1 + this.countModule(side, 'bot-bot')
+  }
+
+  /** A side's innate boss "enemy skill" (Fast/Tank/Vampire/…), or 'none'. See EnemySkill. */
+  private skillOf(side: Side): EnemySkill {
+    return this.skills[side] ?? 'none'
   }
 
   private frontUnit(lane: Lane, side: Side): UnitInstance | undefined {

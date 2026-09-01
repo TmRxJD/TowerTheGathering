@@ -92,8 +92,8 @@ Reduce the enemy Nexus to 0. (Or outlast them — fatigue will eventually kill a
 
 ## 4. The ladder: tiers & difficulty scaling
 
-Source of truth: `src/engine/tiers.ts`. `MAX_TIER = 24`. Each tier is a **10‑boss gauntlet**; you must
-clear all 10 to unlock the next tier. (An 11th "final Boss" is planned — see §11.)
+Source of truth: `src/engine/tiers.ts`. `MAX_TIER = 24`. Each tier is an **11‑boss gauntlet** (10
+archetype bosses + a final **Boss** on rung 11); you must clear all 11 to unlock the next tier.
 
 Both sides scale up as you climb. The levers, exactly as coded:
 
@@ -126,10 +126,14 @@ tierFloor = round(max(0, tier-2) * 1.8)            // a rising floor across tier
 hard      = round(max(0, tier-13) * 2.6)           // the mid-late squeeze, from Tier 14
 brutal    = max(0, tier-20) * 8                    // Tiers 21-24 spike hard
 nightmare = tier >= 24 ? 90 : 0                    // Tier 24 only: a flat wall on every boss
-capstone  = index==10 ? round(max(0, tier-2) * 2.6) : 0   // the tier boss grows fastest
-bonusLife = bossRamp + tierFloor + hard + brutal + nightmare + capstone
+capstone  = index>=11 ? round(max(0, tier-2) * 2.6) : 0    // the final boss grows fastest
+finalBoss = index>=11 ? round(tierBaseLife(tier) * 0.7) : 0 // rung 11 "Boss": a big HP pile, tier-scaled
+bonusLife = bossRamp + tierFloor + hard + brutal + nightmare + capstone + finalBoss
 bonusStartMana = tier >= 23 ? 1 : 0
 ```
+The **final Boss (rung 11)** is the real Tower Boss enemy — its whole identity is a **huge HP pile**
+(`finalBoss`), kept modest at T1 (must be beatable on a fresh 10‑card deck) and monstrous up top
+(≈ +170 HP over boss 10 at T24). It has no passive skill.
 Design intent: within any tier, boss 10 is clearly harder than boss 1, and that gap widens with tier,
 so the ladder always *feels* like it's escalating regardless of which archetype sits on each rung.
 
@@ -331,11 +335,29 @@ Two AIs, both reading only the public snapshot (no hidden info):
   ms/turn at depth 3. Bosses use `tierAiDepth`. This is the "optimal play" yardstick.
 
 **Bosses** each carry an `archetype` (`balanced`, `turtle`, `aggro`, `ramp`, `nuke-control`,
-`orbs-burst`) that biases the AI's card weighting. The 10 boss decks are hand‑authored 20‑card lists
+`orbs-burst`) that biases the AI's card weighting. The 11 boss decks are hand‑authored 20‑card lists
 with distinct identities (Basic, Fast, Tank, Ranged, Vampire, Protector, Saboteur, Scatter,
-Overcharge, Commander). **NOTE:** these are deck *identities* only right now — the planned per‑archetype
-passive "enemy skills" (Fast = haste, Tank = extra HP, Protector = damage reduction, Vampire = drain,
-etc.) are **not yet implemented** (see §11).
+Overcharge, Commander, Boss).
+
+### Enemy skills (per‑boss passives — implemented, faithful to The Tower)
+Each boss has an innate **skill** applied to its whole side (`EnemySkill` in `types.ts`,
+`bossSkill(name)` in `decks.ts`, implemented in `engine.ts`; magnitudes in `ENEMY_SKILL`):
+| Boss | Skill | Effect (magnitude) |
+|---|---|---|
+| Basic | none | plain fight |
+| Fast | fast | its units gain **First Strike** |
+| Tank | tank | its units enter with **+3 max HP** |
+| Ranged | ranged | its units gain **Reach** (hit your backline) |
+| Vampire | vampire | each of its turns **drains 2 HP** from your Nexus into its own, and **disables your regen** |
+| Protector | protector | its units take **−1 damage** from every hit (min 1 lands) |
+| Saboteur | saboteur | each of its turns **taps your strongest unit** (it can't act next turn) |
+| Scatter | scatter | when one of its units dies it **splits** — a 1/1 shard takes its place |
+| Overcharge | overcharge | every **3rd of its turns**, a charged ray **bursts your Nexus for 4** |
+| Commander | commander | its units have **+1 ATK** (buffs its army) |
+| Boss | boss | no passive — its threat is the huge HP pile (§4.3) |
+These are fixed magnitudes (the tier handicap scales raw difficulty); they give each rung a distinct,
+plannable threat and are the intended lever to make top‑tier fights *hard* as well as *long*. All are
+covered by `enemy-skills.test.ts` (each skill flipped on and proven to move state).
 
 ---
 
@@ -366,16 +388,18 @@ etc.) are **not yet implemented** (see §11).
 
 ## 11. What's planned / open questions for discussion
 
-**Committed next steps (in progress):**
-1. **Per‑archetype enemy skills** — passive effects to plan against, faithful to real Tower enemies:
-   Fast = extra attack/haste; Tank = bonus HP + slow; Ranged = hits your backline/reach;
-   Protector = its units take reduced damage; Vampire = drains your HP each turn + disables your
-   regen; Overcharge/Ray = periodic burst; Scatter = spawns fodder; Commander = buffs its units.
-   This is also the intended lever to make top‑tier battles *hard* as well as *long*.
-2. **11th "final Boss" per tier** — the real Tower Boss enemy (0.3× speed, ~20× HP). Design decision:
-   **it should just have a big pile of extra HP** (a capstone HP check), sitting above boss 10.
+**Done (this session):**
+- ✅ **Per‑archetype enemy skills** — implemented and tested (see §9 table).
+- ✅ **11th "final Boss" per tier** — implemented as a tier‑scaled HP pile (see §4.3).
 
 **Open design questions worth an outside opinion:**
+- **Top‑tier difficulty is currently soft for *optimal* play.** With the big shared HP pool, the
+  search‑vs‑search sim clears T24 in ~14 matches (near‑trivial), well off the "5‑10% nightmare"
+  pillar. A real (sub‑optimal) player faces the enemy skills + the huge final‑boss HP, so their
+  difficulty is much higher than the sim shows — but if we want *optimal* play walled too, the lever
+  is boss offense (higher card levels / stronger enemy‑skill magnitudes / scaling skills with tier),
+  not more HP. Worth deciding: tune for the optimal player, or accept the sim can't see human
+  difficulty and tune by feel?
 - **Battle length target.** Is "T10 ≈ 1 min, T24 ≈ 3‑4 min per boss for a human" the right feel? High‑
   tier *won* games are still short (~12 turns) because the search AI finds fast lethals; lengthening
   those may need lower damage output or higher defense scaling, not just HP.

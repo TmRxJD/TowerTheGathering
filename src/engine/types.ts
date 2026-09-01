@@ -254,7 +254,27 @@ export interface EngineOptions {
   readonly bonusStartMana?: Partial<Record<Side, number>>
   /** Per-side card levels/masteries. Missing entries default to level 1, no mastery. */
   readonly cardLevels?: Partial<Record<Side, CardLevels>>
+  /** Per-side innate "enemy skill" — a boss archetype's signature passive (see EnemySkill). */
+  readonly skills?: Partial<Record<Side, EnemySkill>>
 }
+
+/**
+ * A boss archetype's signature passive, faithful to the real Tower enemies. Applied to a whole side
+ * (normally the AI/boss). 'none' = a plain fight (Basic). Implemented in the engine keyed by this id.
+ *  - fast:       its units have First Strike (2× speed → strike first)
+ *  - tank:       its units enter with bonus max HP (5× health)
+ *  - ranged:     its units have Reach (shoot from range / hit the backline)
+ *  - vampire:    each of its turns, drains your Nexus HP into its own and disables your regen
+ *  - protector:  its units take reduced combat damage (−, min 1)
+ *  - saboteur:   each of its turns, taps your strongest unit (it can't act next turn)
+ *  - scatter:    when one of its units dies, it splits — spawns a small token in that lane
+ *  - overcharge: every 3rd of its turns, charges a ray → burst damage to your Nexus
+ *  - commander:  its units have bonus ATK (buffs its army)
+ *  - boss:       the final Boss — a huge pile of extra HP (handled via the tier handicap, no passive)
+ */
+export type EnemySkill =
+  | 'none' | 'fast' | 'tank' | 'ranged' | 'vampire' | 'protector'
+  | 'saboteur' | 'scatter' | 'overcharge' | 'commander' | 'boss'
 
 /** A side's card progression, keyed by card id: base level (1-7) and mastery level (0-9, 0 = the
  *  mastery is not yet unlocked). Matches The Tower, where a card levels 7 times and its mastery 9. */
@@ -312,6 +332,7 @@ export interface EngineState {
   bonusLife: Partial<Record<Side, number>>
   bonusStartMana: Partial<Record<Side, number>>
   cardLevels: Partial<Record<Side, CardLevels>>
+  skills: Partial<Record<Side, EnemySkill>>
 }
 
 export interface Engine {

@@ -34,6 +34,7 @@ import {
   createEngine,
   getCard,
   rewardCandidates,
+  bossSkill,
   tierAiDepth,
   tierBossHandicap,
   tierName,
@@ -391,6 +392,7 @@ export class GameApp {
         HUMAN: tierBaseLife(this.tier) - tierPlayerLifePenalty(this.tier),
       },
       bonusStartMana: { AI: hc.bonusStartMana },
+      skills: { AI: bossSkill(boss.name) }, // the boss archetype's signature enemy passive
       // `save` is the Autoplay slot during a demo, the active player slot otherwise. Bosses level by tier.
       cardLevels: { HUMAN: this.save.collection, AI: this.aiCardLevels() },
     })
@@ -1361,7 +1363,7 @@ export class GameApp {
     const best =
       this.save.highestTierCleared > 0
         ? `<div class="menu-best">Highest tier cleared: ${tierName(this.save.highestTierCleared)}${this.save.highestTierCleared >= MAX_TIER ? ' — all tiers!' : ''}</div>`
-        : `<div class="menu-best">Clear a tier's 10 bosses to unlock the next.</div>`
+        : `<div class="menu-best">Clear a tier's ${BOSS_DECKS.length} bosses to unlock the next.</div>`
 
     // Tier picker (only unlocked tiers). Defaults to the run's tier, else the newest unlocked.
     let opts = ''
@@ -1406,7 +1408,7 @@ export class GameApp {
     el.innerHTML =
       `<div class="menu-card">` +
       `<div class="menu-logo">Tower: The Gathering</div>` +
-      `<div class="menu-sub">A 1v1 mana lane battler — climb the 10-boss ladder across ${MAX_TIER} tiers.</div>` +
+      `<div class="menu-sub">A 1v1 mana lane battler — climb the ${BOSS_DECKS.length}-boss ladder across ${MAX_TIER} tiers.</div>` +
       slotRow +
       best +
       statsRow +

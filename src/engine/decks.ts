@@ -9,6 +9,7 @@
 
 import { getCard } from './cards'
 import { COPY_LIMITS, TUNING } from './tuning'
+import type { EnemySkill } from './types'
 
 export type Archetype = 'balanced' | 'turtle' | 'aggro' | 'ramp' | 'nuke-control' | 'orbs-burst'
 
@@ -224,7 +225,46 @@ export const BOSS_DECKS: readonly BossDeck[] = [
       ['coins', 2],
     ]),
   },
+  {
+    index: 11,
+    name: 'Boss',
+    archetype: 'balanced',
+    cards: deck([
+      ['fortress', 3],
+      ['extra-orbs', 2],
+      ['berserker', 1],
+      ['super-tower', 1],
+      ['damage', 2],
+      ['health-regen', 2],
+      ['plasma-cannon', 2],
+      ['death-ray', 1],
+      ['energy-net', 1],
+      ['demon-mode', 1],
+      ['nuke', 1],
+      ['second-wind', 1],
+      ['coins', 1],
+      ['cash', 1],
+    ]),
+  },
 ]
+
+/** A boss's innate enemy skill, by its (canonical Tower enemy) name. Basic has none; the 11th "Boss"
+ *  rung is the real Boss enemy — its threat is a huge HP pile (see tierBossHandicap), not a passive. */
+export function bossSkill(name: string): EnemySkill {
+  switch (name) {
+    case 'Fast': return 'fast'
+    case 'Tank': return 'tank'
+    case 'Ranged': return 'ranged'
+    case 'Vampire': return 'vampire'
+    case 'Protector': return 'protector'
+    case 'Saboteur': return 'saboteur'
+    case 'Scatter': return 'scatter'
+    case 'Overcharge': return 'overcharge'
+    case 'Commander': return 'commander'
+    case 'Boss': return 'boss'
+    default: return 'none' // Basic
+  }
+}
 
 /**
  * Ladder handicap for a boss. Both sides run the same AI and card pool, so difficulty comes from

@@ -16,6 +16,8 @@
 export const MAX_TIER = 24
 /** From this tier up, the player takes on "battle conditions" (nerfs), as in The Tower. */
 export const BATTLE_CONDITION_TIER = 14
+/** The last rung of every tier is the Boss (rung 11) — a huge-HP capstone. = BOSS_DECKS.length. */
+export const FINAL_BOSS_RUNG = 11
 
 export interface LadderTier {
   readonly level: number
@@ -80,9 +82,13 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   const hard = Math.round(Math.max(0, t - 13) * 2.6) // the mid-late squeeze, from Tier 14
   const brutal = Math.max(0, t - 20) * 8 // Tiers 21-24 spike hard
   const nightmare = t >= MAX_TIER ? 90 : 0 // Tier 24 only: a flat wall on every boss (gift-from-god tier)
-  const capstone = i === 10 ? Math.round(Math.max(0, t - 2) * 2.6) : 0 // the tier boss grows fastest
+  const capstone = i >= FINAL_BOSS_RUNG ? Math.round(Math.max(0, t - 2) * 2.6) : 0 // final boss grows fastest
+  // The 11th boss is THE Boss (the real Tower boss enemy): a big pile of extra HP on top of all else.
+  // Scales with the tier's HP pool so it's a beatable wall on a fresh T1 deck and a monstrous slog up
+  // top (where your climbed-up deck can actually chew through it).
+  const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(tierBaseLife(t) * 0.7) : 0
   const bonusStartMana = t >= 23 ? 1 : 0 // a small tempo edge only at the very top
-  return { bonusLife: tierFloor + bossRamp + hard + brutal + nightmare + capstone, bonusStartMana }
+  return { bonusLife: tierFloor + bossRamp + hard + brutal + nightmare + capstone + finalBoss, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —

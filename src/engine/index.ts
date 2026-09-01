@@ -11,6 +11,7 @@ export {
   BOSS_DECKS,
   validateDeck,
   bossHandicap,
+  bossSkill,
   type Archetype,
   type BossDeck,
   type DeckValidation,

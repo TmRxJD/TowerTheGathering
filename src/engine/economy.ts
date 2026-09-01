@@ -56,6 +56,6 @@ export function cardMaxCost(): number {
 /** Total shards a full 10-boss ladder clear at `tier` pays out. */
 export function tierClearReward(tier: number): number {
   let c = 0
-  for (let b = 1; b <= 10; b++) c += shardReward(tier, b)
+  for (let b = 1; b <= 11; b++) c += shardReward(tier, b) // 10 bosses + the final Boss
   return c
 }

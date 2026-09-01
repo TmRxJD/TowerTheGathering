@@ -5,7 +5,7 @@
  */
 
 import { createEngine, type CardLevels, type Engine, type GameEvent, type GameResult, type Side } from '../engine'
-import type { Archetype } from '../engine'
+import type { Archetype, EnemySkill } from '../engine'
 import { HeuristicAI, SearchAI } from '../ai'
 
 export type AiKind = 'search' | 'heuristic'
@@ -37,6 +37,9 @@ export interface MatchOptions {
   /** Per-side card levels/masteries (the player's upgraded collection, the boss's tier scaling). */
   readonly humanCardLevels?: CardLevels
   readonly aiCardLevels?: CardLevels
+  /** Per-side innate enemy skill (the boss archetype's signature passive). */
+  readonly humanSkill?: EnemySkill
+  readonly aiSkill?: EnemySkill
   /** Safety cap; a game that exceeds it is reported as a timeout (never expected). */
   readonly turnCap?: number
 }
@@ -55,6 +58,7 @@ export function playMatch(opts: MatchOptions): MatchOutcome {
     bonusLife: { AI: opts.aiBonusLife ?? 0, HUMAN: opts.humanBonusLife ?? 0 },
     bonusStartMana: { AI: opts.aiBonusStartMana ?? 0 },
     cardLevels: { HUMAN: opts.humanCardLevels ?? {}, AI: opts.aiCardLevels ?? {} },
+    skills: { HUMAN: opts.humanSkill ?? 'none', AI: opts.aiSkill ?? 'none' },
   })
   const ai: Record<Side, Bot> = {
     HUMAN: makeBot(opts.humanAi ?? 'search', engine, 'HUMAN', opts.humanArchetype ?? 'balanced', opts.humanDepth ?? 2),

@@ -17,6 +17,7 @@
 import {
   ALL_CARD_IDS,
   BOSS_DECKS,
+  bossSkill,
   CARD_MAX_LEVEL,
   MASTERY_MAX_LEVEL,
   MAX_TIER,
@@ -100,6 +101,7 @@ function run(): void {
           aiAi: BOSS_AI,
           humanCardLevels: coll,
           aiCardLevels: bl,
+          aiSkill: bossSkill(boss.name),
         })
         attempts++
         matches++
