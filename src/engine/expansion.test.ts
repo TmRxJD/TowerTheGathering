@@ -132,6 +132,38 @@ describe('expansion effects (flip the control, output moves)', () => {
     expect(stack(e, 'LEFT', 'AI')[0]?.hp).toBe((8 - 2) * COMBAT_SCALE) // 8 − 2
   })
 
+  it('Death Penalty marks entering enemies by chance, and a marked unit dies to the first hit', () => {
+    const mk = (tail: string[]) => {
+      const pad = Array.from({ length: TUNING.DECK_SIZE - tail.length }, () => 'cash')
+      return [...pad, ...[...tail].reverse()]
+    }
+    const { engine: e } = createEngine({
+      humanDeck: mk(['death-penalty', 'land-mine-stun']),
+      aiDeck: mk(['fortress', 'fortress', 'fortress']),
+      seed: 'dp', shuffle: false, firstPlayer: 'HUMAN',
+      cardLevels: { HUMAN: { 'death-penalty': { level: 7, mastery: 9 } } }, // ~87% mark chance/entry
+    })
+    toHumanMana(e, 3)
+    e.apply({ kind: 'playModule', uid: uidOf(e, 'HUMAN', 'death-penalty') })
+    // Let the AI enter its fortresses; each entry rolls the mark. At ~87%/entry a marked one appears fast.
+    const lanes: Lane[] = ['LEFT', 'CENTER', 'RIGHT']
+    const markedCount = () => lanes.reduce((n, l) => n + stack(e, l, 'AI').filter(u => u.marked).length, 0)
+    for (let g = 0; g < 40 && markedCount() === 0; g++) {
+      const s = e.snapshot()
+      const fort = hand(e, 'AI').find(c => c.cardId === 'fortress')
+      const empty = lanes.find(l => stack(e, l, 'AI').length === 0)
+      if (s.activeSide === 'AI' && fort && s.players.AI.manaPool >= 2 && empty) {
+        e.apply({ kind: 'playUnit', uid: fort.uid, lane: empty })
+      } else {
+        pass(e)
+      }
+    }
+    expect(markedCount()).toBeGreaterThan(0)
+    // The marked Fortress (0/80) is at full HP but flagged — the first hit will destroy it.
+    const marked = lanes.flatMap(l => stack(e, l, 'AI')).find(u => u.marked)!
+    expect(marked.hp).toBe(8 * COMBAT_SCALE) // full HP, but marked (surfaced in the snapshot view)
+  })
+
   it('Spotlight (module) boosts your Ultimate Weapon cards', () => {
     // Control: Smart Missiles alone deals 2 to the front enemy.
     const c = build(['smart-missiles'], ['fortress'])

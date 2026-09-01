@@ -862,6 +862,7 @@ export class GameApp {
     node.classList.toggle('reserve', !isFront)
     node.classList.toggle('frozen', u.frozen)
     node.classList.toggle('tapped', u.tapped)
+    node.classList.toggle('marked', u.marked)
     const targetable = !!(this.selection?.needsTarget && this.selection.targets.has(u.uid))
     node.classList.toggle('targetable', targetable)
 
@@ -883,7 +884,7 @@ export class GameApp {
       .map(k => `<span>${k === 'firstStrike' ? 'FS' : k[0]!.toUpperCase()}</span>`)
       .join('')
     const status = node.querySelector('.status') as HTMLElement
-    status.textContent = [u.frozen ? '❄' : '', u.tapped ? '💤' : '', u.invulnerable ? '🛡' : ''].join('')
+    status.textContent = [u.frozen ? '❄' : '', u.tapped ? '💤' : '', u.invulnerable ? '🛡' : '', u.marked ? '💀' : '', u.vulnerable > 0 ? '🎯' : ''].join('')
     ;(node.querySelector('.nm') as HTMLElement).textContent = u.name
   }
 

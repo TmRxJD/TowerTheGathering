@@ -414,7 +414,6 @@ class TowerEngine implements Engine {
     // Refresh per-turn module counters (guaranteed crits, marks, heal-discount, weapon sync).
     for (const m of p.modules) {
       if (m.cardId === 'being-annihilator') m.data.critsUsed = 0
-      if (m.cardId === 'death-penalty') m.data.marksLeft = this.cardVal(side, 'death-penalty')
       if (m.cardId === 'galaxy-compressor') m.data.healedThisTurn = false
       if (m.cardId === 'multiverse-nexus') m.data.freeUltsLeft = 0
     }
@@ -435,9 +434,11 @@ class TowerEngine implements Engine {
     const draws = 1 + this.countModule(side, 'enemy-balance') * this.cardVal(side, 'enemy-balance')
     for (let i = 0; i < draws; i++) this.drawCard(p, events)
 
-    // Black Hole Digestor: your upgrades "digest" into temporary mana each turn (per Module held).
+    // Black Hole Digestor: your upgrades "digest" into a little temporary mana each turn. Scaled by
+    // level and copies only — NOT by module count (× modules let one card make ~35 mana/turn, breaking
+    // the whole mana economy).
     if (this.countModule(side, 'black-hole-digestor') > 0) {
-      p.manaPool += this.cardVal(side, 'black-hole-digestor') * this.countModule(side, 'black-hole-digestor') * p.modules.length
+      p.manaPool += this.cardVal(side, 'black-hole-digestor') * this.countModule(side, 'black-hole-digestor')
       events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
     }
     // Wormhole Redirector: channel a little Nexus recovery at the start of each turn.
@@ -640,13 +641,12 @@ class TowerEngine implements Engine {
       const dmg = this.cardVal(opp, 'inner-land-mines') * this.countModule(opp, 'inner-land-mines') + this.uwBonus(opp)
       this.damageUnit(unit, dmg, null, false, events)
     }
-    // Death Penalty: the enemy marks the entering unit for death (a limited number per turn).
-    if (unit.hp > 0) {
+    // Death Penalty: each enemy copy has a chance to Mark the entering unit for death (first hit kills
+    // it). A CHANCE, not a count — a per-turn count scaled to 7 marked every enemy that entered.
+    if (unit.hp > 0 && !unit.marked) {
       for (const m of this.players[opp].modules) {
         if (m.cardId !== 'death-penalty') continue
-        const left = typeof m.data.marksLeft === 'number' ? m.data.marksLeft : 0
-        if (left > 0) {
-          m.data.marksLeft = left - 1
+        if (this.rng.chance(this.cardVal(opp, 'death-penalty'))) {
           unit.marked = true
           events.push({ type: 'moduleTriggered', uid: m.uid, cardId: m.cardId, side: opp })
           break
@@ -898,7 +898,7 @@ class TowerEngine implements Engine {
         }
         // Bonus Nexus damage from level, plus Radiation mastery.
         let dmg = this.cardVal(side, 'nuke')
-        if (this.hasMasterySpecial(side, 'nuke', 'radiation')) dmg += 6
+        if (this.hasMasterySpecial(side, 'nuke', 'radiation')) dmg += 6 * COMBAT_SCALE
         if (dmg > 0) this.damageNexus(this.opponent(side), dmg, events)
         break
       }
@@ -1506,6 +1506,9 @@ class TowerEngine implements Engine {
     pct += this.countModule(side, 'attack-speed') * this.cardVal(side, 'attack-speed')
     pct += this.countModule(side, 'amplify-bot') * this.cardVal(side, 'amplify-bot') * this.botAmp(side)
     pct += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
+    // Project Funding: a % ATK buff that scales with your banked mana (per 3 in pool). Was flat ×scale
+    // (up to +210/unit army-wide) — the same OP shape as Damage, so it is a percent now too.
+    pct += this.countModule(side, 'project-funding') * this.cardVal(side, 'project-funding') * Math.floor(this.players[side].manaPool / 3)
     if (pct > 0) atk += Math.round(unit.atk * pct)
     // Flat ATK auras (Range grants Reach; its ATK bump stays flat).
     atk += this.countModule(side, 'range') * this.cardVal(side, 'range')
@@ -1513,9 +1516,7 @@ class TowerEngine implements Engine {
     // Singularity Harness: supercharges your "bots" — Mine/Wall tokens gain ATK.
     if (unit.cardId === MINE_TOKEN.id)
       atk += this.countModule(side, 'singularity-harness') * this.cardVal(side, 'singularity-harness')
-    // Project Funding: damage scales with your banked mana (per 3 in pool).
-    atk += this.countModule(side, 'project-funding') * this.cardVal(side, 'project-funding') * Math.floor(this.players[side].manaPool / 3)
-    // (Amplify Bot / Bot Bot are % ATK buffs — applied with the army-wide percents above.)
+    // (Amplify Bot / Bot Bot / Project Funding are % ATK buffs — applied with the army-wide percents.)
     // Commander enemy skill: it buffs its whole army with bonus ATK.
     if (this.skillOf(side) === 'commander') atk += ENEMY_SKILL.commanderAtk
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy, ×scale).
@@ -1715,6 +1716,8 @@ class TowerEngine implements Engine {
       tapped: u.tappedTurns > 0,
       frozen: u.frozenTurns > 0,
       invulnerable: u.invulnerableThisTurn,
+      marked: u.marked,
+      vulnerable: u.vulnerable,
       isFront: index === 0,
     }
   }

@@ -195,6 +195,10 @@ export interface UnitView {
   readonly tapped: boolean
   readonly frozen: boolean
   readonly invulnerable: boolean
+  /** Marked for death (Death Penalty): the first hit destroys it regardless of HP. */
+  readonly marked: boolean
+  /** Extra damage it will take on the next hit (Spotlight vulnerability). */
+  readonly vulnerable: number
   readonly isFront: boolean
 }
 

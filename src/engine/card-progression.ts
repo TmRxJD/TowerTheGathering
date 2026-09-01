@@ -29,9 +29,10 @@ export const MASTERY_MAX_LEVEL = 9
 export const COMBAT_CARDS: ReadonlySet<string> = new Set([
   // units
   'fortress', 'extra-orbs', 'berserker', 'land-mine-stun',
-  // flat ATK buffs / army (the % army buffs — damage/attack-speed/amplify-bot/bot-bot — are excluded)
+  // flat ATK buffs / army (the % army buffs — damage/attack-speed/amplify-bot/bot-bot/project-funding
+  // — are excluded; project-funding is now a % of ATK per 3 mana)
   'range', 'om-chip', 'super-tower', 'orbs-speed',
-  'singularity-harness', 'project-funding', 'guardian-ally',
+  'singularity-harness', 'guardian-ally',
   // HP / heal / defense
   'health', 'health-regen', 'sharp-fortitude', 'wormhole-redirector', 'recovery-package', 'package-chance',
   'space-displacer', 'second-wind', 'extra-defense',
@@ -78,22 +79,28 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'health-regen': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Health Regen+', masteryText: '+1 more healing each turn, per level.', masteryBonus: 1 },
   range: { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Long Shot', masteryText: 'Reaching units deal +1 more, per level.', masteryBonus: 1 },
   coins: { levels: [10, 15, 20, 25, 30, 40, 50], masteryName: 'Interest', masteryText: '+10 more bonus coins per level.', masteryBonus: 10 },
-  'slow-aura': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Slow Attack', masteryText: 'Enemies enter tapped +1 more turn, per level.', masteryBonus: 1 },
+  // Duration (turns tapped): a small integer — a 7-turn lock on every entering enemy is a soft stun-lock.
+  'slow-aura': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Slow Attack', masteryText: 'Control card — duration caps low by design (a long tap is a lock).', masteryBonus: 0 },
   'critical-chance': { levels: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], masteryName: 'Super Crit', masteryText: '+5% more crit chance per level.', masteryBonus: 0.05 },
-  'enemy-balance': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Elite Balance', masteryText: 'Draw +1 more each turn, per level.', masteryBonus: 1 },
+  // Draw count/turn: +7 draws/turn floods your hand (and decks you out); cap it low.
+  'enemy-balance': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Elite Balance', masteryText: 'Draw card — count caps low by design (extra draws each turn compound fast).', masteryBonus: 0 },
   'extra-defense': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Extra Defense+', masteryText: 'Reduce incoming Tower damage +1 more, per level.', masteryBonus: 1 },
   'critical-coin': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Double Coins', masteryText: '+2 more coins per crit, per level.', masteryBonus: 2 },
   'package-chance': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more Tower HP per Ultimate drawn, per level.', masteryBonus: 1 },
   'land-mine-chance': { levels: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8], masteryName: 'Minefield', masteryText: '+5% more spawn chance per level.', masteryBonus: 0.05 },
   'orbs-speed': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Orbs Speed+', masteryText: '+1 more ATK to Extra Orbs, per level.', masteryBonus: 1 },
   'super-tower': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Ultimate Tower', masteryText: '+1 more ATK on its power turn, per level.', masteryBonus: 1 },
-  'wave-accelerator': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Spawn Accelerator', masteryText: 'Ultimates cost 1 more less, per level.', masteryBonus: 1 },
-  'energy-shield': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Repel', masteryText: 'Absorbs 1 more instance per level.', masteryBonus: 1 },
+  // Ultimate cost reduction: at 7 every Ultimate costs 1 (incl. the 8-cost Nuke); cap it.
+  'wave-accelerator': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Spawn Accelerator', masteryText: 'Cost card — reduction caps low by design (min cost is always 1).', masteryBonus: 0 },
+  // Instances of Tower damage fully negated: each negates a hit of ANY size, so keep the count modest.
+  'energy-shield': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Repel', masteryText: 'Control card — instance count caps low (each negates a full hit).', masteryBonus: 0 },
 
   // --- Ultimates ---
   cash: { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Big Cash', masteryText: '+1 more temporary mana, per level.', masteryBonus: 1 },
   'free-upgrades': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Locked Upgrade', masteryText: 'Reveal +1 more card, per level.', masteryBonus: 1 },
   'plasma-cannon': { levels: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], masteryName: 'Elite Cannon', masteryText: 'Also hits a second enemy unit.', masterySpecial: 'elite-cannon' },
+  // NOTE: death-penalty is an instant-KILL chance (%), not a count of marks — a count scaled to 7
+  // marked every entering enemy for a free kill. As a chance it stays faithful and self-limiting.
   'wave-skip': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Fast Forward', masteryText: '+1 more card drawn, per level.', masteryBonus: 1 },
   'intro-sprint': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Warp Speed', masteryText: 'Draw +1 more, per level.', masteryBonus: 1 },
   'recovery-package': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more overheal, per level.', masteryBonus: 1 },
@@ -118,7 +125,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   // --- Cannon modules (attack) ---
   'astral-deliverance': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Ricochet', masteryText: '+1 bounce damage per level.', masteryBonus: 1 },
   'being-annihilator': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Super Crit', masteryText: '+1 guaranteed crit per level.', masteryBonus: 1 },
-  'death-penalty': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Doom', masteryText: '+1 enemy marked per turn, per level.', masteryBonus: 1 },
+  'death-penalty': { levels: [0.15, 0.2, 0.25, 0.3, 0.35, 0.45, 0.6], masteryName: 'Doom', masteryText: '+3% instant-kill chance per mastery level.', masteryBonus: 0.03 },
   'havoc-bringer': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Rend Max', masteryText: '+1 damage enemies take, per level.', masteryBonus: 1 },
   'shrink-ray': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Compress', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
 
@@ -131,21 +138,27 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
 
   // --- Generator modules (utility) ---
   'black-hole-digestor': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Digest', masteryText: '+1 mana per module, per level.', masteryBonus: 1 },
-  'galaxy-compressor': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Recover', masteryText: '−1 more Ultimate cost after healing, per level.', masteryBonus: 1 },
-  'project-funding': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Investment', masteryText: '+1 ATK per 3 mana, per level.', masteryBonus: 1 },
+  // Ultimate cost reduction on heal turns: cap it (stacks with Wave Accelerator toward the min-1 floor).
+  'galaxy-compressor': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Recover', masteryText: 'Cost card — reduction caps low by design (min cost is always 1).', masteryBonus: 0 },
+  // % army ATK per 3 mana (was flat ×scale = up to +210/unit army-wide, the same OP shape as Damage).
+  'project-funding': { levels: [0.05, 0.07, 0.09, 0.11, 0.14, 0.18, 0.22], masteryName: 'Investment', masteryText: '+2% ATK per 3 mana, per mastery level.', masteryBonus: 0.02 },
   'pulsar-harvester': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Decay', masteryText: '−1 more enemy ATK on hit per level.', masteryBonus: 1 },
   'singularity-harness': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Bot Boost', masteryText: '+1 more token ATK per level.', masteryBonus: 1 },
 
   // --- Core modules (ultimate weapons) ---
   'dimension-core': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Overcharge', masteryText: '+1 Ultimate damage per level.', masteryBonus: 1 },
-  'harmony-conductor': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Discord', masteryText: '+1 enemy misses per level.', masteryBonus: 1 },
+  // Misses/turn: there are only 3 enemy fronts, so the count caps at 3 (the board maximum, not a nerf).
+  'harmony-conductor': { levels: [1, 1, 2, 2, 3, 3, 3], masteryName: 'Discord', masteryText: 'Caps at 3 — the number of enemy fronts on the board.', masteryBonus: 0 },
   'magnetic-hook': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Reel', masteryText: '+1 hook damage per level.', masteryBonus: 1 },
-  'multiverse-nexus': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Synchrony', masteryText: '+1 synced free Ultimate per level.', masteryBonus: 1 },
+  // Free Ultimates after a paid one: 7 free casts empties your hand for free — cap the count low.
+  'multiverse-nexus': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Synchrony', masteryText: 'Combo card — free-cast count caps low by design.', masteryBonus: 0 },
   'om-chip': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Focus', masteryText: '+1 focus ATK per level.', masteryBonus: 1 },
 
   // --- Bots ---
   'flame-bot': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
-  'thunder-bot': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Linger', masteryText: '+1 stun turn per level.', masteryBonus: 1 },
+  // Stun DURATION (turns) on the strongest enemy each turn — ×botAmp with Bot Bot. A 7-turn (×2 = 14)
+  // stun every turn permanently locks the biggest threat; keep the duration small.
+  'thunder-bot': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Linger', masteryText: 'Control card — stun duration caps low by design.', masteryBonus: 0 },
   'golden-bot': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Gold Rush', masteryText: '+2 more coins per level.', masteryBonus: 2 },
   'amplify-bot': { levels: [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5], masteryName: 'Overdrive', masteryText: '+5% ATK per level.', masteryBonus: 0.05 },
   'bot-bot': { levels: [0.15, 0.2, 0.25, 0.3, 0.35, 0.45, 0.55], masteryName: 'Maximum Power', masteryText: '+5% ATK per level.', masteryBonus: 0.05 },
@@ -214,7 +227,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   // Cannon modules
   'astral-deliverance': { fmt: 'flat', label: 'bounce damage to the enemy behind your target' },
   'being-annihilator': { fmt: 'flat', label: 'guaranteed crits (2× damage) each turn' },
-  'death-penalty': { fmt: 'flat', label: 'entering enemies Marked (first hit destroys them)' },
+  'death-penalty': { fmt: 'percent', label: 'chance an entering enemy is Marked (first hit destroys it)' },
   'havoc-bringer': { fmt: 'plus', label: 'damage enemy units take from your attacks' },
   'shrink-ray': { fmt: 'flat', label: 'ATK shrunk off an enemy unit (permanent)' },
   // Armor modules
@@ -226,7 +239,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   // Generator modules
   'black-hole-digestor': { fmt: 'flat', label: 'temporary mana each turn per Module you control' },
   'galaxy-compressor': { fmt: 'flat', label: 'less Ultimate cost on turns you heal your Tower' },
-  'project-funding': { fmt: 'plus', label: 'ATK to your units per 3 mana in your pool' },
+  'project-funding': { fmt: 'percent', label: 'more unit ATK per 3 mana in your pool' },
   'pulsar-harvester': { fmt: 'flat', label: 'ATK removed from an enemy your unit damages' },
   'singularity-harness': { fmt: 'plus', label: 'ATK to your Mine & Wall tokens (your "bots")' },
   // Core modules
