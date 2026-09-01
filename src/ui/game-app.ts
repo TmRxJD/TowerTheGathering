@@ -69,6 +69,13 @@ const KEYWORD_INFO: Record<string, string> = {
   trap: 'Trap — triggers and is destroyed when an enemy enters its lane.',
 }
 
+/** Runtime statuses a card can inflict, shown in Help. These aren't static card keywords (so they don't
+ *  appear on card previews) — they're conditions a unit picks up mid-battle, rendered on it as icons. */
+const STATUS_INFO: Record<string, string> = {
+  marked: 'Marked 💀 — the next hit destroys it outright, no matter how much HP it has (Death Penalty).',
+  vulnerable: 'Vulnerable 🎯 — takes extra damage from every hit while the status lasts.',
+}
+
 export interface MatchResult {
   readonly winner: Side
   readonly boss: number
@@ -1336,16 +1343,21 @@ export class GameApp {
     const kw = Object.values(KEYWORD_INFO)
       .map(v => `<li>${v}</li>`)
       .join('')
+    const st = Object.values(STATUS_INFO)
+      .map(v => `<li>${v}</li>`)
+      .join('')
     const el = this.div('ttg-help')
     el.innerHTML =
       `<div class="help-card">` +
       `<h3>How to play</h3>` +
-      `<p><b>Goal:</b> drop the enemy Tower to 0 HP. You start at ${TUNING.START_LIFE}; the ladder enemies start tougher.</p>` +
-      `<p><b>Each turn:</b> you gain +1 mana (max 10) and draw a card. Spend mana to play cards, then press <b>End Turn</b> to fight.</p>` +
+      `<p><b>Goal:</b> drop the enemy Tower to 0 HP. You start at ${TUNING.START_LIFE}; the ladder enemies start tougher every tier.</p>` +
+      `<p><b>Each turn:</b> your max mana grows by 1 (up to ${TUNING.MANA_CAP}) and refills, and you draw a card. Spend mana to play cards, then press <b>End Turn</b> to fight.</p>` +
       `<p><b>Lanes:</b> units stack in the Left / Center / Right lanes. Only the <b>front</b> unit fights each turn; it trades damage with the enemy's front unit. A lane with no enemy unit sends your front unit's damage straight to the Tower.</p>` +
+      `<p><b>Combat:</b> damage varies a little each swing, and every attack can <b>crit</b> for extra damage — so trades aren't always identical. Plan for the average, not a single lucky hit.</p>` +
       `<p><b>Card types:</b> <b>Units</b> fight in a lane · <b>Modules</b> give lasting effects from your backline (max ${TUNING.BACKLINE_SLOTS}) · <b>Ultimates</b> are one-time spells.</p>` +
       `<p><b>Deck-out:</b> once your deck is empty, drawing hurts you a little more each time — so games always end.</p>` +
       `<p><b>Keywords:</b></p><ul>${kw}</ul>` +
+      `<p><b>Statuses:</b></p><ul>${st}</ul>` +
       `<p class="help-tip">Tip: hover any card to see it full-size. Use <b>Autoplay</b> to watch the AI play both sides.</p>` +
       `<button class="ttg-btn ready">Got it</button>` +
       `</div>`
