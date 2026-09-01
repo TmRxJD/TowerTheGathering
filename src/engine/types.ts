@@ -126,6 +126,9 @@ export interface PlayerState {
   /** Deck-out counter: each draw from an empty deck deals this many (escalating) unpreventable
    *  damage — guarantees stalls resolve. See docs/GAME_DESIGN.md § Fatigue. */
   fatigue: number
+  /** Shards farmed in-battle by gold/coin cards (Golden Bot per turn; Golden Tower / Critical Coin /
+   *  Coin Orb per kill). Banked to your total by the game ONLY on a win — lose and the coins are lost. */
+  goldEarned: number
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +215,8 @@ export interface PlayerView {
   readonly handCount: number
   readonly secretCount: number
   readonly modules: readonly ModuleView[]
+  /** Shards farmed in-battle by gold/coin cards this game (banked on a win). */
+  readonly goldEarned: number
   /** Populated only for the snapshot viewer. */
   readonly hand?: readonly CardRef[]
 }
@@ -316,6 +321,7 @@ export interface PlayerStateSnapshot {
   turnCount: number
   skipNextCombat: boolean
   fatigue: number
+  goldEarned: number
 }
 
 export interface EngineState {

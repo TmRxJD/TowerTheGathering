@@ -469,7 +469,7 @@ export class GameApp {
     if (res.winner === 'HUMAN') {
       this.recordWin(res.turns)
       this.maxCleared = Math.max(this.maxCleared, this.bossIndex) // unlock the next rung (farming a beaten one doesn't lower it)
-      const gained = shardReward(this.tier, this.bossIndex) + this.coinsBonus()
+      const gained = shardReward(this.tier, this.bossIndex) + this.coinsBonus() + this.engine.snapshot().players.HUMAN.goldEarned
       this.save.shards += gained
       if (this.bossIndex >= BOSS_DECKS.length) {
         this.save.highestTierCleared = Math.max(this.save.highestTierCleared, this.tier)
@@ -642,7 +642,7 @@ export class GameApp {
       this.demoStuck = 0
       this.recordWin(res.turns)
       this.maxCleared = Math.max(this.maxCleared, this.bossIndex)
-      this.save.shards += shardReward(this.tier, this.bossIndex)
+      this.save.shards += shardReward(this.tier, this.bossIndex) + this.coinsBonus() + this.engine.snapshot().players.HUMAN.goldEarned
       takeRewardAndTrim(this.playerDeck, () => Math.random(), maxDeckForTier(this.tier))
       this.save.shards = spendShards(this.save.collection, this.playerDeck, this.save.shards).bank
       if (this.bossIndex < BOSS_DECKS.length) {

@@ -40,7 +40,7 @@ export interface CardProg {
 export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   // --- Units (level scales the primary stat) ---
   fortress: { levels: [8, 10, 12, 14, 16, 18, 20], unitStat: 'hp', masteryName: 'Fortress Walls', masteryText: 'On death, a 0/4 wall rebuilds in its place (once).', masterySpecial: 'fortress-walls' },
-  'extra-orbs': { levels: [3, 4, 5, 6, 7, 8, 9], unitStat: 'atk', masteryName: 'Coin Orb', masteryText: 'Draw a card whenever it destroys an enemy unit.', masterySpecial: 'coin-orb' },
+  'extra-orbs': { levels: [3, 4, 5, 6, 7, 8, 9], unitStat: 'atk', masteryName: 'Coin Orb', masteryText: 'Farm bonus shards (= its ATK) whenever it destroys an enemy.', masterySpecial: 'coin-orb' },
   berserker: { levels: [2, 3, 4, 5, 6, 7, 8], unitStat: 'atk', masteryName: 'Viking Funeral', masteryText: 'On death, deals its ATK to the enemy Tower.', masterySpecial: 'viking-funeral' },
   'land-mine-stun': { levels: [1, 2, 3, 4, 5, 6, 7], unitStat: 'atk', masteryName: 'Flashbang', masteryText: '+1 ATK per level.', masteryBonus: 1 },
 
@@ -55,7 +55,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'critical-chance': { levels: [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], masteryName: 'Super Crit', masteryText: '+5% more crit chance per level.', masteryBonus: 0.05 },
   'enemy-balance': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Elite Balance', masteryText: 'Draw +1 more each turn, per level.', masteryBonus: 1 },
   'extra-defense': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Extra Defense+', masteryText: 'Reduce incoming Tower damage +1 more, per level.', masteryBonus: 1 },
-  'critical-coin': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Double Coins', masteryText: '+1 more mana per kill, per level.', masteryBonus: 1 },
+  'critical-coin': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Double Coins', masteryText: '+2 more shards per kill, per level.', masteryBonus: 2 },
   'package-chance': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Care Package', masteryText: '+1 more Tower HP per Ultimate drawn, per level.', masteryBonus: 1 },
   'land-mine-chance': { levels: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8], masteryName: 'Minefield', masteryText: '+5% more spawn chance per level.', masteryBonus: 0.05 },
   'orbs-speed': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Orbs Speed+', masteryText: '+1 more ATK to Extra Orbs, per level.', masteryBonus: 1 },
@@ -83,7 +83,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'death-wave': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Kill Wall', masteryText: '+1 wave damage each turn, per level.', masteryBonus: 1 },
   'chrono-field': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Chrono Loop', masteryText: '+1 freeze turn per level.', masteryBonus: 1 },
   'inner-land-mines': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Charged Mines', masteryText: '+1 mine damage per level.', masteryBonus: 1 },
-  'golden-tower': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Golden Combo', masteryText: '+1 mana per enemy killed, per level.', masteryBonus: 1 },
+  'golden-tower': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Golden Combo', masteryText: '+2 more shards per kill, per level.', masteryBonus: 2 },
   'poison-swamp': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Death Creep', masteryText: '+1 poison damage per level.', masteryBonus: 1 },
   'black-hole': { levels: [3, 4, 5, 6, 7, 8, 9], masteryName: 'Consume', masteryText: 'Destroys units +1 HP tougher per level.', masteryBonus: 1 },
   spotlight: { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Light Range', masteryText: '+1 extra damage taken per level.', masteryBonus: 1 },
@@ -119,7 +119,7 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   // --- Bots ---
   'flame-bot': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
   'thunder-bot': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Linger', masteryText: '+1 stun turn per level.', masteryBonus: 1 },
-  'golden-bot': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Gold Rush', masteryText: '+1 mana per level.', masteryBonus: 1 },
+  'golden-bot': { levels: [2, 3, 4, 5, 6, 8, 10], masteryName: 'Gold Rush', masteryText: '+2 more shards per level.', masteryBonus: 2 },
   'amplify-bot': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Overdrive', masteryText: '+1 ATK per level.', masteryBonus: 1 },
   'bot-bot': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Maximum Power', masteryText: '+1 ATK per level.', masteryBonus: 1 },
 
@@ -155,7 +155,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'critical-chance': { fmt: 'percent', label: 'chance on hit to deal 2× damage' },
   'enemy-balance': { fmt: 'flat', label: 'cards drawn each turn (enemy units +1 ATK)' },
   'extra-defense': { fmt: 'plus', label: 'incoming Tower damage reduced (min 1)' },
-  'critical-coin': { fmt: 'plus', label: 'mana next turn when a unit kills' },
+  'critical-coin': { fmt: 'flat', label: 'shards farmed per enemy killed (banked on a win)' },
   'package-chance': { fmt: 'plus', label: 'Tower HP when you draw an Ultimate' },
   'land-mine-chance': { fmt: 'percent', label: 'chance to spawn a mine each turn' },
   'orbs-speed': { fmt: 'plus', label: 'ATK to your Extra Orbs' },
@@ -180,7 +180,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'death-wave': { fmt: 'flat', label: 'damage to every enemy unit each turn' },
   'chrono-field': { fmt: 'flat', label: 'turns all enemy units are frozen' },
   'inner-land-mines': { fmt: 'flat', label: 'damage to each enemy unit as it enters a lane' },
-  'golden-tower': { fmt: 'flat', label: 'temporary mana when your unit destroys an enemy' },
+  'golden-tower': { fmt: 'flat', label: 'shards farmed per enemy killed (banked on a win)' },
   'poison-swamp': { fmt: 'flat', label: "damage to a dying enemy's lane-mates" },
   'black-hole': { fmt: 'flat', label: 'max HP of the enemy destroyed in each lane' },
   spotlight: { fmt: 'flat', label: 'extra damage an enemy unit takes (permanent)' },
@@ -211,7 +211,7 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   // Bots
   'flame-bot': { fmt: 'flat', label: 'burn damage to all enemy units each turn (they get −1 ATK)' },
   'thunder-bot': { fmt: 'flat', label: 'turns the strongest enemy unit is stunned each turn' },
-  'golden-bot': { fmt: 'plus', label: 'temporary mana each turn' },
+  'golden-bot': { fmt: 'flat', label: 'shards farmed each turn (banked on a win)' },
   'amplify-bot': { fmt: 'plus', label: 'ATK to all your units' },
   'bot-bot': { fmt: 'plus', label: 'ATK to your units (doubles your other Bots)' },
   // Guardian chips

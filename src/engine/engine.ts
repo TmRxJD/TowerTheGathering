@@ -157,6 +157,7 @@ class TowerEngine implements Engine {
       turnCount: 0,
       skipNextCombat: false,
       fatigue: 0,
+      goldEarned: 0,
     }
   }
 
@@ -179,6 +180,7 @@ class TowerEngine implements Engine {
       turnCount: p.turnCount,
       skipNextCombat: p.skipNextCombat,
       fatigue: p.fatigue,
+      goldEarned: p.goldEarned,
     })
     const copyUnit = (u: UnitInstance): UnitState => ({
       uid: u.uid,
@@ -260,6 +262,7 @@ class TowerEngine implements Engine {
       p.turnCount = src.turnCount
       p.skipNextCombat = src.skipNextCombat
       p.fatigue = src.fatigue
+      p.goldEarned = src.goldEarned ?? 0
     }
     for (const lane of LANES) {
       for (const side of SIDES) {
@@ -311,6 +314,7 @@ class TowerEngine implements Engine {
       turnCount: 0,
       skipNextCombat: false,
       fatigue: 0,
+      goldEarned: 0,
     }
   }
 
@@ -483,10 +487,9 @@ class TowerEngine implements Engine {
         events.push({ type: 'unitFrozen', uid: target.uid, turns: target.frozenTurns })
       }
     }
-    // Golden Bot: coin farming — steady temporary mana each turn.
+    // Golden Bot: coin farming — earns shards each turn (banked on a win), not mana.
     if (this.countModule(side, 'golden-bot') > 0) {
-      p.manaPool += this.cardVal(side, 'golden-bot') * this.countModule(side, 'golden-bot') * this.botAmp(side)
-      events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
+      p.goldEarned += this.cardVal(side, 'golden-bot') * this.countModule(side, 'golden-bot') * this.botAmp(side)
     }
     // Enemy skills that fire at the start of the skilled side's turn.
     const skill = this.skillOf(side)
@@ -1326,19 +1329,18 @@ class TowerEngine implements Engine {
     if (killerUid !== null) {
       const killer = this.findUnit(killerUid)
       if (killer) {
-        // Critical Coin: the killer's owner gains mana next turn (scaled by level).
+        const kp = this.players[killer.owner]
+        // Critical Coin: earns shards per kill (banked on a win), not mana.
         if (this.countModule(killer.owner, 'critical-coin') > 0) {
-          this.pendingMana[killer.owner] += this.cardVal(killer.owner, 'critical-coin') * this.countModule(killer.owner, 'critical-coin')
+          kp.goldEarned += this.cardVal(killer.owner, 'critical-coin') * this.countModule(killer.owner, 'critical-coin')
         }
-        // Golden Tower: the golden tower pays out temporary mana for each enemy killed.
+        // Golden Tower: the golden tower farms shards for each enemy killed.
         if (this.countModule(killer.owner, 'golden-tower') > 0) {
-          const kp = this.players[killer.owner]
-          kp.manaPool += this.cardVal(killer.owner, 'golden-tower') * this.countModule(killer.owner, 'golden-tower')
-          events.push({ type: 'manaChanged', side: killer.owner, pool: kp.manaPool, max: kp.manaMax })
+          kp.goldEarned += this.cardVal(killer.owner, 'golden-tower') * this.countModule(killer.owner, 'golden-tower')
         }
-        // Coin Orb mastery: an Extra Orbs that kills draws a card.
+        // Coin Orb mastery: an Extra Orbs that kills farms bonus shards.
         if (this.hasMasterySpecial(killer.owner, killer.cardId, 'coin-orb')) {
-          this.drawCard(this.players[killer.owner], events)
+          kp.goldEarned += this.cardVal(killer.owner, 'extra-orbs')
         }
       }
     }
@@ -1687,6 +1689,7 @@ class TowerEngine implements Engine {
       handCount: p.hand.length,
       secretCount: p.secrets.length,
       modules,
+      goldEarned: p.goldEarned,
     }
     if (side === viewer) return { ...base, hand: p.hand.map(c => ({ uid: c.uid, cardId: c.cardId })) }
     return base

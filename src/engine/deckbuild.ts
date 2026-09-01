@@ -16,10 +16,11 @@ export function cardValue(id: string): number {
   if (id === 'plasma-cannon' || id === 'energy-net' || id === 'demon-mode') return 7
   if (id === 'thunder-bot' || id === 'amplify-bot' || id === 'guardian-summon' || id === 'guardian-fetch') return 6.5
   if (id === 'super-tower' || id === 'ultimate-crit' || id === 'recovery-package') return 6
-  if (id === 'guardian-attack' || id === 'guardian-bounty' || id === 'guardian-scout' || id === 'golden-bot') return 5.5
+  if (id === 'guardian-attack' || id === 'guardian-bounty' || id === 'guardian-scout') return 5.5
   if (id === 'damage' || id === 'attack-speed' || id === 'critical-chance') return 5
-  if (id === 'health-regen' || id === 'critical-coin' || id === 'health') return 4.5
-  if (id === 'coins') return 2 // pure economy (bonus shards on a win) — no combat value to the AI
+  if (id === 'health-regen' || id === 'health') return 4.5
+  // Pure economy (farm shards, no combat value) — the AI, which plays to WIN, rates these low.
+  if (id === 'coins' || id === 'golden-bot' || id === 'golden-tower' || id === 'critical-coin') return 2
   if (id === 'enemy-balance') return 1 // self-harm; a decent player avoids it
   return 3
 }

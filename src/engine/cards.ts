@@ -137,7 +137,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     rarity: 'rare',
     type: 'MODULE',
     cost: 3,
-    text: 'When a friendly unit destroys an enemy unit, gain +1 mana next turn.',
+    text: 'Economy: when your unit destroys an enemy, farm +N shards (banked if you win the battle).',
     art: 'critical-coin.jpg',
   },
   'wave-skip': {
@@ -350,7 +350,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'golden-tower': {
     id: 'golden-tower', name: 'Golden Tower', rarity: 'rare', type: 'MODULE', cost: 3,
-    text: 'The tower turns golden: gain +1 temporary mana whenever your unit destroys an enemy.',
+    text: 'Economy: the tower turns golden — farm +N shards whenever your unit destroys an enemy (banked if you win).',
     art: 'golden-tower.webp',
   },
   'poison-swamp': {
@@ -467,7 +467,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     art: 'magnetic-hook.webp',
   },
   'multiverse-nexus': {
-    id: 'multiverse-nexus', name: 'Multiverse Tower', rarity: 'epic', type: 'MODULE', cost: 4,
+    id: 'multiverse-nexus', name: 'Multiverse Nexus', rarity: 'epic', type: 'MODULE', cost: 4,
     text: 'Your Ultimate Weapons sync: after you play an Ultimate, the next Ultimate this turn is free.',
     art: 'multiverse-nexus.webp',
   },
@@ -490,7 +490,7 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
   },
   'golden-bot': {
     id: 'golden-bot', name: 'Golden Bot', rarity: 'rare', type: 'MODULE', cost: 2,
-    text: 'Start of your turn: gain +1 temporary mana (coin farming).',
+    text: 'Economy: start of your turn, farm +N shards (banked if you win the battle).',
     art: 'golden-bot.webp',
   },
   'amplify-bot': {
