@@ -1737,8 +1737,11 @@ export class GameApp {
     el.dataset.rarity = def.rarity
     // Current effect value — includes any mastery bonus, so it's the single source of truth.
     const cur = formatCardValue(cardId, cardLevelValue(cardId, level, mastery))
+    // Per-level chips must show the SCALED value (cardLevelValue), matching the current-value line and
+    // the engine — mapping the raw prog.levels here understated ×10 combat cards tenfold (e.g. Health
+    // chips read +5…+18 beside a +50 current value).
     const levelChips = (prog?.levels ?? [])
-      .map((v, i) => `<span class="lchip${i + 1 === level ? ' cur' : ''}"><i>${i + 1}</i>${formatCardValue(cardId, v)}</span>`)
+      .map((_v, i) => `<span class="lchip${i + 1 === level ? ' cur' : ''}"><i>${i + 1}</i>${formatCardValue(cardId, cardLevelValue(cardId, i + 1, 0))}</span>`)
       .join('')
     const masteryDots = Array.from({ length: MASTERY_MAX_LEVEL }, (_, i) =>
       `<span class="mchip${i < mastery ? ' on' : ''}${i + 1 === mastery ? ' cur' : ''}">${i + 1}</span>`,
