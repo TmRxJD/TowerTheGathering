@@ -1448,7 +1448,7 @@ export class GameApp {
     const tierRow = `<div class="menu-tier">Tier: <select class="ttg-select" id="ttg-tiersel">${opts}</select>${locked}</div>`
 
     const primary = run
-      ? `<button class="ttg-btn ready" data-m="continue">▶ Continue — ${tierName(run.tier)}, Boss ${run.bossIndex}</button>` +
+      ? `<button class="ttg-btn ready" data-m="continue">▶ Continue — ${tierName(run.tier)}, Enemy ${run.bossIndex}</button>` +
         `<button class="ttg-mini" data-m="new">↺ New Run (selected tier)</button>`
       : `<button class="ttg-btn ready" data-m="new">▶ Start Run</button>`
 
