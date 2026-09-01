@@ -7,6 +7,9 @@
 import { getCard } from '../engine'
 import type { Rarity } from '../engine'
 
+// Card, frame, and portrait art are resolved eagerly at build time via import.meta.glob (keyed by
+// basename below). NB: adding a new asset while the dev server is running requires a re-transform of
+// this module (or a restart) for the glob to pick it up — the production build always re-scans.
 const cardUrls = import.meta.glob('./assets/cards/*.{jpg,webp,png}', {
   eager: true,
   query: '?url',
