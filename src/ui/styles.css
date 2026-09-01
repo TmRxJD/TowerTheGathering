@@ -167,6 +167,24 @@
   border-color: #3a1c24;
   opacity: 0.5;
 }
+.set-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+.set-list .set-toggle {
+  justify-content: space-between;
+  width: 100%;
+  display: flex;
+  padding: 8px 12px;
+}
+.set-list .set-toggle.on b {
+  color: #5ff0a0;
+}
+.set-list .set-toggle:not(.on) b {
+  color: var(--ttg-dim);
+}
 .ttg-coins {
   flex: 0 0 auto;
   font-weight: 800;

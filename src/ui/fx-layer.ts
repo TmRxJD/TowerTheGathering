@@ -67,6 +67,13 @@ export class FxLayer {
   private effects: Effect[] = []
   private raf = 0
   private last = 0
+  private enabled = true
+
+  /** Master toggle (Settings → Visual effects). When off, all particle/beam/ring FX are suppressed. */
+  setEnabled(on: boolean): void {
+    this.enabled = on
+    if (!on) this.effects = []
+  }
 
   constructor(parent: HTMLElement) {
     this.canvas = document.createElement('canvas')
@@ -87,11 +94,13 @@ export class FxLayer {
   }
 
   floatText(x: number, y: number, text: string, color: string, size = 20): void {
+    if (!this.enabled) return
     this.effects.push({ kind: 'float', x, y, vy: -0.03, life: 900, max: 900, text, color, size })
     this.wake()
   }
 
   beam(x1: number, y1: number, x2: number, y2: number, color = '#ff5b6e'): void {
+    if (!this.enabled) return
     this.effects.push({ kind: 'beam', x1, y1, x2, y2, life: 360, max: 360, color })
     this.wake()
   }
@@ -99,6 +108,7 @@ export class FxLayer {
   /** A short particle burst — used for unit deaths and combat impacts. Visual only (Math.random is
    *  fine here; it never touches game state). */
   burst(x: number, y: number, color: string, count = 14, power = 0.4): void {
+    if (!this.enabled) return
     for (let i = 0; i < count; i++) {
       const a = (Math.PI * 2 * i) / count + Math.random() * 0.5
       const sp = power * (0.4 + Math.random())
@@ -119,12 +129,14 @@ export class FxLayer {
 
   /** Expanding ring — a spell impact / freeze / buff pulse. */
   ring(x: number, y: number, color: string, maxR = 60): void {
+    if (!this.enabled) return
     this.effects.push({ kind: 'ring', x, y, maxR, life: 440, max: 440, color })
     this.wake()
   }
 
   /** A jagged lightning bolt between two points (Chain Lightning, electric hits). Visual only. */
   bolt(x1: number, y1: number, x2: number, y2: number, color = '#bff2ff'): void {
+    if (!this.enabled) return
     const segs = 7
     const pts: Array<{ x: number; y: number }> = [{ x: x1, y: y1 }]
     const nx = -(y2 - y1)
@@ -148,6 +160,7 @@ export class FxLayer {
 
   /** Full-board colour flash — for board-wide spells (Nuke). */
   flash(color: string): void {
+    if (!this.enabled) return
     this.effects.push({ kind: 'flash', life: 460, max: 460, color })
     this.wake()
   }

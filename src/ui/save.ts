@@ -12,7 +12,35 @@ import { ALL_CARD_IDS, CARD_MAX_LEVEL, STARTER_DECK, clampLevel, clampMastery, c
 
 const KEY = 'ttg.saves.v3'
 const LEGACY_KEY = 'ttg.save.v2'
+const SETTINGS_KEY = 'ttg.settings.v1'
 export const PLAYER_SLOTS = 3
+
+/** Player-facing display toggles (accessibility / preference). All default on. */
+export interface GameSettings {
+  vfx: boolean // particle/beam/ring effects
+  shake: boolean // screen shake on hits
+  toasts: boolean // transient toast messages
+}
+export function defaultSettings(): GameSettings {
+  return { vfx: true, shake: true, toasts: true }
+}
+export function loadSettings(): GameSettings {
+  try {
+    const raw = globalThis.localStorage?.getItem(SETTINGS_KEY)
+    if (!raw) return defaultSettings()
+    const p = JSON.parse(raw) as Partial<GameSettings>
+    return { vfx: p.vfx !== false, shake: p.shake !== false, toasts: p.toasts !== false }
+  } catch {
+    return defaultSettings()
+  }
+}
+export function writeSettings(s: GameSettings): void {
+  try {
+    globalThis.localStorage?.setItem(SETTINGS_KEY, JSON.stringify(s))
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 /** Lifetime stats for a save, surfaced on the menu/slot picker. */
 export interface RunMeta {

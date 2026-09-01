@@ -53,7 +53,7 @@ import {
 import { SearchAI } from '../ai'
 import { cardArtUrl, portraitUrl } from './card-art'
 import { FxLayer } from './fx-layer'
-import { loadSaves, writeSaves, freshSave, PLAYER_SLOTS, type SaveState, type SavesFile } from './save'
+import { loadSaves, writeSaves, freshSave, loadSettings, writeSettings, PLAYER_SLOTS, type SaveState, type SavesFile, type GameSettings } from './save'
 
 const LANES: readonly Lane[] = ['LEFT', 'CENTER', 'RIGHT']
 
@@ -143,6 +143,7 @@ export class GameApp {
   // persistent skeleton refs
   private ladderEl!: HTMLElement
   private coinsEl!: HTMLElement
+  private settings: GameSettings = loadSettings()
   private bossSelect!: HTMLSelectElement
   private watchBtn!: HTMLButtonElement
   private previewEl!: HTMLElement
@@ -183,6 +184,7 @@ export class GameApp {
     }
     this.buildSkeleton()
     this.fx = new FxLayer(this.root)
+    this.fx.setEnabled(this.settings.vfx)
     globalThis.addEventListener?.('resize', () => this.fx.resize())
     this.startMatch(this.bossIndex)
     this.showMenu()
@@ -1254,6 +1256,7 @@ export class GameApp {
   }
 
   private shake(): void {
+    if (!this.settings.shake) return
     this.root.classList.remove('shake')
     void this.root.offsetWidth
     this.root.classList.add('shake')
@@ -1262,6 +1265,7 @@ export class GameApp {
 
   private toastTimer: ReturnType<typeof setTimeout> | null = null
   private showToast(text: string): void {
+    if (!this.settings.toasts) return
     this.toastEl.textContent = text
     this.toastEl.style.display = 'block'
     this.toastEl.classList.remove('show')
@@ -1341,6 +1345,38 @@ export class GameApp {
       `</div>`
     el.addEventListener('click', e => {
       if (e.target === el || (e.target as HTMLElement).tagName === 'BUTTON') el.remove()
+    })
+    this.root.appendChild(el)
+  }
+
+  /** Settings: presentation toggles (VFX / screen shake / toasts). Gameplay is unaffected. */
+  private showSettings(): void {
+    this.root.querySelector('.ttg-settings')?.remove()
+    const el = this.div('ttg-settings ttg-help')
+    const render = (): void => {
+      const row = (k: keyof GameSettings, label: string): string =>
+        `<button class="ttg-mini set-toggle${this.settings[k] ? ' on' : ''}" data-k="${k}">${label} <b>${this.settings[k] ? 'On' : 'Off'}</b></button>`
+      el.innerHTML =
+        `<div class="help-card">` +
+        `<h3>⚙ Settings</h3>` +
+        `<p>Presentation only — these don't change gameplay.</p>` +
+        `<div class="set-list">${row('vfx', 'Visual effects')}${row('shake', 'Screen shake')}${row('toasts', 'Toast messages')}</div>` +
+        `<button class="ttg-btn ready" data-close="1">Done</button>` +
+        `</div>`
+      el.querySelectorAll<HTMLElement>('.set-toggle').forEach(b =>
+        b.addEventListener('click', () => {
+          const k = b.dataset.k as keyof GameSettings
+          this.settings[k] = !this.settings[k]
+          writeSettings(this.settings)
+          if (k === 'vfx') this.fx.setEnabled(this.settings.vfx)
+          render()
+        }),
+      )
+      el.querySelector<HTMLElement>('[data-close]')?.addEventListener('click', () => el.remove())
+    }
+    render()
+    el.addEventListener('click', e => {
+      if (e.target === el) el.remove()
     })
     this.root.appendChild(el)
   }
@@ -1498,6 +1534,7 @@ export class GameApp {
       `<button class="ttg-mini" data-m="collection">🃏 Collection (🪙 ${this.fmtShards(this.save.shards)})</button>` +
       `<button class="ttg-mini" data-m="watch">👁 Watch Demo</button>` +
       `<button class="ttg-mini" data-m="help">? How to Play</button>` +
+      `<button class="ttg-mini" data-m="settings">⚙ Settings</button>` +
       `<button class="ttg-mini menu-reset" data-m="reset">♻ Reset Progress</button>` +
       `</div></div>`
     const tierSel = () => Number((el.querySelector('#ttg-tiersel') as HTMLSelectElement | null)?.value) || 1
@@ -1508,6 +1545,7 @@ export class GameApp {
         const r = this.save.run
         this.tier = r ? r.tier : 1
         this.playerDeck = r ? [...r.deck] : [...STARTER_DECK]
+        this.maxCleared = r ? r.maxCleared : 0
         this.persistSaves()
         this.showMenu()
       }),
@@ -1517,6 +1555,10 @@ export class GameApp {
         const m = b.dataset.m
         if (m === 'help') {
           this.showHelp()
+          return
+        }
+        if (m === 'settings') {
+          this.showSettings()
           return
         }
         if (m === 'collection') {
