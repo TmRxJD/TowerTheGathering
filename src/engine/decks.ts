@@ -27,19 +27,25 @@ function deck(entries: ReadonlyArray<readonly [string, number]>): string[] {
   return out
 }
 
-/** The player's default 20-card deck: a rounded, teachable list that leans slightly aggressive so
- *  the opening isn't a grind (Damage ×3 + Attack Speed sharpen the few attackers) while keeping
- *  walls, removal, and a Nuke finisher. */
-// The player starts Tier 1 with a lean 10-card deck; it grows +1 per tier climbed (see
-// maxDeckForTier), reaching ~33 by Tier 24 — more variety and a reason to keep climbing.
+/** The player's default FULL 20-card deck (a full deck from Tier 1 — see maxDeckForTier). A rounded,
+ *  capable list: walls to survive, First-Strike attackers, army buffs, freeze/removal, an econ engine,
+ *  and a Nuke finisher — everything a real deck needs, so your power is complete from the start and the
+ *  ladder's difficulty comes from the enemies scaling up, not from your deck filling out. */
 export const STARTER_DECK: readonly string[] = deck([
-  ['fortress', 2],
-  ['extra-orbs', 2],
-  ['damage', 2],
-  ['plasma-cannon', 1],
-  ['death-ray', 1],
+  ['fortress', 3], // walls
+  ['land-mine-stun', 2], // trap/defender
+  ['extra-orbs', 2], // First-Strike attackers
+  ['berserker', 1],
+  ['damage', 2], // army buffs
+  ['attack-speed', 1],
+  ['health-regen', 1], // sustain
+  ['coins', 1], // economy
   ['cash', 1],
-  ['coins', 1],
+  ['plasma-cannon', 2], // removal
+  ['energy-net', 1],
+  ['death-ray', 1],
+  ['nuke', 1], // finisher
+  ['recovery-package', 1],
 ])
 
 export const BOSS_DECKS: readonly BossDeck[] = [

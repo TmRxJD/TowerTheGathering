@@ -38,12 +38,15 @@ export function clampTier(level: number): number {
   return Math.max(1, Math.min(MAX_TIER, Math.floor(level) || 1))
 }
 
-/** The player's deck-size cap for a tier: 10 at Tier 1, +1 for every tier climbed, so a full climb
- *  reaches 33 by Tier 24 (34 once Tier 24 itself is cleared). The deck grows toward this cap via the
- *  post-win reward cards — bigger decks mean more variety AND resist fatigue in the long top-tier
- *  slogs, so climbing is rewarded and grinding a low tier for easy shards is not. */
+/** The player's deck size — now CONSTANT (a full deck from Tier 1). The deck no longer grows 10→34 over
+ *  the climb: that growth doubled your board over the early tiers and made your win rate RISE early (an
+ *  inverted-U), which is incompatible with a win curve that decreases every tier. You start with a full,
+ *  capable deck; climbing grows your permanent COLLECTION (card levels & masteries) instead, and the
+ *  enemy scales with it — so your relative power is flat and difficulty rides purely on the tier's `R`.
+ *  Post-win rewards SWAP a card in (trim the weakest) rather than enlarge the deck. */
 export function maxDeckForTier(level: number): number {
-  return 9 + clampTier(level)
+  void level
+  return TUNING.DECK_SIZE
 }
 
 export function tierName(level: number): string {
@@ -63,9 +66,10 @@ export function tierName(level: number): string {
  */
 const HP_GROWTH = 1.15 // per-tier HP ratio for BOTH towers (symmetric) — sets battle length, not difficulty
 // The ONE monotonic difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
-const R_MIN = 0.7 // T1 easy onboarding win, but not a walkover (smoothed income makes the early deck stronger)
-const R_MAX = 1.6 // T24 climax — held at the AI's win/loss step edge so the top lands ~50%, not a crater
-const R_SHAPE = 0.6 // <1 = concave: R climbs through the mid so the curve keeps declining, not plateauing
+const R_MIN = 0.85 // T1 easy onboarding win (your full deck vs a weak enemy)
+const R_MAX = 1.55 // T24 climax — near the AI's win/loss step so the top lands ~40%, not a crater
+const R_SHAPE = 1.0 // LINEAR: with a full (flat-power) deck, win rate tracks R directly, so a steady
+//                     linear rise in R gives a steady decline in win rate every tier — the goal.
 const RUNG_STEP = 0.04 // within a tier, each later rung is a little stronger
 const BOSS_MULT = 1.2 // the final Boss rung's extra power
 
