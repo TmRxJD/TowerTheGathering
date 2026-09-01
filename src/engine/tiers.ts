@@ -133,7 +133,17 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   // Enemy HP = player HP × √R (the tankiness half of the difficulty ratio).
   const enemyHpMult = Math.sqrt(tierR(t, i))
   const bonusLife = Math.round(playerTotal * (enemyHpMult - 1))
-  return { bonusLife, bonusStartMana: 0 } // difficulty is R + luck; no discrete mana step (it cliffed T18)
+  // Summit tempo: by T23 the enemy's card power is maxed (mastery capped) and its STATS are a saturated
+  // lever — 10-20% more HP/ATK can't flip which of the 11 matchups are winnable, so the top tiers pin at
+  // the same ~31% composition floor and T23≈T24. Starting mana is NOT saturated: an early tempo lead lets
+  // the enemy land a big card first and flip close races, tipping a matchup or two. Granting it ONLY at
+  // the final tier pulls T24 clear below T23 (no mid cliff — this was the T18 mana step's old sin).
+  // Mana is a COARSE lever: +1 across all 11 rungs flips ~1.2 matchups at once (T24 31→21, a ~10-pt drop),
+  // and +2 barely differs — there is no "half a mana". To land the ~5% ask we give the tempo edge to only
+  // the back HALF of the final tier's ladder (its later, already-tougher rungs, i≥6), tipping ~half the
+  // matchups for ~half the drop → T24 clears T23 by ~5% without overshooting.
+  const bonusStartMana = t >= MAX_TIER && i >= 6 ? 1 : 0
+  return { bonusLife, bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —
