@@ -312,7 +312,10 @@ class TowerEngine implements Engine {
   private newPlayer(side: Side, deckIds: readonly string[]): PlayerState {
     const deck: CardRef[] = deckIds.map(cardId => ({ uid: this.uidSeq++, cardId }))
     if (this.shuffleDecks) this.rng.shuffle(deck)
-    const life = TUNING.START_LIFE + (this.bonusLife[side] ?? 0)
+    // The AI's per-game draw-luck swing scales its HP too (not just offense), so the WHOLE matchup varies
+    // run-to-run — that is what widens the win/loss transition into a gradual decline instead of a step.
+    const luck = side === 'AI' ? this.enemyLuck : 1
+    const life = Math.round((TUNING.START_LIFE + (this.bonusLife[side] ?? 0)) * luck)
     return {
       side,
       life,

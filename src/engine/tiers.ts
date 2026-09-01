@@ -66,10 +66,11 @@ export function tierName(level: number): string {
  */
 const HP_GROWTH = 1.15 // per-tier HP ratio for BOTH towers (symmetric) — sets battle length, not difficulty
 // The ONE monotonic difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
-const R_MIN = 0.8 // T1 easy onboarding win
-const R_MAX = 2.8 // T24 climax — a brutal ~10% win even for optimal play, as intended
-const R_SHAPE = 1.8 // CONVEX (>1): R stays gentle through the mid (keeps it in-band), then ramps up hard
-//                     for a punishing, gradually-declining T18-24 (only a great deck + luck cracks T24).
+const R_MIN = 0.85 // T1 easy onboarding win
+const R_MAX = 3.6 // T24 climax (~30% win, skewing lower). The wide per-game variance keeps the decline
+//                    GRADUAL even at this range, so raising the ceiling steepens the back half, no cliff.
+const R_SHAPE = 1.4 // mildly convex: gentle early (easy onboarding), then a steady climb so the back
+//                     half declines every tier from ~75% (T13) toward ~25% (T24).
 const RUNG_STEP = 0.04 // within a tier, each later rung is a little stronger
 const BOSS_MULT = 1.2 // the final Boss rung's extra power
 
@@ -122,8 +123,7 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   // Enemy HP = player HP × √R (the tankiness half of the difficulty ratio).
   const enemyHpMult = Math.sqrt(tierR(t, i))
   const bonusLife = Math.round(playerTotal * (enemyHpMult - 1))
-  const bonusStartMana = t >= 18 ? 1 : 0 // a small opening tempo edge at the top only
-  return { bonusLife, bonusStartMana }
+  return { bonusLife, bonusStartMana: 0 } // difficulty is R + luck; no discrete mana step (it cliffed T18)
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —
