@@ -4,16 +4,19 @@
  * is GATED: you must full-clear a tier's 10-boss ladder to unlock the next (enforced by the game via
  * the saved `highestTierCleared`).
  *
- * Difficulty levers, tuned via `TTG_TIER=<n> pnpm harness:ladder`:
- *  - AI depth      — Tier 1 uses the 1-ply search (competent but beatable, for learning); Tier 2+
- *                    use the 2-ply anti-cheese search.
- *  - Boss handicap — bonus life that climbs each tier (flat to all bosses, extra to the back half, a
- *                    growing capstone on the final boss) plus start-mana at the highest tiers.
- *  - Battle conditions — from Tier 14 up (as in The Tower) the PLAYER is also nerfed: escalating
- *    lost starting life. Higher tiers are meant to be brutal; most players won't reach the top.
+ * Difficulty levers, tuned via `pnpm winrate` against the fun curve in docs/GAME_STATE.md §3:
+ *  - AI depth (`tierAiDepth`)   — 1-ply intro (T1-5), 2-ply (T6-8), 3-ply from T9. The dominant lever.
+ *  - Boss handicap (`tierBossHandicap`) — bonus life that climbs each tier + an opening mana edge from
+ *                    the mid tiers, and an HP capstone on the final Boss rung.
+ *  - Enemy card power (`bossCardLevels`) — levels rise every 3 tiers; a small mastery from T9, the full
+ *                    mastery ramp from T13, so the top out-cards you rather than just out-lifes you.
+ *  The old per-tier PLAYER life nerf ("battle conditions") is removed — difficulty is all on the boss.
  */
 
-import { COMBAT_SCALE } from './tuning'
+import { COMBAT_SCALE, TUNING } from './tuning'
+import { ALL_CARD_IDS } from './cards'
+import { CARD_MAX_LEVEL, MASTERY_MAX_LEVEL } from './card-progression'
+import type { CardLevels } from './types'
 
 export const MAX_TIER = 24
 /** From this tier up, the player takes on "battle conditions" (nerfs), as in The Tower. */
@@ -63,15 +66,15 @@ export function tierBaseLife(level: number): number {
   return baseLifeRaw(t) * COMBAT_SCALE
 }
 
-/** Search depth by tier: a beatable 1-ply intro, 2-ply anti-cheese through the mid tiers, and a
- *  3-ply searcher from Tier 14 (battle conditions) up — it reads two of your turns ahead, so it holds
- *  removal, avoids overcommitting, and sets up lethal far better. (3-ply ≈ 31ms/turn, imperceptible.) */
+/** Search depth by tier: a beatable 1-ply intro (T1-5), 2-ply anti-cheese (T6-8), and a 3-ply searcher
+ *  from Tier 9 up — it reads two of your turns ahead, so it holds removal, avoids overcommitting, and
+ *  sets up lethal far better. (3-ply ≈ 31ms/turn, imperceptible.) */
 export function tierAiDepth(level: number): number {
   const t = clampTier(level)
   // Depth is the dominant difficulty lever vs a human: a searching boss out-plays you regardless of
-  // HP. So keep bosses SIMPLE (1-ply) through the easy onboarding tiers, step up to the anti-cheese
-  // 2-ply for the mid game, and only bring the 2-turn-lookahead 3-ply out for the top tiers.
-  return t <= 6 ? 1 : t <= 11 ? 2 : 3
+  // HP. Keep bosses SIMPLE (1-ply) through the easy onboarding tiers, then 3-ply takes over from T9
+  // (where an engaged player's built-up deck would otherwise coast) to hold the mid-and-late pressure.
+  return t <= 5 ? 1 : t <= 8 ? 2 : 3
 }
 
 /**
@@ -89,13 +92,19 @@ export function tierBossHandicap(level: number, index: number): { bonusLife: num
   // punishing one. (Replaced the old brutal/nightmare/capstone spikes wholesale.)
   // Across-tier difficulty: starts NEGATIVE so early bosses are genuinely weaker than you (an easy
   // onboarding win), crosses ~T6, and accelerates in the last third for a fair-but-real top-tier fight.
-  const climb = Math.round((t - 6) * 3.2 + Math.max(0, t - 14) * 4.0) // steeper: compensates buffed player cards
+  const climb = Math.round((t - 6) * 5.0 + Math.max(0, t - 12) * 6.0) // steeper: restores late-game pressure
   const bossRamp = Math.round((i - 1) * (0.4 + t * 0.12)) // within-tier ramp; later rungs a touch harder
   // The 11th "Boss" rung is the real Tower Boss enemy: its identity is a chunk of extra HP (kept
   // beatable — scales gently with tier), not an offense spike.
   const finalBoss = i >= FINAL_BOSS_RUNG ? Math.round(baseLifeRaw(t) * 0.8) + Math.round(t * 0.6) : 0
-  const bonusStartMana = t >= 23 ? 1 : 0 // a tiny opening tempo edge only at the very top (mana, unscaled)
-  return { bonusLife: (climb + bossRamp + finalBoss) * COMBAT_SCALE, bonusStartMana }
+  // Opening tempo edge: a mana lead lets the boss out-develop you — from the mid tiers (where your deck
+  // otherwise outpaces it), more at the very top.
+  const bonusStartMana = t >= 22 ? 2 : t >= 9 ? 1 : 0
+  const raw = (climb + bossRamp + finalBoss) * COMBAT_SCALE
+  // Floor so the enemy always starts with real HP — the steep early `climb` is negative enough at T1 to
+  // drive total life below zero (an instant, unplayable auto-win). Keep at least 20% of START_LIFE.
+  const minBonus = Math.round(TUNING.START_LIFE * 0.2) - TUNING.START_LIFE - tierBaseLife(t)
+  return { bonusLife: Math.max(minBonus, raw), bonusStartMana }
 }
 
 /** Battle-condition player nerf: starting life lost, from Tier 14 up, accelerating past Tier 20 —
@@ -105,4 +114,26 @@ export function tierPlayerLifePenalty(level: number): number {
   // want. Difficulty comes from the boss's gentle handicap + maxed cards, not from gimping the player.
   void level
   return 0
+}
+
+/** The card level every enemy card runs at a tier — rises one step every 3 tiers, maxed by ~T19. */
+export function bossCardLevel(level: number): number {
+  return Math.min(CARD_MAX_LEVEL, 1 + Math.floor((clampTier(level) - 1) / 3))
+}
+
+/** The mastery every enemy card runs at a tier. A small mastery comes online at T9 (the band where an
+ *  engaged player's built-up deck otherwise outpaces the enemy), then the real ramp from T13 to maxed. */
+export function bossCardMastery(level: number): number {
+  const t = clampTier(level)
+  return t >= 13 ? Math.min(MASTERY_MAX_LEVEL, t - 12) : t >= 9 ? 1 : 0
+}
+
+/** The full enemy card-level map for a tier — the single source shared by the game and the harnesses
+ *  (previously duplicated in three places, which could silently drift). */
+export function bossCardLevels(level: number): CardLevels {
+  const lvl = bossCardLevel(level)
+  const mastery = bossCardMastery(level)
+  const out: CardLevels = {}
+  for (const id of ALL_CARD_IDS) out[id] = { level: lvl, mastery }
+  return out
 }

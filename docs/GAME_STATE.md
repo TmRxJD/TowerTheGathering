@@ -122,38 +122,40 @@ Base Tower HP is `START_LIFE = 200` (20 × scale). Kept deliberately **small** s
 
 ### 4.2 AI search depth (`tierAiDepth`) — the dominant difficulty lever vs a human
 ```
-t ≤ 6   → 1‑ply   (simple "intro" AI — easy onboarding)
-7..11   → 2‑ply   (anti‑cheese lookahead)
-t ≥ 12  → 3‑ply   (reads two of your turns ahead)
+t ≤ 5   → 1‑ply   (simple "intro" AI — easy onboarding)
+6..8    → 2‑ply   (anti‑cheese lookahead)
+t ≥ 9   → 3‑ply   (reads two of your turns ahead)
 ```
-A searching enemy out‑plays a human regardless of HP, so **depth is what actually shapes the curve** —
-kept low for the easy tiers, stepping up only for the mid and top.
+A searching enemy out‑plays a human regardless of HP, so **depth is what actually shapes the curve**.
+3‑ply comes on at T9 — the band where an engaged player's built‑up deck would otherwise coast.
 
 ### 4.3 Enemy life edge (`tierBossHandicap(tier, index)`) — smooth, gentle, no walls
 Added to the enemy **on top of** the shared pool. `index` is the rung, 1..11. `bonusLife` is `×scale`.
 ```
-climb     = round((tier-6)*3.2 + max(0, tier-14)*4.0)   // across-tier difficulty: PRIMARY lever
-                                                        //   NEGATIVE early (T1 -16 → frail enemies),
-                                                        //   crosses ~T6, accelerates late
+climb     = round((tier-6)*5.0 + max(0, tier-12)*6.0)   // across-tier difficulty: PRIMARY lever
+                                                        //   NEGATIVE early (frail early enemies),
+                                                        //   crosses ~T6, accelerates from T12
 bossRamp  = round((index-1) * (0.4 + tier*0.12))        // later rungs of a tier a touch harder
 finalBoss = index>=11 ? round(baseLifeRaw(t)*0.8) + round(t*0.6) : 0   // the "Boss" HP chunk
-bonusLife      = (climb + bossRamp + finalBoss) * COMBAT_SCALE
-bonusStartMana = tier >= 23 ? 1 : 0
+bonusLife      = max(floor, (climb + bossRamp + finalBoss) * COMBAT_SCALE)  // floor: enemy keeps ≥20%
+                                                                           //   of START_LIFE (no auto-win)
+bonusStartMana = tier >= 22 ? 2 : tier >= 9 ? 1 : 0     // an opening tempo edge from the mid tiers
 ```
 The old `brutal`/`nightmare`/`capstone` spikes were **removed** — that is the whole point of the TCG
-retune. Worked examples (enemy HP = 200 + tierBaseLife + bonusLife):
+retune. `climb` was made steeper (and start‑mana pulled earlier) to restore late‑game pressure after the
+card rebalance. Worked examples (enemy HP = 200 + tierBaseLife + bonusLife):
 
 | Tier | rung‑1 enemy HP | rung‑11 Boss HP |
 |---|---|---|
-| 1 | 40 | 100 |
+| 1 | 40 | 40 (floored) |
 | 6 | 240 | 420 |
-| 12 | 480 | 800 |
-| 18 | 910 | 1420 |
-| 24 | 1460 | 2150 |
+| 12 | 590 | 910 |
+| 18 | 1330 | 1840 |
+| 24 | 2100 | 2790 |
 
 The **final Boss (rung 11)** carries a distinct HP chunk (`finalBoss`) as the tier's climax — a real
-fight, not a passive‑skill wall. `climb` was made steeper this build to compensate for the buffed
-player cards.
+fight, not a passive‑skill wall. At T1‑2 the 20%‑of‑START_LIFE floor clamps every rung to the same
+40 HP (trivial onboarding), so the Boss‑vs‑boss‑10 gap only appears from T3 up.
 
 ### 4.4 Player "battle conditions" nerf — REMOVED
 ```
@@ -162,14 +164,15 @@ tierPlayerLifePenalty(t) = 0     // was max(0,t-13)*5; a shrinking life bar is e
                                  // enemy's gentle handicap + maxed cards, not gimping you.
 ```
 
-### 4.5 Enemy card levels (`bossLevels`, mirrors the game's `aiCardLevels`)
+### 4.5 Enemy card levels (`bossCardLevels` in `tiers.ts` — one source, shared by game + harnesses)
 ```
-level   = min(7, 1 + floor((tier-1)/3))          // rises every 3 tiers → 7 by T19
-mastery = tier >= 13 ? min(9, tier-12) : 0        // T13 +1 … T21+ maxed (9)
+level   = min(7, 1 + floor((tier-1)/3))                     // rises every 3 tiers → 7 by T19
+mastery = tier >= 13 ? min(9, tier-12) : (tier >= 9 ? 1 : 0) // small mastery from T9, full ramp from T13
 ```
-Enemy offense is a top‑tier difficulty lever: masteries come online at T13 and, at the top tiers
-(19+), climb to near‑maxed so the enemy out‑cards you at the climax through stronger cards rather than
-more life.
+Enemy card power is a difficulty lever: a **small mastery from T9** (the band where a built‑up player
+deck otherwise coasts) plus the full mastery ramp from T13 → near‑maxed by T21, so the enemy out‑cards
+you at the climax through stronger cards rather than only more life. This formula was **deduplicated**
+from three copies (game UI + two harnesses) into `bossCardLevels`, so they can't drift.
 
 ### 4.6 Enemy skills (boss passives)
 Each of the 10 archetype enemies carries an innate **`EnemySkill`** (serialized per side; `bossSkill()`
@@ -400,10 +403,11 @@ cards; authored enemy decks don't include them.
 - **`pnpm progression`** is a deterministic climb (clear‑ability + turns only; it cannot measure win
   rate). `pnpm harness` / `harness:ladder` are the older self‑play harnesses.
 
-Latest curve (N=12, depth‑2 player): T1‑5 ~89‑98% → T6‑12 mostly ~90‑95% (with a T7‑8 dip to ~63‑65%,
-where Saboteur/Scatter bite the now‑gentler player buffs) → T13‑18 ~67‑87% → T19‑24 ~56‑67%. The top
-is intentionally a few points easier than the pillar‑3 spec (the harness player is stronger than a real
-human, so real win rates sit lower; fun > punishing).
+Latest curve (N=12, depth‑2 player), after the difficulty retune that restored late pressure: T2‑5
+~92‑98% → T6 89% → **T7‑8 ~65%** (a structural dip: Saboteur/Scatter bite an early deck) → T9‑12 ~83‑89%
+→ T13‑15 ~73‑84% → T16‑18 ~55‑60% → T19‑24 ~41‑55%, with **T24 ~52%**. On‑target at the anchors (T5, T12,
+T24); the remaining ±5pt wobble is within N=12 noise. The top is intentionally at the top of its band —
+the harness player is stronger than a real human, so real win rates sit lower; fun > punishing.
 
 ---
 

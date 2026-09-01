@@ -17,11 +17,9 @@
  */
 
 import {
-  ALL_CARD_IDS,
   BOSS_DECKS,
   bossSkill,
-  CARD_MAX_LEVEL,
-  MASTERY_MAX_LEVEL,
+  bossCardLevels,
   clampTier,
   createRng,
   maxDeckForTier,
@@ -45,14 +43,6 @@ const BOSS_AI: AiKind = process.env.TTG_BOSS === 'heuristic' ? 'heuristic' : 'se
 const N = Number(process.env.TTG_N ?? 12)
 const MAXTIER = clampTier(Number(process.env.TTG_MAXTIER ?? 24))
 const SEED = process.env.TTG_SEED ?? 'winrate'
-
-function bossLevels(tier: number): CardLevels {
-  const level = Math.min(CARD_MAX_LEVEL, 1 + Math.floor((tier - 1) / 3))
-  const mastery = tier >= 13 ? Math.min(MASTERY_MAX_LEVEL, tier - 12) : 0
-  const out: CardLevels = {}
-  for (const id of ALL_CARD_IDS) out[id] = { level, mastery }
-  return out
-}
 
 const pad = (s: string | number, n: number): string => String(s).padStart(n)
 
@@ -83,7 +73,7 @@ function run(): void {
   console.log('tier   winRate  (target)   bossWR   turns  (target)   deckLvl deckMst  size')
 
   for (let tier = 1; tier <= MAXTIER; tier++) {
-    const bl = bossLevels(tier)
+    const bl = bossCardLevels(tier)
     let totalWins = 0
     let totalGames = 0
     let turnSum = 0

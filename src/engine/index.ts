@@ -48,5 +48,8 @@ export {
   tierAiDepth,
   tierBossHandicap,
   tierPlayerLifePenalty,
+  bossCardLevel,
+  bossCardMastery,
+  bossCardLevels,
   type LadderTier,
 } from './tiers'

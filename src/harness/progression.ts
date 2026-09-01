@@ -18,6 +18,7 @@ import {
   ALL_CARD_IDS,
   BOSS_DECKS,
   bossSkill,
+  bossCardLevels,
   CARD_MAX_LEVEL,
   MASTERY_MAX_LEVEL,
   MAX_TIER,
@@ -43,16 +44,6 @@ const RETRY_CAP = Number(process.env.TTG_RETRY ?? 25)
 const MAXTIER = clampTier(Number(process.env.TTG_MAXTIER ?? MAX_TIER))
 const SEED = process.env.TTG_SEED ?? 'progression'
 
-/** Boss card levels for a tier — mirrors the game's aiCardLevels(): levels rise every 3 tiers, and
- *  masteries come online at tier 13 and climb. */
-function bossLevels(tier: number): CardLevels {
-  const level = Math.min(CARD_MAX_LEVEL, 1 + Math.floor((tier - 1) / 3))
-  const mastery = tier >= 13 ? Math.min(MASTERY_MAX_LEVEL, tier - 12) : 0 // mirror aiCardLevels
-  const out: CardLevels = {}
-  for (const id of ALL_CARD_IDS) out[id] = { level, mastery }
-  return out
-}
-
 const uniq = (deck: string[]): string[] => [...new Set(deck)]
 const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 const pad = (s: string | number, n: number): string => String(s).padStart(n)
@@ -74,7 +65,7 @@ function run(): void {
   let firstMasteryTier = 0
 
   for (let tier = 1; tier <= MAXTIER; tier++) {
-    const bl = bossLevels(tier)
+    const bl = bossCardLevels(tier)
     let earned = 0
     let matches = 0
     let ups = 0

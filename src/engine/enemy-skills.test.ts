@@ -145,8 +145,10 @@ describe('the 11th boss (final Boss)', () => {
   })
 
   it('the final boss always has more HP than boss 10, with a real pile up top', () => {
-    // TCG tuning: a distinct HP chunk, not a punishing wall — modest early, biggest at the top.
-    for (const t of [1, 12, 24]) {
+    // TCG tuning: a distinct HP chunk, not a punishing wall — modest early, biggest at the top. (T1-2
+    // are excluded: there the low-life floor clamps every rung to the same 20%-of-START_LIFE minimum,
+    // which is deliberate — the onboarding tiers are trivial, not a HP race.)
+    for (const t of [6, 12, 24]) {
       expect(tierBossHandicap(t, 11).bonusLife).toBeGreaterThan(tierBossHandicap(t, 10).bonusLife)
     }
     expect(tierBossHandicap(24, 11).bonusLife).toBeGreaterThan(tierBossHandicap(24, 10).bonusLife + 25)
