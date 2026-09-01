@@ -66,8 +66,8 @@ export function tierName(level: number): string {
  */
 const HP_GROWTH = 1.15 // per-tier HP ratio for BOTH towers (symmetric) — sets battle length, not difficulty
 // The ONE monotonic difficulty ratio R(t): the enemy's total power vs the player, rising every tier.
-const R_MIN = 0.85 // T1 easy onboarding win (your full deck vs a weak enemy)
-const R_MAX = 1.55 // T24 climax — near the AI's win/loss step so the top lands ~40%, not a crater
+const R_MIN = 0.8 // T1 easy onboarding win
+const R_MAX = 1.45 // T24 climax — tuned against the HEURISTIC (human-like) player, not the perfect AI
 const R_SHAPE = 1.0 // LINEAR: with a full (flat-power) deck, win rate tracks R directly, so a steady
 //                     linear rise in R gives a steady decline in win rate every tier — the goal.
 const RUNG_STEP = 0.04 // within a tier, each later rung is a little stronger
@@ -135,9 +135,11 @@ export function tierPlayerLifePenalty(level: number): number {
   return 0
 }
 
-/** The card level every enemy card runs at a tier — rises one step every 3 tiers, maxed by ~T19. */
+/** Enemy card level per tier — tracks the player's own realistic deck-levelling (harness deckLvl ≈ 4.7
+ *  at T5, ~7 by T13) so the mid is a FAIR fight, not a walkover from the player out-levelling the enemy.
+ *  Difficulty then comes from R (tierR), not from a card-power mismatch. */
 export function bossCardLevel(level: number): number {
-  return Math.min(CARD_MAX_LEVEL, 1 + Math.floor((clampTier(level) - 1) / 3))
+  return Math.min(CARD_MAX_LEVEL, 1 + Math.round((clampTier(level) - 1) * 0.8))
 }
 
 /** The mastery every enemy card runs at a tier. Ramps EARLY (from T6) and reaches max by ~T17, so the
@@ -145,7 +147,8 @@ export function bossCardLevel(level: number): number {
  *  the player's relative strength spikes there and the win curve bumps back up (non-monotonic). */
 export function bossCardMastery(level: number): number {
   const t = clampTier(level)
-  return Math.min(MASTERY_MAX_LEVEL, Math.max(0, Math.round((t - 5) * 0.8)))
+  // Tracks the player's realistic mastery buying (harness deckMst ≈ 1.5 at T10, ~6 by T24) + a touch more.
+  return Math.min(MASTERY_MAX_LEVEL, Math.max(0, Math.round((t - 7) * 0.5)))
 }
 
 /** The full enemy card-level map for a tier — the single source shared by the game and the harnesses

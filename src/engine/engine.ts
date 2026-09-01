@@ -107,6 +107,9 @@ class TowerEngine implements Engine {
   private readonly cardLevels: Partial<Record<Side, CardLevels>>
   private readonly skills: Partial<Record<Side, EnemySkill>>
   private readonly powerMult: Partial<Record<Side, number>>
+  private readonly deterministicCombat: boolean
+  /** Per-game enemy-offense swing (draw luck), rolled once at construction. 1 in deterministic combat. */
+  private enemyLuck = 1
 
   constructor(opts: EngineOptions, restore?: EngineState) {
     this.rng = createRng(opts.seed ?? 'ttg-default')
@@ -123,6 +126,8 @@ class TowerEngine implements Engine {
       this.cardLevels = restore.cardLevels
       this.skills = restore.skills ?? {}
       this.powerMult = restore.powerMult ?? {}
+      this.deterministicCombat = restore.deterministicCombat ?? false
+      this.enemyLuck = restore.enemyLuck ?? 1
       this.activeSide = restore.activeSide
       this.players = { HUMAN: this.blankPlayer('HUMAN'), AI: this.blankPlayer('AI') }
       this.loadState(restore)
@@ -135,6 +140,9 @@ class TowerEngine implements Engine {
     this.cardLevels = opts.cardLevels ?? {}
     this.skills = opts.skills ?? {}
     this.powerMult = opts.powerMult ?? {}
+    this.deterministicCombat = opts.deterministicCombat ?? false
+    // Per-game enemy draw-luck swing (spreads the win curve). Rolled from the seed; 1 when deterministic.
+    if (!this.deterministicCombat) this.enemyLuck = 1 + (this.rng.next() * 2 - 1) * TUNING.GAME_VARIANCE
     this.players = {
       HUMAN: this.newPlayer('HUMAN', opts.humanDeck),
       AI: this.newPlayer('AI', opts.aiDeck),
@@ -219,6 +227,8 @@ class TowerEngine implements Engine {
       bonusLife: { ...this.bonusLife },
       skills: { ...this.skills },
       powerMult: { ...this.powerMult },
+      deterministicCombat: this.deterministicCombat,
+      enemyLuck: this.enemyLuck,
       bonusStartMana: { ...this.bonusStartMana },
       cardLevels: this.cardLevels,
     }
@@ -500,7 +510,7 @@ class TowerEngine implements Engine {
     // Enemy skills that fire at the start of the skilled side's turn.
     const skill = this.skillOf(side)
     const foe = this.opponent(side)
-    const pMult = this.powerMult[side] ?? 1 // scale this side's skill damage with its ladder offense
+    const pMult = (this.powerMult[side] ?? 1) * (side === 'AI' ? this.enemyLuck : 1) // ladder offense × luck
     if (skill === 'vampire') {
       // Drain the enemy Nexus into your own (its regen is disabled below while it faces you).
       const drain = Math.round(ENEMY_SKILL.vampireDrain * pMult)
@@ -1167,10 +1177,18 @@ class TowerEngine implements Engine {
         ann.data.critsUsed = used + 1
       }
     }
-    if (!crit && this.countModule(side, 'critical-chance') > 0 && this.rng.chance(this.cardVal(side, 'critical-chance'))) {
-      crit = true
+    if (!crit) {
+      // Every unit has a base crit chance, plus any Critical Chance card — swingy combat (see TUNING).
+      const base = this.deterministicCombat ? 0 : TUNING.BASE_CRIT_CHANCE
+      const critChance = base +
+        (this.countModule(side, 'critical-chance') > 0 ? this.cardVal(side, 'critical-chance') : 0)
+      if (critChance > 0 && this.rng.chance(critChance)) crit = true
     }
     if (crit) atk *= TUNING.CRIT_MULTIPLIER
+    // Per-attack damage variance (±COMBAT_VARIANCE): the rest of what turns certain games into coin-flips.
+    if (!this.deterministicCombat) {
+      atk = Math.max(1, Math.round(atk * (1 + (this.rng.next() * 2 - 1) * TUNING.COMBAT_VARIANCE)))
+    }
     // Havoc Bringer (rend armor): enemy UNITS take extra damage from this side's attacks.
     const havoc = this.countModule(side, 'havoc-bringer') * this.cardVal(side, 'havoc-bringer')
 
@@ -1538,8 +1556,10 @@ class TowerEngine implements Engine {
     // Flame Bot: burned units deal a flat bit less per Flame Bot.
     atk -= this.countModule(opp, 'flame-bot') * COMBAT_SCALE
     if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
-    // Ladder difficulty: this side's offense multiplier (the enemy hits progressively harder each tier).
-    return Math.round(Math.max(0, atk) * (this.powerMult[side] ?? 1))
+    // Ladder difficulty: this side's offense multiplier (the enemy hits progressively harder each tier),
+    // × the AI's per-game draw-luck swing (spreads the win curve).
+    const luck = side === 'AI' ? this.enemyLuck : 1
+    return Math.round(Math.max(0, atk) * (this.powerMult[side] ?? 1) * luck)
   }
 
   private canAct(unit: UnitInstance): boolean {

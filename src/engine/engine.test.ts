@@ -24,6 +24,7 @@ function build(humanTail: string[], aiTail: string[], seed = 'test'): Engine {
     seed,
     shuffle: false,
     firstPlayer: 'HUMAN',
+    deterministicCombat: true,
   })
   return engine
 }
@@ -210,6 +211,7 @@ describe('card levels + mastery', () => {
       firstPlayer: 'HUMAN',
       // Damage at level 6 + mastery 1 → a % ATK buff (geometric law); assert vs cardLevelValue itself.
       cardLevels: { HUMAN: { damage: { level: 6, mastery: 1 } } },
+      deterministicCombat: true,
     })
     pass(e) // t1 → AI
     pass(e) // AI → t2

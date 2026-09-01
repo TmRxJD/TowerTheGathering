@@ -268,6 +268,9 @@ export interface EngineOptions {
   /** Per-side offense multiplier on a unit's effective ATK and this side's skill damage. The primary,
    *  SMOOTH ladder-difficulty lever: the enemy hits progressively harder each tier (default 1). */
   readonly powerMult?: Partial<Record<Side, number>>
+  /** Turn OFF combat variance (per-attack damage roll + base crit). Deterministic combat for unit tests
+   *  that assert exact damage numbers; the real game and win-rate harness leave it on. Default false. */
+  readonly deterministicCombat?: boolean
 }
 
 /**
@@ -347,6 +350,8 @@ export interface EngineState {
   cardLevels: Partial<Record<Side, CardLevels>>
   skills: Partial<Record<Side, EnemySkill>>
   powerMult: Partial<Record<Side, number>>
+  deterministicCombat: boolean
+  enemyLuck: number
 }
 
 export interface Engine {

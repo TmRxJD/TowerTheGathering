@@ -46,6 +46,7 @@ function playOut(humanDeck: string[], aiDeck: string[], levels?: Partial<Record<
     seed: 'smoke',
     shuffle: true,
     ...(levels ? { cardLevels: levels } : {}),
+    deterministicCombat: true,
   })
   const ai = { HUMAN: new HeuristicAI(engine, 'HUMAN'), AI: new HeuristicAI(engine, 'AI') }
   let guard = 0
@@ -72,7 +73,7 @@ function build(humanTail: string[], aiTail: string[]): Engine {
     const pad = Array.from({ length: TUNING.DECK_SIZE - tail.length }, () => 'cash')
     return [...pad, ...[...tail].reverse()]
   }
-  return createEngine({ humanDeck: mk(humanTail), aiDeck: mk(aiTail), seed: 'exp', shuffle: false, firstPlayer: 'HUMAN' }).engine
+  return createEngine({ humanDeck: mk(humanTail), aiDeck: mk(aiTail), seed: 'exp', shuffle: false, firstPlayer: 'HUMAN', deterministicCombat: true }).engine
 }
 /** Advance until HUMAN is active with at least `mana` available. */
 function toHumanMana(e: Engine, mana: number) {

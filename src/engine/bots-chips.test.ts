@@ -35,7 +35,7 @@ function build(humanTail: string[], aiTail: string[]): Engine {
     const pad = Array.from({ length: TUNING.DECK_SIZE - tail.length }, () => 'cash')
     return [...pad, ...[...tail].reverse()]
   }
-  return createEngine({ humanDeck: mk(humanTail), aiDeck: mk(aiTail), seed: 'bc', shuffle: false, firstPlayer: 'HUMAN' }).engine
+  return createEngine({ humanDeck: mk(humanTail), aiDeck: mk(aiTail), seed: 'bc', shuffle: false, firstPlayer: 'HUMAN', deterministicCombat: true }).engine
 }
 /** Advance until HUMAN is active with at least `mana` available. */
 function toHumanMana(e: Engine, mana: number) {
@@ -77,7 +77,7 @@ describe('bots + chips coverage', () => {
     const maxed: CardLevels = {}
     for (const id of ALL_CARD_IDS) maxed[id] = { level: CARD_MAX_LEVEL, mastery: MASTERY_MAX_LEVEL }
     for (const levels of [undefined, { HUMAN: maxed, AI: maxed }] as const) {
-      const { engine } = createEngine({ humanDeck: deck, aiDeck: foe, seed: 'bc-smoke', shuffle: true, ...(levels ? { cardLevels: levels } : {}) })
+      const { engine } = createEngine({ humanDeck: deck, aiDeck: foe, seed: 'bc-smoke', shuffle: true, ...(levels ? { cardLevels: levels } : {}), deterministicCombat: true })
       const ai = { HUMAN: new HeuristicAI(engine, 'HUMAN'), AI: new HeuristicAI(engine, 'AI') }
       let guard = 0
       while (!engine.isOver() && guard++ < 600) ai[engine.snapshot().activeSide].takeTurn()

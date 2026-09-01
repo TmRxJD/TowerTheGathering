@@ -42,6 +42,7 @@ import { playMatch, type AiKind } from './match'
 const PLAYER_AI: AiKind = process.env.TTG_PLAYER === 'heuristic' ? 'heuristic' : 'search'
 const BOSS_AI: AiKind = process.env.TTG_BOSS === 'heuristic' ? 'heuristic' : 'search'
 const N = Number(process.env.TTG_N ?? 12)
+const PDEPTH = Number(process.env.TTG_PDEPTH ?? 2) // player search depth (1=weak/human-ish … 3=optimal)
 const MAXTIER = clampTier(Number(process.env.TTG_MAXTIER ?? 24))
 const SEED = process.env.TTG_SEED ?? 'winrate'
 
@@ -95,6 +96,7 @@ function run(): void {
           humanBonusLife: tierBaseLife(tier) - tierPlayerLifePenalty(tier),
           aiDepth: tierAiDepth(tier),
           humanAi: PLAYER_AI,
+          humanDepth: PDEPTH,
           aiAi: BOSS_AI,
           humanCardLevels: coll,
           aiCardLevels: bl,

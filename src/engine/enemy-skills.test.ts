@@ -27,7 +27,7 @@ function build(humanTail: string[], aiTail: string[], aiSkill: EnemySkill = 'non
     const pad = Array.from({ length: TUNING.DECK_SIZE - t.length }, () => 'cash')
     return [...pad, ...[...t].reverse()]
   }
-  return createEngine({ humanDeck: mk(humanTail), aiDeck: mk(aiTail), seed: 'es', shuffle: false, firstPlayer, skills: { AI: aiSkill } }).engine
+  return createEngine({ humanDeck: mk(humanTail), aiDeck: mk(aiTail), seed: 'es', shuffle: false, firstPlayer, skills: { AI: aiSkill }, deterministicCombat: true }).engine
 }
 function aiPlays(e: Engine, cardId: string, lane: Lane) {
   for (let g = 0; g < 14; g++) {
