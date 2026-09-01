@@ -11,7 +11,7 @@
  * asserts the output moves. If you add a card, add the assertion too.
  */
 
-import { getCard, MINE_TOKEN } from './cards'
+import { getCard, MINE_TOKEN, SUMMON_TOKEN } from './cards'
 import { cardLevelValue, cardMasterySpecial, cardUnitStat, type MasterySpecial } from './card-progression'
 import { createRng, type Rng } from './rng'
 import { TUNING } from './tuning'
@@ -75,6 +75,7 @@ const ULTIMATE_TARGET: Readonly<Record<string, TargetType>> = {
   'chain-lightning': 'enemyUnit',
   spotlight: 'enemyUnit',
   'shrink-ray': 'enemyUnit',
+  'guardian-attack': 'anyUnit',
 }
 
 class TowerEngine implements Engine {
@@ -445,6 +446,27 @@ class TowerEngine implements Engine {
         events.push({ type: 'unitBuffed', uid: focus.uid, atk: focus.atk, hp: focus.hp })
       }
     }
+    // Flame Bot: burn — damage every enemy unit each turn (their ATK penalty is applied in unitAtk).
+    if (this.countModule(side, 'flame-bot') > 0) {
+      const dmg = this.cardVal(side, 'flame-bot') * this.countModule(side, 'flame-bot') * this.botAmp(side)
+      const opp = this.opponent(side)
+      for (const lane of LANES) for (const u of [...this.lanes[lane][opp]]) this.damageUnit(u, dmg, null, false, events)
+      if (this.winner !== null) return
+    }
+    // Thunder Bot: stun the strongest enemy unit each turn (linger = more turns at higher levels).
+    if (this.countModule(side, 'thunder-bot') > 0) {
+      const turns = this.cardVal(side, 'thunder-bot') * this.botAmp(side)
+      const target = this.strongestEnemyUnit(side)
+      if (target) {
+        target.frozenTurns = Math.max(target.frozenTurns, turns)
+        events.push({ type: 'unitFrozen', uid: target.uid, turns: target.frozenTurns })
+      }
+    }
+    // Golden Bot: coin farming — steady temporary mana each turn.
+    if (this.countModule(side, 'golden-bot') > 0) {
+      p.manaPool += this.cardVal(side, 'golden-bot') * this.countModule(side, 'golden-bot') * this.botAmp(side)
+      events.push({ type: 'manaChanged', side, pool: p.manaPool, max: p.manaMax })
+    }
     // Space Displacer: inner land mines organize around the tower — a Mine per empty lane.
     if (this.countModule(side, 'space-displacer') > 0) {
       const hp = this.cardVal(side, 'space-displacer')
@@ -764,6 +786,70 @@ class TowerEngine implements Engine {
         if (u) u.chargedCritMultiplier = this.cardVal(side, 'ultimate-crit')
         break
       }
+      case 'guardian-attack': {
+        // Attack Chip: strike a unit for the damage it has ALREADY taken, plus a level bonus.
+        const u = this.unitByTarget(target)
+        if (u) {
+          const dmg = u.maxHp - u.hp + this.cardVal(side, 'guardian-attack')
+          if (dmg > 0) this.damageUnit(u, dmg, null, false, events)
+        }
+        break
+      }
+      case 'guardian-ally': {
+        // Ally Chip: convert the weakest enemy unit to your side (destroyed if your lane is full).
+        const victim = this.weakestEnemyUnit(side)
+        if (victim) {
+          const opp = this.opponent(side)
+          const lane = victim.lane
+          const from = this.lanes[lane][opp]
+          const i = from.indexOf(victim)
+          if (i >= 0) from.splice(i, 1)
+          const stack = this.lanes[lane][side]
+          if (stack.length < TUNING.LANE_STACK_CAP) {
+            victim.owner = side
+            victim.tappedTurns = Math.max(victim.tappedTurns, 1) // freshly turned — can't attack this turn
+            const buff = this.cardVal(side, 'guardian-ally') - 1 // Loyal Ally mastery: +buff/+buff
+            if (buff > 0) {
+              victim.atk += buff
+              victim.maxHp += buff
+              victim.hp += buff
+            }
+            const index = victim.innate.has('defender') ? 0 : stack.length
+            if (index === 0) stack.unshift(victim)
+            else stack.push(victim)
+            events.push({ type: 'unitPlaced', unit: victim, index })
+          }
+        }
+        break
+      }
+      case 'guardian-bounty': {
+        // Bounty Chip: collect a bounty of cards.
+        const n = this.cardVal(side, 'guardian-bounty')
+        for (let i = 0; i < n; i++) this.drawCard(p, events)
+        break
+      }
+      case 'guardian-fetch': {
+        // Fetch Chip: steal life from the enemy Nexus into yours, then retrieve a card.
+        const drain = this.cardVal(side, 'guardian-fetch')
+        this.damageNexus(this.opponent(side), drain, events)
+        this.healNexus(side, drain, events)
+        this.drawCard(p, events)
+        break
+      }
+      case 'guardian-summon': {
+        // Summon Chip: call an Ally token into each empty friendly lane.
+        const val = this.cardVal(side, 'guardian-summon')
+        for (const lane of LANES) {
+          if (this.lanes[lane][side].length > 0) continue
+          const ally = this.makeUnit(side, SUMMON_TOKEN.id, lane)
+          ally.atk = val
+          ally.maxHp = val
+          ally.hp = val
+          this.lanes[lane][side].push(ally)
+          events.push({ type: 'unitPlaced', unit: ally, index: 0 })
+        }
+        break
+      }
       case 'nuke': {
         for (const lane of LANES) {
           for (const s of SIDES) {
@@ -863,6 +949,16 @@ class TowerEngine implements Engine {
     let best: UnitInstance | undefined
     for (const lane of LANES) for (const u of this.lanes[lane][opp]) {
       if (!best || u.atk > best.atk) best = u
+    }
+    return best
+  }
+
+  /** The enemy unit (of `side`'s foe) with the LOWEST ATK. For the Ally Chip (converts the weakest). */
+  private weakestEnemyUnit(side: Side): UnitInstance | undefined {
+    const opp = this.opponent(side)
+    let best: UnitInstance | undefined
+    for (const lane of LANES) for (const u of this.lanes[lane][opp]) {
+      if (!best || u.atk < best.atk) best = u
     }
     return best
   }
@@ -1348,10 +1444,17 @@ class TowerEngine implements Engine {
       atk += this.countModule(side, 'singularity-harness') * this.cardVal(side, 'singularity-harness')
     // Project Funding: damage scales with your banked mana (per 3 in pool).
     atk += this.countModule(side, 'project-funding') * this.cardVal(side, 'project-funding') * Math.floor(this.players[side].manaPool / 3)
+    // Amplify Bot / Bot Bot: your own bots buff your units' ATK (Bot Bot also doubles other bots).
+    atk += this.countModule(side, 'amplify-bot') * this.cardVal(side, 'amplify-bot') * this.botAmp(side)
+    atk += this.countModule(side, 'bot-bot') * this.cardVal(side, 'bot-bot')
     // Enemy Balance buffs the units of the module owner's OPPONENT (fixed +1 per copy).
     atk += this.countModule(this.opponent(side), 'enemy-balance')
     // Negative Mass Projector: the enemy's projector saps this unit's ATK.
     atk -= this.countModule(this.opponent(side), 'negative-mass-projector') * this.cardVal(this.opponent(side), 'negative-mass-projector')
+    // Scout Chip / Flame Bot: the enemy's recon and burn sap this unit's ATK (Scout by level, burn −1).
+    const opp = this.opponent(side)
+    atk -= this.countModule(opp, 'guardian-scout') * this.cardVal(opp, 'guardian-scout')
+    atk -= this.countModule(opp, 'flame-bot') // burned units deal 1 less per Flame Bot
     if (superTurn[side]) atk += this.cardVal(side, 'super-tower')
     return Math.max(0, atk)
   }
@@ -1372,6 +1475,11 @@ class TowerEngine implements Engine {
 
   private opponent(side: Side): Side {
     return side === 'HUMAN' ? 'AI' : 'HUMAN'
+  }
+
+  /** Bot Bot amplifies your OTHER bots: their magnitude is multiplied by this (×2 with a Bot Bot). */
+  private botAmp(side: Side): number {
+    return 1 + this.countModule(side, 'bot-bot')
   }
 
   private frontUnit(lane: Lane, side: Side): UnitInstance | undefined {

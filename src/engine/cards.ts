@@ -476,6 +476,65 @@ export const CARD_CATALOG: Readonly<Record<string, CardDef>> = {
     text: 'Start of your turn: focus fire — your strongest unit gains +1 ATK.',
     art: 'om-chip.webp',
   },
+
+  // --- Bots (the 5 real Tower bots, adapted as companion modules) --------------
+  'flame-bot': {
+    id: 'flame-bot', name: 'Flame Bot', rarity: 'epic', type: 'MODULE', cost: 3,
+    text: 'Start of your turn: burn all enemy units for 2 damage. Burned (enemy) units have −1 ATK.',
+    art: 'flame-bot.webp',
+  },
+  'thunder-bot': {
+    id: 'thunder-bot', name: 'Thunder Bot', rarity: 'rare', type: 'MODULE', cost: 3,
+    text: 'Start of your turn: stun the strongest enemy unit for 1 turn.',
+    art: 'thunder-bot.webp',
+  },
+  'golden-bot': {
+    id: 'golden-bot', name: 'Golden Bot', rarity: 'rare', type: 'MODULE', cost: 2,
+    text: 'Start of your turn: gain +1 temporary mana (coin farming).',
+    art: 'golden-bot.webp',
+  },
+  'amplify-bot': {
+    id: 'amplify-bot', name: 'Amplify Bot', rarity: 'rare', type: 'MODULE', cost: 3,
+    text: 'Amplify: your units have +1 ATK.',
+    art: 'amplify-bot.webp',
+  },
+  'bot-bot': {
+    id: 'bot-bot', name: 'Bot Bot', rarity: 'epic', type: 'MODULE', cost: 3,
+    text: 'Your units have +1 ATK, and your OTHER Bots trigger twice as strongly.',
+    art: 'bot-bot.webp',
+  },
+
+  // --- Guardian chips (the 6 released chips, adapted as one-shot activations) ---
+  'guardian-ally': {
+    id: 'guardian-ally', name: 'Ally Chip', rarity: 'epic', type: 'ULTIMATE', cost: 3,
+    text: 'Convert the weakest enemy unit to your side.',
+    art: 'guardian-ally.webp',
+  },
+  'guardian-attack': {
+    id: 'guardian-attack', name: 'Attack Chip', rarity: 'rare', type: 'ULTIMATE', cost: 2,
+    text: 'Deal damage to a unit equal to the damage it has already taken.',
+    art: 'guardian-attack.webp',
+  },
+  'guardian-bounty': {
+    id: 'guardian-bounty', name: 'Bounty Chip', rarity: 'rare', type: 'ULTIMATE', cost: 2,
+    text: 'Collect a bounty: draw 2 cards.',
+    art: 'guardian-bounty.webp',
+  },
+  'guardian-fetch': {
+    id: 'guardian-fetch', name: 'Fetch Chip', rarity: 'rare', type: 'ULTIMATE', cost: 3,
+    text: 'Steal 3 HP from the enemy Nexus (heal your own) and draw a card.',
+    art: 'guardian-fetch.webp',
+  },
+  'guardian-summon': {
+    id: 'guardian-summon', name: 'Summon Chip', rarity: 'rare', type: 'ULTIMATE', cost: 3,
+    text: 'Summon a 2/2 Ally into each empty friendly lane.',
+    art: 'guardian-summon.webp',
+  },
+  'guardian-scout': {
+    id: 'guardian-scout', name: 'Scout Chip', rarity: 'rare', type: 'MODULE', cost: 2,
+    text: 'Scouted: all enemy units have −1 ATK.',
+    art: 'guardian-scout.webp',
+  },
 }
 
 /** The mine token spawned by Land Mine Chance is not a deck card; defined here for the engine. */
@@ -492,10 +551,24 @@ export const MINE_TOKEN: CardDef = {
   art: 'land-mine-chance.webp',
 }
 
+/** The ally token summoned by the Summon Chip is not a deck card; defined here for the engine. */
+export const SUMMON_TOKEN: CardDef = {
+  id: 'summon-token',
+  name: 'Summoned Ally',
+  rarity: 'common',
+  type: 'UNIT',
+  cost: 0,
+  atk: 2,
+  hp: 2,
+  text: 'A summoned ally token.',
+  art: 'guardian-summon.webp',
+}
+
 export const ALL_CARD_IDS: readonly string[] = Object.keys(CARD_CATALOG)
 
 export function getCard(cardId: string): CardDef {
   if (cardId === MINE_TOKEN.id) return MINE_TOKEN
+  if (cardId === SUMMON_TOKEN.id) return SUMMON_TOKEN
   const def = CARD_CATALOG[cardId]
   if (!def) throw new Error(`Unknown card id: ${cardId}`)
   return def

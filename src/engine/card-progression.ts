@@ -115,6 +115,21 @@ export const CARD_PROG: Readonly<Record<string, CardProg>> = {
   'magnetic-hook': { levels: [2, 3, 4, 5, 6, 7, 8], masteryName: 'Reel', masteryText: '+1 hook damage per level.', masteryBonus: 1 },
   'multiverse-nexus': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Synchrony', masteryText: '+1 synced free Ultimate per level.', masteryBonus: 1 },
   'om-chip': { levels: [1, 2, 3, 4, 5, 6, 7], masteryName: 'Focus', masteryText: '+1 focus ATK per level.', masteryBonus: 1 },
+
+  // --- Bots ---
+  'flame-bot': { levels: [2, 2, 3, 3, 4, 4, 5], masteryName: 'Burn Stack', masteryText: '+1 burn damage per level.', masteryBonus: 1 },
+  'thunder-bot': { levels: [1, 1, 1, 1, 2, 2, 2], masteryName: 'Linger', masteryText: '+1 stun turn per level.', masteryBonus: 1 },
+  'golden-bot': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Gold Rush', masteryText: '+1 mana per level.', masteryBonus: 1 },
+  'amplify-bot': { levels: [1, 1, 2, 2, 3, 3, 4], masteryName: 'Overdrive', masteryText: '+1 ATK per level.', masteryBonus: 1 },
+  'bot-bot': { levels: [1, 1, 1, 2, 2, 2, 3], masteryName: 'Maximum Power', masteryText: '+1 ATK per level.', masteryBonus: 1 },
+
+  // --- Guardian chips ---
+  'guardian-ally': { levels: [1, 1, 1, 1, 1, 1, 1], masteryName: 'Loyal Ally', masteryText: 'The converted unit gains +1/+1 per level.', masteryBonus: 1 },
+  'guardian-attack': { levels: [0, 1, 2, 3, 4, 5, 6], masteryName: 'Execute', masteryText: '+1 bonus damage per level.', masteryBonus: 1 },
+  'guardian-bounty': { levels: [2, 2, 3, 3, 3, 4, 4], masteryName: 'Jackpot', masteryText: '+1 card drawn per level.', masteryBonus: 1 },
+  'guardian-fetch': { levels: [3, 4, 5, 6, 7, 8, 10], masteryName: 'Big Haul', masteryText: '+1 HP stolen per level.', masteryBonus: 1 },
+  'guardian-summon': { levels: [2, 3, 3, 4, 4, 5, 6], masteryName: 'Swarm', masteryText: '+1 token ATK/HP per level.', masteryBonus: 1 },
+  'guardian-scout': { levels: [1, 1, 2, 2, 2, 3, 3], masteryName: 'Recon', masteryText: '−1 more enemy ATK per level.', masteryBonus: 1 },
 }
 
 /** How a card's numeric value is shown, and what the number MEANS (so the UI reads like the game). */
@@ -193,6 +208,19 @@ export const CARD_DISPLAY: Readonly<Record<string, CardDisplay>> = {
   'magnetic-hook': { fmt: 'flat', label: 'damage to the strongest enemy unit each turn' },
   'multiverse-nexus': { fmt: 'flat', label: 'synced free Ultimate(s) after you play one (they fire together)' },
   'om-chip': { fmt: 'plus', label: 'ATK to your strongest unit each turn' },
+  // Bots
+  'flame-bot': { fmt: 'flat', label: 'burn damage to all enemy units each turn (they get −1 ATK)' },
+  'thunder-bot': { fmt: 'flat', label: 'turns the strongest enemy unit is stunned each turn' },
+  'golden-bot': { fmt: 'plus', label: 'temporary mana each turn' },
+  'amplify-bot': { fmt: 'plus', label: 'ATK to all your units' },
+  'bot-bot': { fmt: 'plus', label: 'ATK to your units (doubles your other Bots)' },
+  // Guardian chips
+  'guardian-ally': { fmt: 'flat', label: 'weakest enemy unit converted to your side' },
+  'guardian-attack': { fmt: 'plus', label: "damage on top of the target's missing HP" },
+  'guardian-bounty': { fmt: 'flat', label: 'cards drawn' },
+  'guardian-fetch': { fmt: 'flat', label: 'HP stolen from the enemy Nexus (then draw 1)' },
+  'guardian-summon': { fmt: 'flat', label: 'ATK/HP of an Ally summoned in each empty lane' },
+  'guardian-scout': { fmt: 'flat', label: 'ATK removed from all enemy units' },
 }
 
 /** Format a card value for display per its fmt: percent (50%), additive (+2), or plain (5). */

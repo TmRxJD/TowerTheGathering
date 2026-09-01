@@ -12,8 +12,11 @@ export function cardValue(id: string): number {
   const d = getCard(id)
   if (d.type === 'UNIT') return (d.atk ?? 0) * 1.3 + (d.hp ?? 0) * 0.9 + d.cost
   if (id === 'nuke' || id === 'death-ray') return 9
+  if (id === 'bot-bot' || id === 'flame-bot' || id === 'guardian-ally') return 8 // premium bots/chips
   if (id === 'plasma-cannon' || id === 'energy-net' || id === 'demon-mode') return 7
+  if (id === 'thunder-bot' || id === 'amplify-bot' || id === 'guardian-summon' || id === 'guardian-fetch') return 6.5
   if (id === 'super-tower' || id === 'ultimate-crit' || id === 'recovery-package') return 6
+  if (id === 'guardian-attack' || id === 'guardian-bounty' || id === 'guardian-scout' || id === 'golden-bot') return 5.5
   if (id === 'damage' || id === 'attack-speed' || id === 'critical-chance') return 5
   if (id === 'health-regen' || id === 'coins' || id === 'critical-coin' || id === 'health') return 4.5
   if (id === 'enemy-balance') return 1 // self-harm; a decent player avoids it
