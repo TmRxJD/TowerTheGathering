@@ -10,3 +10,8 @@ coverage/
 # session scratch (debug/sim throwaways)
 .scratch/
 dist-embed/
+
+# tooling / build output
+build/
+.turbo/
+graphify-out/
