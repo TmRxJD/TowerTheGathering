@@ -7,6 +7,27 @@ reshaped into 31 cards across three lanes.
 > **Full design & rules:** [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — read this first. It is the
 > single source of truth; the engine implements exactly what it says.
 
+## Enemies & their specials
+
+Each tier is an 11-enemy ladder; the same enemies recur every tier, each with a signature ability you can
+plan against. **In a match, hover (or tap) the enemy Tower to see the current enemy's special**, and the
+Help screen (`?`) lists them all. The player-facing text below is generated from `ENEMY_SKILL_INFO`
+(`src/engine/decks.ts`) — the single source shared by the tooltip, Help, and the docs.
+
+| # | Enemy | Special |
+|---|---|---|
+| 1 | Basic | No special ability — a straight fight. |
+| 2 | Fast | **First Strike** — its units strike first in every combat, before yours lands. |
+| 3 | Tank | **Armored** — its units enter with a big chunk of bonus HP. |
+| 4 | Ranged | **Reach** — its units attack from the back row and can hit an adjacent lane. |
+| 5 | Vampire | **Lifedrain** — each turn it drains your Tower's HP into its own and shuts off your Health Regen. |
+| 6 | Protector | **Damage Reduction** — its units shrug off part of every hit (min 1 lands). |
+| 7 | Saboteur | **Sabotage** — each turn it taps your strongest unit, skipping its next attack. |
+| 8 | Scatter | **Split** — when one of its units dies, a small token spawns in its place. |
+| 9 | Overcharge | **Overcharge** — every 3rd turn it fires a charged ray for burst damage to your Tower. |
+| 10 | Commander | **Rally** — all of its units get bonus ATK. |
+| 11 | Boss | No passive, but a massive wall of extra HP — bring sustained damage. |
+
 ## Why a separate repo
 
 Deliberately standalone, so nothing tangles with the host site early. Built **engine-first and

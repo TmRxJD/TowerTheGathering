@@ -35,6 +35,7 @@ import {
   getCard,
   rewardCandidates,
   bossSkill,
+  ENEMY_SKILL_INFO,
   tierAiDepth,
   tierBossHandicap,
   tierEnemyPowerMult,
@@ -394,6 +395,13 @@ export class GameApp {
     const deck = this.div('ttg-deck')
     const modules = this.div('ttg-modules')
     el.append(portrait, who, hpwrap, mana, deck, modules)
+    if (side === 'ai') {
+      // Hover (or tap) the enemy Tower to see its signature special, so it can be planned against.
+      el.classList.add('has-info')
+      el.addEventListener('mouseenter', () => this.showEnemyInfo(el.getBoundingClientRect()))
+      el.addEventListener('mouseleave', () => this.hidePreview())
+      el.addEventListener('click', () => this.showEnemyInfo(el.getBoundingClientRect()))
+    }
     return { el, portrait, hpFill, hpTxt, manaNum, crystals, deck, modules }
   }
 
@@ -1350,6 +1358,29 @@ export class GameApp {
     this.previewEl.style.display = 'none'
   }
 
+  /** Reuse the hover panel to show the current enemy's signature special (see ENEMY_SKILL_INFO), so the
+   *  player can plan against it. Positioned like a card preview, anchored to the enemy Tower. */
+  private showEnemyInfo(rect: DOMRect): void {
+    const boss = BOSS_DECKS[this.bossIndex - 1]
+    if (!boss) return
+    const desc = ENEMY_SKILL_INFO[bossSkill(boss.name)]
+    this.previewEl.dataset.rarity = 'enemy'
+    this.previewEl.innerHTML =
+      `<div class="pv-head"><span class="pv-name">${boss.name}</span></div>` +
+      `<div class="pv-meta">Enemy Tower · special ability</div>` +
+      `<div class="pv-text">${desc}</div>`
+    this.previewEl.style.display = 'block'
+    const r = this.rootRect()
+    const pw = this.previewEl.offsetWidth
+    const ph = this.previewEl.offsetHeight
+    let left = rect.left - r.left + rect.width / 2 - pw / 2
+    left = Math.max(8, Math.min(left, r.width - pw - 8))
+    let top = rect.bottom - r.top + 10
+    if (top + ph > r.height - 6) top = rect.top - r.top - ph - 10 // flip above if it would clip the bottom
+    this.previewEl.style.left = `${left}px`
+    this.previewEl.style.top = `${top}px`
+  }
+
   private showHelp(): void {
     this.root.querySelector('.ttg-help')?.remove()
     const kw = Object.values(KEYWORD_INFO)
@@ -1358,6 +1389,10 @@ export class GameApp {
     const st = Object.values(STATUS_INFO)
       .map(v => `<li>${v}</li>`)
       .join('')
+    const enemies = BOSS_DECKS.map(b => {
+      const desc = ENEMY_SKILL_INFO[bossSkill(b.name)]
+      return `<li><b>${b.name}</b> — ${desc}</li>`
+    }).join('')
     const el = this.div('ttg-help')
     el.innerHTML =
       `<div class="help-card">` +
@@ -1370,6 +1405,7 @@ export class GameApp {
       `<p><b>Fatigue:</b> once your deck is empty, drawing hurts you a little more each time — so games always end.</p>` +
       `<p><b>Keywords:</b></p><ul>${kw}</ul>` +
       `<p><b>Statuses:</b></p><ul>${st}</ul>` +
+      `<p><b>Enemy specials:</b> each tier's 11 enemies keep the same abilities — hover (or tap) the enemy Tower in a match to see the current one.</p><ul class="help-enemies">${enemies}</ul>` +
       `<p class="help-tip">Tip: hover any card to see it full-size. Use <b>Autoplay</b> to watch the AI play both sides.</p>` +
       `<button class="ttg-btn ready">Got it</button>` +
       `</div>`

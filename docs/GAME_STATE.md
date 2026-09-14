@@ -180,6 +180,11 @@ Boss and the Basic enemy have none.
 | Commander | its whole army has **+10 ATK** |
 | Boss / Basic | none (the Boss's threat is its HP pile) |
 
+Player-facing one-line descriptions of every skill live in **`ENEMY_SKILL_INFO`** (`decks.ts`, keyed by
+`EnemySkill`) — the single source shared by the in-game enemy tooltip, the Help screen's *Enemy specials*
+list, and this doc. In a match, **hover (or tap) the enemy Tower** to see the current enemy's ability, so
+it can be planned against; the table above is the mechanical detail behind those descriptions.
+
 ---
 
 ## 5. Deck growth (tier‑scaled)

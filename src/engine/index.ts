@@ -12,6 +12,7 @@ export {
   validateDeck,
   bossHandicap,
   bossSkill,
+  ENEMY_SKILL_INFO,
   type Archetype,
   type BossDeck,
   type DeckValidation,

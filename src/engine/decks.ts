@@ -272,6 +272,23 @@ export function bossSkill(name: string): EnemySkill {
   }
 }
 
+/** Player-facing description of each enemy's signature ability — the single source of truth shared by
+ *  the in-game enemy tooltip, the Help screen, and the docs. Each entry is one plain sentence naming the
+ *  threat and how to plan against it. Kept in step with the EnemySkill effects in engine.ts. */
+export const ENEMY_SKILL_INFO: Readonly<Record<EnemySkill, string>> = {
+  none: 'No special ability — a straight fight.',
+  fast: 'First Strike — its units strike first in every combat, dealing their damage before yours lands.',
+  tank: 'Armored — its units enter with a big chunk of bonus HP, so they take extra hits to clear.',
+  ranged: 'Reach — its units attack from the back row and can hit an adjacent lane when their own is clear.',
+  vampire: 'Lifedrain — each of its turns it drains HP from your Tower into its own, and shuts off your Health Regen.',
+  protector: 'Damage Reduction — its units shrug off part of every hit (at least 1 still lands).',
+  saboteur: 'Sabotage — each of its turns it taps your strongest unit, so that unit skips its next attack.',
+  scatter: 'Split — when one of its units dies, a small token spawns in its place to keep the lane contested.',
+  overcharge: 'Overcharge — every 3rd of its turns it fires a charged ray for burst damage straight to your Tower.',
+  commander: 'Rally — all of its units get bonus ATK, so its whole board hits harder.',
+  boss: 'Boss — no passive, but a massive wall of extra HP. Bring sustained damage to grind it down.',
+}
+
 /**
  * Ladder handicap for a boss. Both sides run the same AI and card pool, so difficulty comes from
  * the boss's deck AND an escalating edge: later bosses start with more life, and the top tier with a

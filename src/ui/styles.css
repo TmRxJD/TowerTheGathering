@@ -301,6 +301,10 @@
   border-color: #5a2c37;
   box-shadow: inset 0 0 30px -18px rgba(255, 91, 110, 0.7);
 }
+/* The enemy Tower reveals its signature special on hover/tap (see showEnemyInfo). */
+.ttg-nexus.has-info {
+  cursor: help;
+}
 .ttg-nexus.human {
   border-color: #2b4a63;
   box-shadow: inset 0 0 30px -18px rgba(73, 182, 255, 0.7);
@@ -957,6 +961,9 @@
 }
 .ttg-preview[data-rarity='epic'] {
   border-color: var(--r-epic);
+}
+.ttg-preview[data-rarity='enemy'] {
+  border-color: var(--ttg-danger);
 }
 .pv-art {
   width: 100%;

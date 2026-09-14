@@ -98,6 +98,29 @@ draw is **not** applied in v1 (both draw normally); the AI takes the second turn
 - The ladder unlocks 3-card booster **choices** after each boss; between matches you swap cards in/out
   of your 20 subject to the copy limits. Starter deck is defined in `src/engine/decks.ts`.
 
+## Enemies & their specials
+
+Each tier is an **11-enemy ladder** (10 archetype enemies + a final Boss). The same enemies recur every
+tier, each with a signature **special ability** faithful to the real Tower enemies — so once learned, an
+enemy can be planned against at any tier. **In a match, hover (or tap) the enemy Tower** to read the
+current enemy's special; the Help screen (`?`) lists all of them. The one-line player-facing text is the
+`ENEMY_SKILL_INFO` map (`src/engine/decks.ts`); the mechanical magnitudes are `ENEMY_SKILL` in
+`engine.ts` (see also `docs/GAME_STATE.md` §4.6).
+
+| # | Enemy | Special |
+|---|---|---|
+| 1 | Basic | No special ability — a straight fight. |
+| 2 | Fast | **First Strike** — its units strike first in every combat, before yours lands. |
+| 3 | Tank | **Armored** — its units enter with a big chunk of bonus HP. |
+| 4 | Ranged | **Reach** — its units attack from the back row and can hit an adjacent lane when their own is clear. |
+| 5 | Vampire | **Lifedrain** — each of its turns it drains HP from your Tower into its own and shuts off your Health Regen. |
+| 6 | Protector | **Damage Reduction** — its units shrug off part of every hit (at least 1 still lands). |
+| 7 | Saboteur | **Sabotage** — each of its turns it taps your strongest unit, so it skips its next attack. |
+| 8 | Scatter | **Split** — when one of its units dies, a small token spawns in its place. |
+| 9 | Overcharge | **Overcharge** — every 3rd of its turns it fires a charged ray for burst damage to your Tower. |
+| 10 | Commander | **Rally** — all of its units get bonus ATK. |
+| 11 | Boss | No passive, but a massive wall of extra HP — bring sustained damage. |
+
 ## Card catalog
 
 The authoritative numbers live in `src/engine/cards.ts` (`CARD_CATALOG`), which this table mirrors.
