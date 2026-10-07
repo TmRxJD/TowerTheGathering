@@ -1721,3 +1721,18 @@
     display: none;
   }
 }
+/* Standalone Pages host: retain every playable card and control at small sizes. */
+.standalone-tools { display:flex; justify-content:flex-end; width:calc(100% - 16px); max-width:1200px; margin:auto; padding-top:env(safe-area-inset-top); }
+.standalone-tools button { min-height:44px; padding:8px 14px; margin:4px 0; border:1px solid #774453; border-radius:8px; background:#281018; color:#eef2fb; font:inherit; cursor:pointer; }
+.ttg-root.standalone { max-width:1200px; min-height:calc(100dvh - 60px); margin-bottom:env(safe-area-inset-bottom); }
+.standalone .ttg-header { flex-wrap:wrap; }
+.standalone .ttg-hand { justify-content:safe center; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.standalone .ttg-board { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.standalone .ttg-lane { min-width:0; }
+.standalone button, .standalone select { min-height:44px; touch-action:manipulation; }
+.fullscreen-status { position:fixed; left:50%; bottom:max(12px,env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:100; width:max-content; max-width:90vw; padding:8px 12px; border-radius:8px; background:#281018ed; color:#eef2fb; font-size:12px; text-align:center; pointer-events:none; }
+.fullscreen-status:empty { display:none; }
+@media(max-width:560px) { #app.ttg-root.standalone { padding:10px 8px; }.standalone .ttg-header { gap:6px; }.standalone .ttg-board { gap:4px; }.standalone .ttg-lane { padding:4px; }.standalone .ttg-nexus { flex-wrap:wrap; }.standalone .ttg-modules { max-width:90px; }.standalone .ttg-hand { justify-content:flex-start; }.standalone .ttg-mini { font-size:11px; padding-inline:7px; } }
+@media(orientation:landscape) and (max-height:450px) { .standalone-tools { position:absolute; top:env(safe-area-inset-top); right:8px; z-index:12; width:auto; }.ttg-root.standalone { margin-top:4px; }.standalone .ttg-header { padding-right:120px; }.standalone .ttg-lane { min-height:160px; }.standalone .ttg-lane .half { min-height:55px; } }
+.standalone-tools { position:sticky; top:0; z-index:100; background:#10060bd9; }
+@media(orientation:landscape) and (max-height:450px) { .standalone-tools { position:sticky; right:auto; width:calc(100% - 16px); }.standalone .ttg-header { padding-right:0; } }

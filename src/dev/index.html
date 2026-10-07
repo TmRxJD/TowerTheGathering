@@ -2,24 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Powerstone — dev</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Powerstone · Tower card battles</title>
     <style>
       html, body {
         margin: 0;
         height: 100%;
-        overflow: hidden; /* the game fits the panel — no page scrollbars, ever */
+        overflow-x: hidden; overflow-y: auto;
         background: radial-gradient(120% 80% at 50% 0%, #1a0a0f, #070406 70%);
         color: #e7ecf5;
         font-family: system-ui, sans-serif;
       }
-      #app { width: 100%; max-width: 800px; margin: 0 auto; padding: 16px 12px 0; }
+      #app { width: calc(100% - 16px); max-width: 1200px; margin: 0 auto; padding: 14px 16px; }
       #log { display: none; }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <nav class="standalone-tools" aria-label="Display"><button data-fullscreen aria-label="Enter fullscreen">⛶ Fullscreen</button></nav><div id="app"></div>
     <div id="log"></div>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
+

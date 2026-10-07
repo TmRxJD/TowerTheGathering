@@ -1,3 +1,4 @@
+import { setupFullscreen } from './fullscreen'
 /** Standalone dev host. `pnpm dev` → http://localhost:5181. The game panel owns its own header
  *  (title, boss picker, Watch/autoplay, restart); this host just mounts it and logs match results. */
 
@@ -13,3 +14,6 @@ function onResult(r: MatchResult): void {
 }
 
 new GameApp(root, { onResult })
+root.classList.add('standalone')
+setupFullscreen()
+
