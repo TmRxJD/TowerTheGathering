@@ -1,0 +1,54 @@
+{
+  "slug": "powerstone",
+  "playUrl": "https://tmrxjd.github.io/TowerTheGathering/",
+  "title": "Powerstone",
+  "alias": "Also known as Tower: The Gathering",
+  "accent": "#87dce8",
+  "genre": "Card battler",
+  "premise": "Tower: The Gathering",
+  "summary": "Command three lanes in a turn-based duel. Spend mana, combine Tower-inspired cards, and break the enemy Nexus before your own tower falls.",
+  "about": [
+    "Command three lanes in a turn-based duel. Spend mana, combine Tower-inspired cards, and break the enemy Nexus before your own tower falls.",
+    "An independent mini game inspired by The Tower. Play the browser version, or explore the rest of Tower Arcade for another kind of challenge."
+  ],
+  "features": [
+    {
+      "title": "Three lanes",
+      "text": "Choose where to commit your cards across the battlefield."
+    },
+    {
+      "title": "Mana and combinations",
+      "text": "Spend mana on cards that work together."
+    },
+    {
+      "title": "Nexus defense",
+      "text": "Bring down the enemy Nexus while protecting your own tower."
+    }
+  ],
+  "steps": [
+    {
+      "title": "Read the battlefield",
+      "text": "Check your hand, mana, and the state of all three lanes."
+    },
+    {
+      "title": "Play your cards",
+      "text": "Spend mana and combine cards to build your attack and defense."
+    },
+    {
+      "title": "End your turn",
+      "text": "Resolve the next exchange and work toward breaking the enemy Nexus."
+    }
+  ],
+  "controls": [
+    {
+      "input": "Game input",
+      "action": "Play cards + end turn · mouse or touch"
+    },
+    {
+      "input": "On-screen menus",
+      "action": "Use the game’s menus to start a run and see its available options."
+    }
+  ],
+  "availability": "Available to play in your browser on desktop and mobile. The Play button opens the game.",
+  "controlNote": "The game’s own controls and menus provide any additional bindings."
+}
